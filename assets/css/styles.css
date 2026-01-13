@@ -1,0 +1,55 @@
+:root {
+  --wizard-ring: rgba(13, 110, 253, 0.25);
+  --wizard-accent: #0d6efd;
+  --wizard-accent-2: #20c997;
+}
+
+body.bg-body-tertiary {
+  background:
+    radial-gradient(1000px 600px at 15% 0%, rgba(13, 110, 253, 0.16), transparent 55%),
+    radial-gradient(900px 500px at 85% 15%, rgba(32, 201, 151, 0.14), transparent 60%),
+    #f8f9fa;
+}
+
+h1[data-i18n="title"] {
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--wizard-accent), var(--wizard-accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.wizard-step:focus-within {
+  box-shadow: 0 0 0 0.25rem var(--wizard-ring);
+  border-radius: 0.5rem;
+}
+
+table input.form-control,
+table input.form-control:focus,
+table input.form-control-sm,
+table input.form-control-sm:focus {
+  min-width: 6rem;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.sql-log {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.sql-log + .sql-log {
+  margin-top: 0.5rem;
+}
+
+.kpi {
+  font-weight: 600;
+}
