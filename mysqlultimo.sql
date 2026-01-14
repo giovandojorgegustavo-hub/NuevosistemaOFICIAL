@@ -236,11 +236,44 @@ CREATE TABLE `saldo_stock` (
   `fecha_saldoactual` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
+  PRIMARY KEY (`codigo_base`, `codigo_producto`),
   CONSTRAINT `fk_saldo_stock_codigo_base` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
   CONSTRAINT `fk_saldo_stock_codigo_producto` FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+DROP TABLE IF EXISTS `viajes`;
+
+CREATE TABLE `viajes` (
+  `codigoviaje` numeric(12,0) NOT NULL,
+  `nombre_motorizado` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `numero_wsp` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `num_llamadas` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `num_yape` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `link` text COLLATE utf8mb4_unicode_ci,
+  `observacion` text COLLATE utf8mb4_unicode_ci,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigoviaje`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+DROP TABLE IF EXISTS `detalleviaje`;
+
+CREATE TABLE `detalleviaje` (
+  `codigoviaje` numeric(12,0) NOT NULL,
+  `tipo_documento` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `numero_documento` numeric(12,0) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigoviaje`, `tipo_documento`, `numero_documento`),
+  CONSTRAINT `fk_detalleviaje_codigoviaje` FOREIGN KEY (`codigoviaje`) REFERENCES `viajes` (`codigoviaje`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_detalleviaje_mov_contable` FOREIGN KEY (`tipo_documento`, `numero_documento`) REFERENCES `mov_contable` (`tipo_documento`, `numero_documento`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -400,3 +433,149 @@ BEGIN
   ORDER BY `ordinal_numrecibe`;
 END//
 DELIMITER ;
+
+
+-- =====================================================================================
+-- STOCK: descontar saldo_stock por detalle de factura emitida (mov_contable + detalle)
+-- =====================================================================================
+
+DROP PROCEDURE IF EXISTS `aplicar_salida_factura_a_saldo_stock`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_salida_factura_a_saldo_stock`(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+proc: BEGIN
+  DECLARE v_now datetime;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  SET v_now = NOW();
+
+  DROP TEMPORARY TABLE IF EXISTS tmp_factura_qty;
+  CREATE TEMPORARY TABLE tmp_factura_qty (
+    codigo_base numeric(12,0) NOT NULL,
+    codigo_producto numeric(12,0) NOT NULL,
+    cantidad numeric(12,3) NOT NULL,
+    PRIMARY KEY (codigo_base, codigo_producto)
+  ) ENGINE=InnoDB;
+
+  INSERT INTO tmp_factura_qty (codigo_base, codigo_producto, cantidad)
+  SELECT
+    mc.codigo_base,
+    mcd.codigo_producto,
+    SUM(mcd.cantidad) AS cantidad
+  FROM mov_contable mc
+  JOIN mov_contable_detalle mcd
+    ON mcd.tipo_documento = mc.tipo_documento
+   AND mcd.numero_documento = mc.numero_documento
+  WHERE mc.tipo_documento = p_tipo_documento
+    AND mc.numero_documento = p_numero_documento
+  GROUP BY mc.codigo_base, mcd.codigo_producto;
+
+  IF (SELECT COUNT(*) FROM tmp_factura_qty) = 0 THEN
+    SELECT
+      'SIN_LINEAS' AS estado,
+      p_tipo_documento AS tipo_documento,
+      p_numero_documento AS numero_documento;
+    LEAVE proc;
+  END IF;
+
+  -- Si faltan saldos para algún (base, producto), no aplica nada.
+  IF EXISTS (
+    SELECT 1
+    FROM tmp_factura_qty t
+    LEFT JOIN saldo_stock ss
+      ON ss.codigo_base = t.codigo_base
+     AND ss.codigo_producto = t.codigo_producto
+    WHERE ss.codigo_base IS NULL
+  ) THEN
+    SELECT
+      'ERROR_FALTAN_SALDOS_STOCK' AS estado,
+      t.codigo_base,
+      t.codigo_producto,
+      t.cantidad
+    FROM tmp_factura_qty t
+    LEFT JOIN saldo_stock ss
+      ON ss.codigo_base = t.codigo_base
+     AND ss.codigo_producto = t.codigo_producto
+    WHERE ss.codigo_base IS NULL;
+    LEAVE proc;
+  END IF;
+
+  START TRANSACTION;
+
+  DROP TEMPORARY TABLE IF EXISTS tmp_before;
+  CREATE TEMPORARY TABLE tmp_before AS
+  SELECT
+    ss.codigo_base,
+    ss.codigo_producto,
+    ss.saldo_actual AS saldo_antes,
+    t.cantidad AS cantidad_descontar
+  FROM saldo_stock ss
+  JOIN tmp_factura_qty t
+    ON t.codigo_base = ss.codigo_base
+   AND t.codigo_producto = ss.codigo_producto;
+
+  -- Lock filas objetivo
+  SELECT ss.codigo_base, ss.codigo_producto
+  FROM saldo_stock ss
+  JOIN tmp_factura_qty t
+    ON t.codigo_base = ss.codigo_base
+   AND t.codigo_producto = ss.codigo_producto
+  FOR UPDATE;
+
+  UPDATE saldo_stock ss
+  JOIN tmp_factura_qty t
+    ON t.codigo_base = ss.codigo_base
+   AND t.codigo_producto = ss.codigo_producto
+  SET
+    ss.saldo_actual = GREATEST(0, ss.saldo_actual - t.cantidad),
+    ss.fecha_saldoactual = v_now;
+
+  COMMIT;
+
+  -- Resultado (antes / despues) para validar
+  SELECT
+    b.codigo_base,
+    b.codigo_producto,
+    b.saldo_antes,
+    b.cantidad_descontar,
+    ss.saldo_actual AS saldo_despues,
+    ss.fecha_saldoactual
+  FROM tmp_before b
+  JOIN saldo_stock ss
+    ON ss.codigo_base = b.codigo_base
+   AND ss.codigo_producto = b.codigo_producto
+  ORDER BY b.codigo_base, b.codigo_producto;
+
+  DROP TEMPORARY TABLE IF EXISTS tmp_before;
+  DROP TEMPORARY TABLE IF EXISTS tmp_factura_qty;
+END//
+DELIMITER ;
+
+-- Ejemplo editable:
+-- CALL aplicar_salida_factura_a_saldo_stock('FAC', 123);
+
+-- Seed opcional: crea/actualiza saldo_stock (10) para todas las combinaciones base x producto
+-- Ajusta el multiplicador (1000000) si tus códigos de producto pueden ser >= 1,000,000.
+INSERT INTO saldo_stock
+  (id, codigo_base, codigo_producto, saldo_actual, saldo_inicial, fecha_saldoinicial, fecha_saldoactual)
+SELECT
+  (b.codigo_base * 1000000 + p.codigo_producto) AS id,
+  b.codigo_base,
+  p.codigo_producto,
+  10.000 AS saldo_actual,
+  10.000 AS saldo_inicial,
+  NOW() AS fecha_saldoinicial,
+  NOW() AS fecha_saldoactual
+FROM bases b, productos p
+ON DUPLICATE KEY UPDATE
+  saldo_actual = IF(saldo_actual = 0, VALUES(saldo_actual), saldo_actual),
+  saldo_inicial = IF(saldo_inicial = 0, VALUES(saldo_inicial), saldo_inicial),
+  fecha_saldoinicial = IF(fecha_saldoinicial IS NULL, VALUES(fecha_saldoinicial), fecha_saldoinicial),
+  fecha_saldoactual = VALUES(fecha_saldoactual);
