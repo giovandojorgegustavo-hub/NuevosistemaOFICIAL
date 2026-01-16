@@ -1,8 +1,10 @@
-const STORAGE_KEY = "formWizard:v1";
+const STORAGE_KEY = "formWizard:viajes:v2";
 
 const RE = {
-  productId: /^[0-9]{1,9}$/,
-  compositeKey: /^[0-9]{1,12}\|[0-9]{1,12}$/,
+  phone: /^[0-9+()\s-]{6,20}$/,
+  number: /^[0-9]{1,12}$/,
+  docNumber: /^[0-9]{1,20}$/,
+  url: /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?$/i,
 };
 
 function nowLocalDate() {
@@ -13,24 +15,12 @@ function nowLocalDate() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function nowLocalTime() {
-  const d = new Date();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mi}`;
-}
-
 function debounce(fn, ms) {
   let timer = null;
   return (...args) => {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), ms);
   };
-}
-
-function money(n) {
-  const v = Number.isFinite(n) ? n : 0;
-  return v.toFixed(2);
 }
 
 export class FormWizard {
@@ -40,33 +30,26 @@ export class FormWizard {
     this.endpoints = endpoints;
 
     this.step = 1;
-    this.maxStep = 4;
+    this.maxStep = 3;
     this.isBusy = false;
     this.dbReady = false;
 
     this.lookups = {
-      clients: [],
-      products: [],
       bases: [],
       packings: [],
-      direcciones: [],
-      direccionesprov: [],
-      numrecibe: [],
     };
-    this.productsById = new Map();
 
     this.state = {
-      vFechaPedido: "",
-      vHoraPedido: "",
-      vClienteSelected: "",
-      vProdPedidos: [],
-      vFecha_emision: "",
-      vCodigo_base: "",
-      vCodigo_packing: "",
-      vProdFactura: [],
-      vCodigo_Cliente_Direccion: "",
-      vCodigo_Cliente_DireccionProv: "",
-      vCodigo_Cliente_Numrecibe: "",
+      vCodigo_viaje: "",
+      vFechaViaje: "",
+      Vnombre_motorizado: "",
+      Vnumero_wsp: "",
+      Vnum_llamadas: "",
+      Vnum_yape: "",
+      Vlink: "",
+      Vobservacion: "",
+      vBaseSelected: "",
+      vViajeDetalle: [],
     };
 
     this.el = {
@@ -74,7 +57,8 @@ export class FormWizard {
       steps: Array.from(document.querySelectorAll(".wizard-step")),
       btnPrev: document.getElementById("btnPrev"),
       btnNext: document.getElementById("btnNext"),
-      btnEmit: document.getElementById("btnEmit"),
+      btnRegister: document.getElementById("btnRegister"),
+      btnDispatch: document.getElementById("btnDispatch"),
       btnReset: document.getElementById("btnReset"),
       btnShowSql: document.getElementById("btnShowSql"),
       progressBar: document.getElementById("progressBar"),
@@ -85,22 +69,18 @@ export class FormWizard {
       summary: document.getElementById("summary"),
       sqlLogsPanel: document.getElementById("sqlLogsPanel"),
 
-      vFechaPedido: document.getElementById("vFechaPedido"),
-      vHoraPedido: document.getElementById("vHoraPedido"),
-      vClienteSelected: document.getElementById("vClienteSelected"),
+      vCodigo_viaje: document.getElementById("vCodigo_viaje"),
+      vFechaViaje: document.getElementById("vFechaViaje"),
+      Vnombre_motorizado: document.getElementById("Vnombre_motorizado"),
+      Vnumero_wsp: document.getElementById("Vnumero_wsp"),
+      Vnum_llamadas: document.getElementById("Vnum_llamadas"),
+      Vnum_yape: document.getElementById("Vnum_yape"),
+      Vlink: document.getElementById("Vlink"),
+      Vobservacion: document.getElementById("Vobservacion"),
+      vBaseSelected: document.getElementById("vBaseSelected"),
 
-      vFecha_emision: document.getElementById("vFecha_emision"),
-      vCodigo_base: document.getElementById("vCodigo_base"),
-      vCodigo_packing: document.getElementById("vCodigo_packing"),
-
-      vCodigo_Cliente_Direccion: document.getElementById("vCodigo_Cliente_Direccion"),
-      vCodigo_Cliente_DireccionProv: document.getElementById("vCodigo_Cliente_DireccionProv"),
-      vCodigo_Cliente_Numrecibe: document.getElementById("vCodigo_Cliente_Numrecibe"),
-
-      btnAddProdPedido: document.getElementById("btnAddProdPedido"),
-      btnAddProdFactura: document.getElementById("btnAddProdFactura"),
-      tblProdPedidosBody: document.querySelector("#tblProdPedidos tbody"),
-      tblProdFacturaBody: document.querySelector("#tblProdFactura tbody"),
+      btnAddDetalle: document.getElementById("btnAddDetalle"),
+      tblViajeDetalleBody: document.querySelector("#tblViajeDetalle tbody"),
     };
 
     this.confirmModal = new bootstrap.Modal(document.getElementById("confirmModal"));
@@ -120,7 +100,6 @@ export class FormWizard {
     }
 
     await this._loadLookups();
-    await this._loadClientDeliveryLookups({ initial: true });
     this._renderAll();
     this._toastInfo(this.t(this.locale, "restored"), { onlyIfRestored: true });
   }
@@ -132,67 +111,37 @@ export class FormWizard {
 
     this.el.btnPrev.addEventListener("click", () => this.prev());
     this.el.btnNext.addEventListener("click", () => this.next());
-    this.el.btnEmit?.addEventListener("click", () => this.emitInvoice());
+    this.el.btnRegister?.addEventListener("click", () => this.registerTrip());
+    this.el.btnDispatch?.addEventListener("click", () => this.dispatchTrip());
     this.el.btnReset.addEventListener("click", () => this.reset());
     this.el.btnShowSql.addEventListener("click", () => this.showSqlLogs());
 
-    this.el.btnAddProdPedido.addEventListener("click", () => this.addRow("pedido"));
-    this.el.btnAddProdFactura.addEventListener("click", () => this.addRow("factura"));
-
-    this.el.tblProdPedidosBody.addEventListener("click", (e) => this._onTableClick(e, "pedido"));
-    this.el.tblProdFacturaBody.addEventListener("click", (e) => this._onTableClick(e, "factura"));
-    this.el.tblProdPedidosBody.addEventListener("input", (e) => this._onTableInput(e, "pedido"));
-    this.el.tblProdFacturaBody.addEventListener("input", (e) => this._onTableInput(e, "factura"));
-    this.el.tblProdPedidosBody.addEventListener("change", (e) => this._onTableInput(e, "pedido"));
-    this.el.tblProdFacturaBody.addEventListener("change", (e) => this._onTableInput(e, "factura"));
-
-    this.el.vClienteSelected.addEventListener("change", async () => {
-      this._pullFromDom();
-      if (!this.dbReady) return;
-      await this._loadClientDeliveryLookups({ initial: false });
-      this._saveDebounced();
-      this._renderAll();
-    });
+    this.el.btnAddDetalle.addEventListener("click", () => this.addRow());
+    this.el.tblViajeDetalleBody.addEventListener("click", (e) => this._onTableClick(e));
+    this.el.tblViajeDetalleBody.addEventListener("input", (e) => this._onTableInput(e));
+    this.el.tblViajeDetalleBody.addEventListener("change", (e) => this._onTableInput(e));
 
     document.getElementById("btnConfirmOk").addEventListener("click", () => this._confirmResolve?.(true));
     document.getElementById("confirmModal").addEventListener("hidden.bs.modal", () => this._confirmResolve?.(false));
   }
 
   _initDefaults() {
-    if (!this.state.vFechaPedido) this.state.vFechaPedido = nowLocalDate();
-    if (!this.state.vHoraPedido) this.state.vHoraPedido = nowLocalTime();
-    if (!this.state.vFecha_emision) this.state.vFecha_emision = nowLocalDate();
-    if (this.state.vProdPedidos.length === 0) this.state.vProdPedidos = [this._blankProdRow({ withBalance: true })];
-    if (this.state.vProdFactura.length === 0) this.state.vProdFactura = [];
+    if (!this.state.vFechaViaje) this.state.vFechaViaje = nowLocalDate();
+    if (this.state.vViajeDetalle.length === 0) this.state.vViajeDetalle = [this._blankDetailRow()];
   }
 
   async _loadLookups() {
-    const [clients, products, bases, packings] = await Promise.all([
-      this._safeJson(this.endpoints.clients, []),
-      this._safeJson(this.endpoints.products, []),
+    const [bases, packings] = await Promise.all([
       this._safeJson(this.endpoints.bases, []),
       this._safeJson(this.endpoints.packings, []),
     ]);
-    this.lookups.clients = Array.isArray(clients) ? clients : [];
-    this.lookups.products = Array.isArray(products) ? products : [];
     this.lookups.bases = Array.isArray(bases) ? bases : [];
     this.lookups.packings = Array.isArray(packings) ? packings : [];
 
-    this.productsById = new Map(this.lookups.products.map((p) => [String(p.id), p]));
+    this._fillSelect(this.el.vBaseSelected, this.lookups.bases, { placeholder: this.t(this.locale, "loading") });
 
-    this._fillSelect(this.el.vClienteSelected, this.lookups.clients, { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_base, this.lookups.bases, { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_packing, this.lookups.packings, { placeholder: this.t(this.locale, "loading") });
-
-    if (!this.state.vClienteSelected && this.lookups.clients[0]) this.state.vClienteSelected = String(this.lookups.clients[0].id);
-    if (!this.state.vCodigo_base && this.lookups.bases[0]) this.state.vCodigo_base = String(this.lookups.bases[0].id);
-    if (!this.state.vCodigo_packing && this.lookups.packings[0]) this.state.vCodigo_packing = String(this.lookups.packings[0].id);
-
-    for (const row of [...this.state.vProdPedidos, ...this.state.vProdFactura]) {
-      const id = String(row?.idProducto || "");
-      if (!id || String(row?.descripcion || "").trim()) continue;
-      const p = this.productsById.get(id);
-      if (p) row.descripcion = String(p.name || "");
+    if (!this.state.vBaseSelected && this.lookups.bases[0]) {
+      this.state.vBaseSelected = String(this.lookups.bases[0].id);
     }
   }
 
@@ -212,54 +161,6 @@ export class FormWizard {
     this._showAlert("danger", `${this.t(this.locale, "dbFailed")}: ${err}`);
   }
 
-  async _loadClientDeliveryLookups({ initial }) {
-    const clientId = String(this.state.vClienteSelected || "").trim();
-    if (!clientId) return;
-
-    if (!initial) {
-      this.state.vCodigo_Cliente_Direccion = "";
-      this.state.vCodigo_Cliente_DireccionProv = "";
-      this.state.vCodigo_Cliente_Numrecibe = "";
-    }
-
-    this._fillSelect(this.el.vCodigo_Cliente_Direccion, [], { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_Cliente_Numrecibe, [], { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_Cliente_DireccionProv, [], { placeholder: this.t(this.locale, "loading") });
-
-    const [direcciones, numrecibe, direccionesprov] = await Promise.all([
-      this._safeJson(this.endpoints.clientDirecciones(clientId), []),
-      this._safeJson(this.endpoints.clientNumrecibe(clientId), []),
-      this._safeJson(this.endpoints.clientDireccionesProv(clientId), []),
-    ]);
-
-    this.lookups.direcciones = Array.isArray(direcciones) ? direcciones : [];
-    this.lookups.numrecibe = Array.isArray(numrecibe) ? numrecibe : [];
-    this.lookups.direccionesprov = Array.isArray(direccionesprov) ? direccionesprov : [];
-
-    this._fillSelect(this.el.vCodigo_Cliente_Direccion, this.lookups.direcciones);
-    this._fillSelect(this.el.vCodigo_Cliente_Numrecibe, this.lookups.numrecibe);
-    this._fillSelect(this.el.vCodigo_Cliente_DireccionProv, this.lookups.direccionesprov);
-
-    const keepIfExists = (value, items) => items.some((i) => String(i.id) === String(value));
-    if (initial && keepIfExists(this.state.vCodigo_Cliente_Direccion, this.lookups.direcciones)) {
-      // keep
-    } else if (this.lookups.direcciones[0]) {
-      this.state.vCodigo_Cliente_Direccion = String(this.lookups.direcciones[0].id);
-    }
-
-    if (initial && keepIfExists(this.state.vCodigo_Cliente_Numrecibe, this.lookups.numrecibe)) {
-      // keep
-    } else if (this.lookups.numrecibe[0]) {
-      this.state.vCodigo_Cliente_Numrecibe = String(this.lookups.numrecibe[0].id);
-    }
-
-    if (initial && keepIfExists(this.state.vCodigo_Cliente_DireccionProv, this.lookups.direccionesprov)) {
-      // keep
-    } else if (this.lookups.direccionesprov[0]) {
-      this.state.vCodigo_Cliente_DireccionProv = String(this.lookups.direccionesprov[0].id);
-    }
-  }
-
   _fillSelect(select, items, { placeholder } = {}) {
     select.innerHTML = "";
     const empty = document.createElement("option");
@@ -276,65 +177,50 @@ export class FormWizard {
     }
   }
 
-  _blankProdRow({ withBalance }) {
+  _blankDetailRow() {
     return {
-      idProducto: "",
-      descripcion: "",
-      cantidad: 1,
-      precio: 0,
-      monto: 0,
-      saldo: withBalance ? 0 : undefined,
+      numero_documento: "",
+      codigo_packing: "",
     };
   }
 
-  _onTableClick(e, kind) {
+  _onTableClick(e) {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
     const action = btn.getAttribute("data-action");
     const index = Number(btn.getAttribute("data-index"));
     if (!Number.isFinite(index)) return;
-    if (action === "del") this.deleteRow(kind, index);
+    if (action === "del") this.deleteRow(index);
   }
 
-  _onTableInput(e, kind) {
+  _onTableInput(e) {
     const input = e.target.closest("input,select");
     if (!input) return;
     const index = Number(input.getAttribute("data-index"));
     const field = input.getAttribute("data-field");
     if (!Number.isFinite(index) || !field) return;
 
-    const rows = kind === "pedido" ? this.state.vProdPedidos : this.state.vProdFactura;
-    const row = rows[index];
+    const row = this.state.vViajeDetalle[index];
     if (!row) return;
 
-    if (field === "idProducto") {
-      row.idProducto = String(input.value || "");
-      const p = this.productsById.get(row.idProducto);
-      if (p) row.descripcion = String(p.name || "");
-    } else if (field === "cantidad" || field === "precio" || field === "saldo") {
-      const num = Number(input.value);
-      row[field] = Number.isFinite(num) ? num : 0;
-    } else {
-      row[field] = String(input.value || "");
+    if (field === "numero_documento") {
+      row.numero_documento = String(input.value || "");
+    } else if (field === "codigo_packing") {
+      row.codigo_packing = String(input.value || "");
     }
 
-    row.monto = Number(row.cantidad || 0) * Number(row.precio || 0);
-    if (typeof row.saldo === "number") row.saldo = Math.max(0, row.saldo);
+    this._saveDebounced();
+  }
+
+  addRow() {
+    this.state.vViajeDetalle.push(this._blankDetailRow());
     this._renderTables();
     this._saveDebounced();
   }
 
-  addRow(kind) {
-    if (kind === "pedido") this.state.vProdPedidos.push(this._blankProdRow({ withBalance: true }));
-    else this.state.vProdFactura.push(this._blankProdRow({ withBalance: false }));
-    this._renderTables();
-    this._saveDebounced();
-  }
-
-  deleteRow(kind, index) {
-    const rows = kind === "pedido" ? this.state.vProdPedidos : this.state.vProdFactura;
-    rows.splice(index, 1);
-    if (kind === "pedido" && rows.length === 0) rows.push(this._blankProdRow({ withBalance: true }));
+  deleteRow(index) {
+    this.state.vViajeDetalle.splice(index, 1);
+    if (this.state.vViajeDetalle.length === 0) this.state.vViajeDetalle.push(this._blankDetailRow());
     this._renderTables();
     this._saveDebounced();
   }
@@ -353,46 +239,27 @@ export class FormWizard {
       this._showAlert("danger", this.t(this.locale, "validationError"));
       return;
     }
-    if (this.step === 1) this._syncFacturaFromPedidoIfEmpty();
     this.step = Math.min(this.maxStep, this.step + 1);
     this._renderAll();
-  }
-
-  _syncFacturaFromPedidoIfEmpty() {
-    if (this.state.vProdFactura.length > 0) return;
-    this.state.vProdFactura = this.state.vProdPedidos
-      .filter((r) => String(r.idProducto).trim() || String(r.descripcion).trim())
-      .map((r) => ({
-        idProducto: String(r.idProducto || ""),
-        descripcion: String(r.descripcion || ""),
-        cantidad: Number(r.cantidad || 0),
-        precio: Number(r.precio || 0),
-        monto: Number(r.monto || 0),
-      }));
-    if (this.state.vProdFactura.length === 0) this.state.vProdFactura = [this._blankProdRow({ withBalance: false })];
   }
 
   validateStep(step) {
     this._pullFromDom();
     if (step === 1) return this._validateStep1();
     if (step === 2) return this._validateStep2();
-    if (step === 3) return this._validateStep3();
-    if (step === 4) return true;
+    if (step === 3) return true;
     return true;
   }
 
   _pullFromDom() {
-    this.state.vFechaPedido = this.el.vFechaPedido.value;
-    this.state.vHoraPedido = this.el.vHoraPedido.value;
-    this.state.vClienteSelected = this.el.vClienteSelected.value;
-
-    this.state.vFecha_emision = this.el.vFecha_emision.value;
-    this.state.vCodigo_base = this.el.vCodigo_base.value;
-    this.state.vCodigo_packing = this.el.vCodigo_packing.value;
-
-    this.state.vCodigo_Cliente_Direccion = this.el.vCodigo_Cliente_Direccion.value;
-    this.state.vCodigo_Cliente_Numrecibe = this.el.vCodigo_Cliente_Numrecibe.value;
-    this.state.vCodigo_Cliente_DireccionProv = this.el.vCodigo_Cliente_DireccionProv.value;
+    this.state.vFechaViaje = this.el.vFechaViaje.value;
+    this.state.Vnombre_motorizado = this.el.Vnombre_motorizado.value;
+    this.state.Vnumero_wsp = this.el.Vnumero_wsp.value;
+    this.state.Vnum_llamadas = this.el.Vnum_llamadas.value;
+    this.state.Vnum_yape = this.el.Vnum_yape.value;
+    this.state.Vlink = this.el.Vlink.value;
+    this.state.Vobservacion = this.el.Vobservacion.value;
+    this.state.vBaseSelected = this.el.vBaseSelected.value;
   }
 
   _markInvalid(input, isInvalid) {
@@ -400,67 +267,69 @@ export class FormWizard {
     input.classList.toggle("is-invalid", Boolean(isInvalid));
   }
 
-  _validateProductRows(rows, { withBalance }) {
-    let ok = true;
-    let any = false;
-    for (const row of rows) {
-      const hasAny = String(row.idProducto).trim() || String(row.descripcion).trim();
-      if (!hasAny) continue;
-      any = true;
-      if (!RE.productId.test(String(row.idProducto).trim())) ok = false;
-      if (!String(row.descripcion).trim()) ok = false;
-      const qty = Number(row.cantidad);
-      const price = Number(row.precio);
-      if (!Number.isFinite(qty) || qty <= 0) ok = false;
-      if (!Number.isFinite(price) || price < 0) ok = false;
-      if (withBalance) {
-        const bal = Number(row.saldo ?? 0);
-        if (!Number.isFinite(bal) || bal < 0) ok = false;
-      }
-    }
-    return ok && any;
+  _markTableInvalid(index, field, isInvalid) {
+    const input = this.el.tblViajeDetalleBody.querySelector(`[data-index="${index}"][data-field="${field}"]`);
+    if (!input) return;
+    input.classList.toggle("is-invalid", Boolean(isInvalid));
   }
 
   _validateStep1() {
     let ok = true;
-    this._markInvalid(this.el.vFechaPedido, !this.state.vFechaPedido);
-    this._markInvalid(this.el.vHoraPedido, !this.state.vHoraPedido);
-    this._markInvalid(this.el.vClienteSelected, !this.state.vClienteSelected);
+    const hasDate = Boolean(this.state.vFechaViaje);
+    const hasBase = Boolean(this.state.vBaseSelected);
+    const hasDriver = Boolean(String(this.state.Vnombre_motorizado || "").trim());
 
-    if (!this.state.vFechaPedido) ok = false;
-    if (!this.state.vHoraPedido) ok = false;
-    if (!this.state.vClienteSelected) ok = false;
+    this._markInvalid(this.el.vFechaViaje, !hasDate);
+    this._markInvalid(this.el.vBaseSelected, !hasBase);
+    this._markInvalid(this.el.Vnombre_motorizado, !hasDriver);
 
-    const rowsOk = this._validateProductRows(this.state.vProdPedidos, { withBalance: true });
-    if (!rowsOk) ok = false;
+    if (!hasDate || !hasBase || !hasDriver) ok = false;
+
+    const wsp = String(this.state.Vnumero_wsp || "").trim();
+    const calls = String(this.state.Vnum_llamadas || "").trim();
+    const yape = String(this.state.Vnum_yape || "").trim();
+    const link = String(this.state.Vlink || "").trim();
+
+    const wspOk = !wsp || RE.phone.test(wsp);
+    const callsOk = !calls || RE.number.test(calls);
+    const yapeOk = !yape || RE.number.test(yape);
+    const linkOk = !link || RE.url.test(link);
+
+    this._markInvalid(this.el.Vnumero_wsp, !wspOk);
+    this._markInvalid(this.el.Vnum_llamadas, !callsOk);
+    this._markInvalid(this.el.Vnum_yape, !yapeOk);
+    this._markInvalid(this.el.Vlink, !linkOk);
+
+    if (!wspOk || !callsOk || !yapeOk || !linkOk) ok = false;
     return ok;
   }
 
   _validateStep2() {
     let ok = true;
-    this._markInvalid(this.el.vFecha_emision, !this.state.vFecha_emision);
-    this._markInvalid(this.el.vCodigo_base, !this.state.vCodigo_base);
-    this._markInvalid(this.el.vCodigo_packing, !this.state.vCodigo_packing);
-    if (!this.state.vFecha_emision) ok = false;
-    if (!this.state.vCodigo_base) ok = false;
-    if (!this.state.vCodigo_packing) ok = false;
+    let any = false;
+    const validPackingIds = new Set(this.lookups.packings.map((p) => String(p.id)));
 
-    const rowsOk = this._validateProductRows(this.state.vProdFactura, { withBalance: false });
-    if (!rowsOk) ok = false;
-    return ok;
-  }
+    this.state.vViajeDetalle.forEach((row, idx) => {
+      const doc = String(row.numero_documento || "").trim();
+      const packing = String(row.codigo_packing || "").trim();
+      const hasAny = doc || packing;
+      if (!hasAny) {
+        this._markTableInvalid(idx, "numero_documento", false);
+        this._markTableInvalid(idx, "codigo_packing", false);
+        return;
+      }
+      any = true;
 
-  _validateStep3() {
-    let ok = true;
-    const dirOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_Direccion || "").trim());
-    const numOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_Numrecibe || "").trim());
-    const provOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_DireccionProv || "").trim());
+      const docOk = RE.docNumber.test(doc);
+      const packOk = validPackingIds.has(packing);
 
-    this._markInvalid(this.el.vCodigo_Cliente_Direccion, !dirOk);
-    this._markInvalid(this.el.vCodigo_Cliente_Numrecibe, !numOk);
-    this._markInvalid(this.el.vCodigo_Cliente_DireccionProv, !provOk);
+      this._markTableInvalid(idx, "numero_documento", !docOk);
+      this._markTableInvalid(idx, "codigo_packing", !packOk);
 
-    if (!dirOk || !numOk || !provOk) ok = false;
+      if (!docOk || !packOk) ok = false;
+    });
+
+    if (!any) ok = false;
     return ok;
   }
 
@@ -489,69 +358,54 @@ export class FormWizard {
   }
 
   _renderFormValues() {
-    this.el.vFechaPedido.value = this.state.vFechaPedido || nowLocalDate();
-    this.el.vHoraPedido.value = this.state.vHoraPedido || nowLocalTime();
+    this.el.vCodigo_viaje.value = this.state.vCodigo_viaje || this.t(this.locale, "auto");
+    this.el.vFechaViaje.value = this.state.vFechaViaje || nowLocalDate();
 
-    if (this.el.vClienteSelected.options.length) this.el.vClienteSelected.value = this.state.vClienteSelected || "";
+    if (this.el.vBaseSelected.options.length) {
+      this.el.vBaseSelected.value = this.state.vBaseSelected || "";
+    }
 
-    this.el.vFecha_emision.value = this.state.vFecha_emision || nowLocalDate();
-    if (this.el.vCodigo_base.options.length) this.el.vCodigo_base.value = this.state.vCodigo_base || "";
-    if (this.el.vCodigo_packing.options.length) this.el.vCodigo_packing.value = this.state.vCodigo_packing || "";
-
-    if (this.el.vCodigo_Cliente_Direccion.options.length)
-      this.el.vCodigo_Cliente_Direccion.value = this.state.vCodigo_Cliente_Direccion || "";
-    if (this.el.vCodigo_Cliente_Numrecibe.options.length)
-      this.el.vCodigo_Cliente_Numrecibe.value = this.state.vCodigo_Cliente_Numrecibe || "";
-    if (this.el.vCodigo_Cliente_DireccionProv.options.length)
-      this.el.vCodigo_Cliente_DireccionProv.value = this.state.vCodigo_Cliente_DireccionProv || "";
+    this.el.Vnombre_motorizado.value = this.state.Vnombre_motorizado || "";
+    this.el.Vnumero_wsp.value = this.state.Vnumero_wsp || "";
+    this.el.Vnum_llamadas.value = this.state.Vnum_llamadas || "";
+    this.el.Vnum_yape.value = this.state.Vnum_yape || "";
+    this.el.Vlink.value = this.state.Vlink || "";
+    this.el.Vobservacion.value = this.state.Vobservacion || "";
   }
 
   _renderTables() {
-    this._renderTable(this.el.tblProdPedidosBody, this.state.vProdPedidos, { withBalance: true });
-    this._renderTable(this.el.tblProdFacturaBody, this.state.vProdFactura, { withBalance: false });
+    this._renderDetailTable();
   }
 
-  _renderTable(tbody, rows, { withBalance }) {
-    tbody.innerHTML = "";
-    rows.forEach((row, idx) => {
+  _renderDetailTable() {
+    this.el.tblViajeDetalleBody.innerHTML = "";
+    this.state.vViajeDetalle.forEach((row, idx) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>
-          <select class="form-select form-select-sm" data-index="${idx}" data-field="idProducto">
-            ${this._productOptionsHtml(row.idProducto)}
+          <input class="form-control form-control-sm" data-index="${idx}" data-field="numero_documento" value="${escapeHtml(
+        String(row.numero_documento ?? "")
+      )}" />
+        </td>
+        <td>
+          <select class="form-select form-select-sm" data-index="${idx}" data-field="codigo_packing">
+            ${this._packingOptionsHtml(row.codigo_packing)}
           </select>
         </td>
-        <td><input class="form-control form-control-sm" data-index="${idx}" data-field="descripcion" value="${escapeHtml(
-        String(row.descripcion ?? "")
-      )}" /></td>
-        <td><input class="form-control form-control-sm" data-index="${idx}" data-field="cantidad" inputmode="numeric" value="${escapeHtml(
-        String(row.cantidad ?? 0)
-      )}" /></td>
-        <td><input class="form-control form-control-sm" data-index="${idx}" data-field="precio" inputmode="numeric" value="${escapeHtml(
-        String(row.precio ?? 0)
-      )}" /></td>
-        <td class="mono">${money(Number(row.monto || 0))}</td>
-        ${
-          withBalance
-            ? `<td><input class="form-control form-control-sm" data-index="${idx}" data-field="saldo" inputmode="numeric" value="${escapeHtml(
-                String(row.saldo ?? 0)
-              )}" /></td>`
-            : ""
-        }
         <td class="text-end">
           <button type="button" class="btn btn-outline-danger btn-sm" data-action="del" data-index="${idx}" aria-label="Delete">
             ×
           </button>
         </td>
       `;
-      tbody.appendChild(tr);
+      this.el.tblViajeDetalleBody.appendChild(tr);
     });
   }
 
-  _productOptionsHtml(selectedId) {
+  _packingOptionsHtml(selectedId) {
     const selected = String(selectedId ?? "");
-    const placeholder = escapeHtml(this.t(this.locale, "selectProduct"));
-    const rows = this.lookups.products || [];
+    const placeholder = escapeHtml(this.t(this.locale, "selectPacking"));
+    const rows = this.lookups.packings || [];
     const options = [`<option value="">${placeholder}</option>`];
     for (const p of rows) {
       const id = String(p.id);
@@ -570,31 +424,24 @@ export class FormWizard {
     this.el.btnPrev.disabled = blocked || this.step === 1;
     this.el.btnNext.classList.toggle("d-none", this.step === this.maxStep);
     this.el.btnNext.disabled = blocked || this.step === this.maxStep;
-    this.el.btnEmit?.classList.toggle("d-none", this.step !== this.maxStep);
-    if (this.el.btnEmit) this.el.btnEmit.disabled = blocked || this.step !== this.maxStep;
+    if (this.el.btnRegister) this.el.btnRegister.disabled = blocked || this.step !== this.maxStep;
+    if (this.el.btnDispatch) this.el.btnDispatch.disabled = blocked || this.step !== this.maxStep;
   }
 
   _renderSummary() {
-    if (this.step !== 4) return;
+    if (this.step !== 3) return;
 
-    const products = this.state.vProdFactura.filter((r) => String(r.idProducto).trim() || String(r.descripcion).trim());
-    const total = products.reduce((acc, r) => acc + Number(r.monto || 0), 0);
-    const dirName =
-      this.lookups.direcciones.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_Direccion))?.name || "";
-    const numName =
-      this.lookups.numrecibe.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_Numrecibe))?.name || "";
-    const provName =
-      this.lookups.direccionesprov.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_DireccionProv))?.name ||
-      "";
-    const itemsHtml = products
+    const baseName = this.lookups.bases.find((b) => String(b.id) === String(this.state.vBaseSelected))?.name || "—";
+    const details = this.state.vViajeDetalle.filter(
+      (r) => String(r.numero_documento).trim() || String(r.codigo_packing).trim()
+    );
+
+    const rows = details
       .map(
         (r) => `
           <tr>
-            <td class="mono">${escapeHtml(String(r.idProducto || ""))}</td>
-            <td>${escapeHtml(String(r.descripcion || ""))}</td>
-            <td class="text-end mono">${escapeHtml(String(r.cantidad || 0))}</td>
-            <td class="text-end mono">${money(Number(r.precio || 0))}</td>
-            <td class="text-end mono">${money(Number(r.monto || 0))}</td>
+            <td class="mono">${escapeHtml(String(r.numero_documento || ""))}</td>
+            <td>${escapeHtml(String(r.codigo_packing || ""))}</td>
           </tr>
         `
       )
@@ -604,61 +451,37 @@ export class FormWizard {
       <div class="row g-3">
         <div class="col-12 col-lg-5">
           <div class="p-3 rounded border bg-body">
-            <div class="d-flex justify-content-between">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelClient"))}</span>
-              <span class="kpi mono">${escapeHtml(String(this.state.vClienteSelected || ""))}</span>
+            <div class="text-secondary small">${escapeHtml(this.t(this.locale, "summaryTrip"))}</div>
+            <div class="d-flex justify-content-between mt-2">
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "summaryDate"))}</span>
+              <span class="kpi mono">${escapeHtml(String(this.state.vFechaViaje || ""))}</span>
             </div>
             <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDateTime"))}</span>
-              <span class="kpi mono">${escapeHtml(String(this.state.vFechaPedido || ""))} ${escapeHtml(
-      String(this.state.vHoraPedido || "")
-    )}</span>
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "tripCode"))}</span>
+              <span class="kpi mono">${escapeHtml(String(this.state.vCodigo_viaje || this.t(this.locale, "auto")))}</span>
             </div>
             <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelIssueDate"))}</span>
-              <span class="kpi mono">${escapeHtml(String(this.state.vFecha_emision || ""))}</span>
-            </div>
-            <hr class="my-2" />
-            <div class="d-flex justify-content-between">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelBasePacking"))}</span>
-              <span class="kpi mono">${escapeHtml(String(this.state.vCodigo_base || ""))} / ${escapeHtml(
-      String(this.state.vCodigo_packing || "")
-    )}</span>
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "summaryDriver"))}</span>
+              <span class="kpi">${escapeHtml(String(this.state.Vnombre_motorizado || ""))}</span>
             </div>
             <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryAddress"))}</span>
-              <span class="kpi">${escapeHtml(dirName || "—")}</span>
-            </div>
-            <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryReceiver"))}</span>
-              <span class="kpi">${escapeHtml(numName || "—")}</span>
-            </div>
-            <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryShipTo"))}</span>
-              <span class="kpi">${escapeHtml(provName || "—")}</span>
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "summaryBase"))}</span>
+              <span class="kpi">${escapeHtml(String(baseName || ""))}</span>
             </div>
           </div>
         </div>
         <div class="col-12 col-lg-7">
           <div class="p-3 rounded border bg-body">
-            <div class="table-responsive">
+            <div class="text-secondary small">${escapeHtml(this.t(this.locale, "summaryDocs"))}</div>
+            <div class="table-responsive mt-2">
               <table class="table table-sm align-middle mb-0">
                 <thead>
                   <tr>
-                    <th>Id</th>
-                    <th>${escapeHtml(this.t(this.locale, "colDesc"))}</th>
-                    <th class="text-end">${escapeHtml(this.t(this.locale, "labelQtyShort"))}</th>
-                    <th class="text-end">${escapeHtml(this.t(this.locale, "colPrice"))}</th>
-                    <th class="text-end">${escapeHtml(this.t(this.locale, "colAmount"))}</th>
+                    <th>${escapeHtml(this.t(this.locale, "docNumber"))}</th>
+                    <th>${escapeHtml(this.t(this.locale, "packing"))}</th>
                   </tr>
                 </thead>
-                <tbody>${itemsHtml || `<tr><td colspan="5" class="text-secondary small">—</td></tr>`}</tbody>
-                <tfoot>
-                  <tr>
-                    <td colspan="4" class="text-end text-secondary">${escapeHtml(this.t(this.locale, "labelTotal"))}</td>
-                    <td class="text-end mono">${money(total)}</td>
-                  </tr>
-                </tfoot>
+                <tbody>${rows || `<tr><td colspan="2" class="text-secondary small">—</td></tr>`}</tbody>
               </table>
             </div>
           </div>
@@ -743,17 +566,16 @@ export class FormWizard {
     if (!ok) return;
     localStorage.removeItem(STORAGE_KEY);
     this.state = {
-      vFechaPedido: nowLocalDate(),
-      vHoraPedido: nowLocalTime(),
-      vClienteSelected: "",
-      vProdPedidos: [this._blankProdRow({ withBalance: true })],
-      vFecha_emision: nowLocalDate(),
-      vCodigo_base: "",
-      vCodigo_packing: "",
-      vProdFactura: [],
-      vCodigo_Cliente_Direccion: "",
-      vCodigo_Cliente_DireccionProv: "",
-      vCodigo_Cliente_Numrecibe: "",
+      vCodigo_viaje: "",
+      vFechaViaje: nowLocalDate(),
+      Vnombre_motorizado: "",
+      Vnumero_wsp: "",
+      Vnum_llamadas: "",
+      Vnum_yape: "",
+      Vlink: "",
+      Vobservacion: "",
+      vBaseSelected: "",
+      vViajeDetalle: [this._blankDetailRow()],
     };
     this.step = 1;
     this._renderAll();
@@ -780,9 +602,17 @@ export class FormWizard {
       .join("");
   }
 
-  async emitInvoice() {
+  async registerTrip() {
+    await this._submitTrip({ action: "register", successKey: "registerOk" });
+  }
+
+  async dispatchTrip() {
+    await this._submitTrip({ action: "dispatch", successKey: "dispatchOk" });
+  }
+
+  async _submitTrip({ action, successKey }) {
     this._clearAlert();
-    const allOk = [1, 2, 3].every((s) => this.validateStep(s));
+    const allOk = [1, 2].every((s) => this.validateStep(s));
     if (!allOk) {
       this._showAlert("danger", this.t(this.locale, "validationError"));
       return;
@@ -794,8 +624,9 @@ export class FormWizard {
     this._setBusy(true);
     try {
       this._setStatus(this.t(this.locale, "loading"));
-      const payload = this._buildInvoicePayload();
-      const res = await fetch(this.endpoints.emit, {
+      const payload = this._buildTripPayload();
+      const endpoint = action === "dispatch" ? this.endpoints.dispatch : this.endpoints.register;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -811,11 +642,12 @@ export class FormWizard {
         throw new Error(msg);
       }
       const out = await res.json();
-      const html = out?.invoiceHtml;
-      if (typeof html !== "string") throw new Error("Bad response");
-      this._downloadText(html, `factura-${Date.now()}.html`, "text/html");
-      this._setStatus(this.t(this.locale, "emitOk"));
-      this._showAlert("success", this.t(this.locale, "emitOk"));
+      if (out?.codigo_viaje) {
+        this.state.vCodigo_viaje = String(out.codigo_viaje);
+        this.el.vCodigo_viaje.value = this.state.vCodigo_viaje;
+      }
+      this._setStatus(this.t(this.locale, successKey));
+      this._showAlert("success", this.t(this.locale, successKey));
     } catch (e) {
       this._setStatus(`${this.t(this.locale, "error")}: ${e?.message || e}`);
       this._showAlert("danger", `${this.t(this.locale, "error")}: ${e?.message || e}`);
@@ -824,48 +656,29 @@ export class FormWizard {
     }
   }
 
-  _buildInvoicePayload() {
-    const products = this.state.vProdFactura
-      .filter((r) => String(r.idProducto).trim() || String(r.descripcion).trim())
+  _buildTripPayload() {
+    const detalles = this.state.vViajeDetalle
+      .filter((r) => String(r.numero_documento).trim() || String(r.codigo_packing).trim())
       .map((r) => ({
-        idProducto: String(r.idProducto || "").trim(),
-        descripcion: String(r.descripcion || "").trim(),
-        cantidad: Number(r.cantidad || 0),
-        precio: Number(r.precio || 0),
-        monto: Number(r.monto || 0),
+        numero_documento: String(r.numero_documento || "").trim(),
+        codigo_packing: String(r.codigo_packing || "").trim(),
       }));
+
     return {
-      pedido: {
-        fecha: this.state.vFechaPedido,
-        hora: this.state.vHoraPedido,
-        clienteId: this.state.vClienteSelected,
-        productos: this.state.vProdPedidos,
+      viaje: {
+        vCodigo_viaje: this.state.vCodigo_viaje || null,
+        vFechaViaje: this.state.vFechaViaje,
+        Vnombre_motorizado: this.state.Vnombre_motorizado,
+        Vnumero_wsp: this.state.Vnumero_wsp,
+        Vnum_llamadas: this.state.Vnum_llamadas,
+        Vnum_yape: this.state.Vnum_yape,
+        Vlink: this.state.Vlink,
+        Vobservacion: this.state.Vobservacion,
+        vBaseSelected: this.state.vBaseSelected,
       },
-      factura: {
-        fecha_emision: this.state.vFecha_emision,
-        codigo_base: this.state.vCodigo_base,
-        codigo_packing: this.state.vCodigo_packing,
-        productos,
-      },
-      entrega: {
-        codigo_cliente_direccion: this.state.vCodigo_Cliente_Direccion,
-        codigo_cliente_direccionprov: this.state.vCodigo_Cliente_DireccionProv,
-        codigo_cliente_numrecibe: this.state.vCodigo_Cliente_Numrecibe,
-      },
+      detalles,
       locale: this.locale,
     };
-  }
-
-  _downloadText(text, filename, mime) {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   _setStatus(text) {

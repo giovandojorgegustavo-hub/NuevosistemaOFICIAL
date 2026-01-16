@@ -1,5 +1,5 @@
-import { applyI18n, detectLocale, t } from "./i18n.js";
-import { FormWizard } from "./formWizard.js";
+import { applyI18n, detectLocale, t } from "./i18nNotaCredito.js";
+import { FormWizard } from "./formWizardNotaCredito.js";
 
 const locale = detectLocale();
 applyI18n(locale);
@@ -10,11 +10,11 @@ applyI18n(locale);
     t,
     endpoints: {
       dbStatus: "/api/db-status",
+      clients: "/api/clients",
       bases: "/api/bases",
-      packings: "/api/packings",
+      products: "/api/products",
       sqlLogs: "/api/sql-logs",
-      register: "/api/viajes/registrar",
-      dispatch: "/api/viajes/dispatch",
+      emit: "/api/notas-credito/emitir",
     },
   });
   await wizard.init();

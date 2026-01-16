@@ -37,6 +37,7 @@ connections:
 - `GET /api/clients/:id/numrecibe`: `CALL get_numrecibe(id)`
 - `GET /api/sql-logs`: log in-memory de sentencias SQL ejecutadas por el backend
 - `POST /api/erp/emit`: crea `pedidos`, `pedido_detalle`, `mov_contable`, `mov_contable_detalle`, `movimientos`, `movimiento_detalle` (transacción)
+- `POST /api/notas-credito/emitir`: crea `mov_contable` y `mov_contable_detalle` para nota de credito (transacción)
 
 ## Notas
 

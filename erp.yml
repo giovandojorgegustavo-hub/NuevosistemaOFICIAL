@@ -1,6 +1,3 @@
-cat > erp.yml << 'EOF'
 connections:
-- name: "erpdb"
-  Pepe1234++
-  dsn: "mysql://erpuser:Pepe1234++@tcp(%:3306)/dTools_db"
-EOF
+  - name: "erpdb"
+    dsn: "mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb"
