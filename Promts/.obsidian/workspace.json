@@ -1,0 +1,207 @@
+{
+  "main": {
+    "id": "4e2befee4284abfd",
+    "type": "split",
+    "children": [
+      {
+        "id": "20552836cbcdc7c9",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "fb24ed3321d4afe9",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Casos Faltantes/Casos faltantes.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Casos faltantes"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "09dbbeb3bf0a54b2",
+    "type": "split",
+    "children": [
+      {
+        "id": "9c87810d20527f6c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "773b6bd520687766",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "1be6ab603e612a5a",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "1c6deb6bbc1cfe8b",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "f2466b33565d5373",
+    "type": "split",
+    "children": [
+      {
+        "id": "2f205be56c121da0",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "089c0bcadccce640",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "PromtsERP/C1/Untitled.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for Untitled"
+            }
+          },
+          {
+            "id": "1a02a306ba917677",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "PromtsERP/C1/Untitled.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from Untitled"
+            }
+          },
+          {
+            "id": "76a1c6e49a195e7f",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "9b16484eb982e9cd",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "d2047338d272d475",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "PromtsERP/C1/Untitled.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of Untitled"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "fb24ed3321d4afe9",
+  "lastOpenFiles": [
+    "PromtsERP/C4 Gestion Pedidos/Gestion Pedidos 1.01.md",
+    "PromtsERP/C3 Crear Recibos/Crear Recibos 1.01.md",
+    "Casos Faltantes/Casos faltantes.md",
+    "Untitled.canvas",
+    "Casos Faltantes",
+    "PromtsERP/Untitled 1.md",
+    "PromtsERP/Untitled",
+    "PromtsERP/Casos de Uso faltantes.md",
+    "PromtsERP/Untitled.md",
+    "Welcome.md",
+    "PromtsERP/C2 Crear Viajes con Detalle/Crear Viajes con detalles 1.01.md",
+    "PromtsERP/C3 Crear Recibos",
+    "PromtsERP/C1 Toma Pedidos y crear factura/Toma Pedidos y crear factura 1.01.md",
+    "PromtsERP/C2 Crear Viajes con Detalle",
+    "PromtsERP/C1 Toma Pedidos y crear factura",
+    "PromtsERP/C4 Gestion Pedidos/Untitled",
+    "PromtsERP/C4 Gestion Pedidos",
+    "PromtsERP"
+  ]
+}
