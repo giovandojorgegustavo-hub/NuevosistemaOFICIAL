@@ -14,9 +14,12 @@ applyI18n(locale);
       products: "/api/products",
       bases: "/api/bases",
       packings: "/api/packings",
-      clientDirecciones: (clientId) => `/api/clients/${clientId}/direcciones`,
-      clientDireccionesProv: (clientId) => `/api/clients/${clientId}/direccionesprov`,
+      clientPuntosEntrega: (clientId) => `/api/clients/${clientId}/puntos-entrega`,
       clientNumrecibe: (clientId) => `/api/clients/${clientId}/numrecibe`,
+      ubigeo: (codDep, codProv, codDist) =>
+        `/api/ubigeo?cod_dep=${encodeURIComponent(codDep)}&cod_prov=${encodeURIComponent(
+          codProv
+        )}&cod_dist=${encodeURIComponent(codDist)}`,
       sqlLogs: "/api/sql-logs",
       emit: "/api/erp/emit",
     },

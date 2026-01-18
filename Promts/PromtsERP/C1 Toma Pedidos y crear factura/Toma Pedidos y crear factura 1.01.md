@@ -81,14 +81,23 @@ Presentar un Grid editable llamado “vProdFactura” que se inicialice con el c
 
 Paso 3. Datos Entrega.
 
-vCodigo_Cliente_Direccion = Seleccionar de la lista el Clientes_direccion devuelta por el procedimiento get_direcciones
-
-vTipo_Documento = “F” 
+vTipo_Documento = "F"
 
 vCodigo_Cliente_Numrecibe = Seleccionar de la lista el Clientes_numrecibe devuelta por el procedimiento get_numrecibe
 
-vCodigo_Cliente_DireccionProv = Seleccionar de la lista el Clientes_direccionprov devuelta por el procedimiento get_direccionesprov
+vPuntoEntrega = Seleccionar de la lista de puntos de entrega devuelta por el procedimiento get_puntos_entrega(vClienteSeleted). Si el cliente no tiene puntos de entrega, no mostrar esta opcion. Al seleccionar, tomar vCod_Dep, vCod_Prov, vCod_Dist y vCodigo_puntoentrega del registro.
 
+Agregar Nuevo Punto de Entrega (opcion siempre disponible; 
+
+vCod_Dep, vCod_Prov, vCod_Dist = Buscar el ubigeo usando el procedimiento get_ubigeo con 3 parametros.
+
+vRegion_Entrega = Seleccionar "LIMA" o "PROV".
+
+Si vRegion_Entrega = "LIMA": activar campos vDireccion_linea y vReferencia.
+
+Si vRegion_Entrega = "PROV": activar campos vDestinatario_nombre, vDestinatario_dni y vAgencia.
+
+Si se selecciona un punto existente, mostrar solo los campos que correspondan segun su vRegion_Entrega.
   
 
 Emitir Factura. Al terminar el formulario multipasos, cuando el usuario da click al boton “Emitir Factura” el sistema deberá realizar las siguientes transacciones sobre la DB:
@@ -101,7 +110,9 @@ Emitir Factura. Al terminar el formulario multipasos, cuando el usuario da click
 
 - Grabar Factura.
 
-- Guardar en la tabla “mov_contable”. vFecha_emision, vCodigo_base, vCodigo_packing, vCodigo_Cliente_Direccion, vTipo_Documento, vCodigo_Cliente_Numrecibe, vCodigo_Cliente_DireccionProv.
+- Guardar en la tabla "puntos_entrega" si se eligio "Agregar Nuevo Punto de Entrega" y tomar vCod_Dep, vCod_Prov, vCod_Dist, vCodigo_puntoentrega.
+
+- Guardar en la tabla “mov_contable”. vFecha_emision, vCodigo_base, vCodigo_packing, vTipo_Documento, vCodigo_Cliente_Numrecibe, vCod_Dep, vCod_Prov, vCod_Dist, vCodigo_puntoentrega.
 
 - Guardar en la tabla “mov_contable_detalle” los datos del grid “vProdFactura”.
 
@@ -131,7 +142,9 @@ Al dar click al botón “Emitir Factura” el formulario deberá realizar las s
 
 - Grabar Factura.
 
-- Guardar en la tabla “mov_contable”. vFecha_emision, vCodigo_base, vCodigo_packing, vCodigo_Cliente_Direccion, vTipo_Documento, vCodigo_Cliente_Numrecibe, vCodigo_Cliente_DireccionProv.
+- Guardar en la tabla "puntos_entrega" si se eligio "Agregar Nuevo Punto de Entrega" y tomar vCod_Dep, vCod_Prov, vCod_Dist, vCodigo_puntoentrega.
+
+- Guardar en la tabla “mov_contable”. vFecha_emision, vCodigo_base, vCodigo_packing, vTipo_Documento, vCodigo_Cliente_Numrecibe, vCod_Dep, vCod_Prov, vCod_Dist, vCodigo_puntoentrega.
 
 - Guardar en la tabla “mov_contable_detalle” los datos del grid “vProdFactura”.
 

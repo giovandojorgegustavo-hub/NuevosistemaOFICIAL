@@ -1,6 +1,6 @@
 **  
 
-CU-007: Compras y facturar la compra.
+CU-012: Crear Recibos Provedores.
 
 # **Prompt AI.
 
@@ -42,35 +42,36 @@ Se requiere que la interfaz gráfica de usuario (GUI) se muestre en el idioma pr
 
 - Ver Logs de sentencias SQL
 
-- Crear Remito de Movimiento de Stock.
+- Registrar Recibos Provedores.
 
 # **Pasos del formulario-multipaso.
 
-1. Crear Remito de Movimiento de Stock.
+1. Registrar recibos provedores
 
 # **Descripción de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexión con la DB, los datos de conexión se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexión y se debe usar la DB especificada en la variable {name}.
 
-Paso 1  Crear Remito de Movimiento de Stock.
+Paso 1  Crear recibos provedores.
 
 vFecha = Inicializar con la fecha del sistema.
 
-vTipo_documento = "REM".
+vTipo_documento_compra = "RC".
 
-vNum_documento = num serial num de 12 autoincrement (no edit).
+vNum_documento_compra = num serial num de 12 autoincrement (no edit).
 
-vCodigo_base = Seleccionar de la lista de Bases devuelta por el SP get_bases.
+vCodigo_provedor = Seleccionar de la lista de Proveedores devuelta por el GET /api/proveedores (SP get_proveedores)
 
-Presentar un Grid editable llamado “vDetalleRemito” que permita agregar, borrar y editar líneas. El Grid debe tener las siguientes columnas: codigo_producto, cantidad.
 
-Para la columna codigo_producto ofrecer la lista de productos que devuelve el SP get_productos.
+Al terminar la captura del formulario multipaso, el usuario deberá tener disponible la posibilidad de “Registrar Recibo” como cierre del proceso.
 
-Crear Remito de Movimiento de Stock. Al terminar el formulario multipasos, cuando el usuario da click al boton “Crear Remito” el sistema deberá realizar las siguientes transacciones sobre la DB:
+  
 
-- Guardar en la tabla “movimiento_stock”. vTipo_documento, vNum_documento, vFecha, vCodigo_base.
+Al dar click al botón “Registrar Recibo” el formulario deberá realizar las siguientes transacciones sobre la DB:
 
-- Guardar en la tabla “detalle_movimiento_stock” los datos del grid “vDetalleRemito”.
+- Grabar el pago. Tomar los datos capturados en el paso 1:
+
+- Guardarlos en la tabla mov_contable_compras. vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, vFecha.
 
 No utilizar datos mock. 
 

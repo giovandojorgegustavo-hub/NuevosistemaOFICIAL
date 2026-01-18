@@ -38,28 +38,28 @@ Se requiere que la interfaz gráfica de usuario (GUI) se muestre en el idioma pr
 
 - Ver Logs de sentencias SQL
 
-- Registrar Pagos y Pagosdetalle.
+- Registrar Recibos.
 
   
 # **Pasos del formulario-multipaso.
 
-1. Registrar Pagos
-
-2. Registrar Pagosdetalle.
+1. Registrar recibos
 
 **Descripción de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexión con la DB, los datos de conexión se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexión y se debe usar la DB especificada en la variable {name}.
 
-Paso 1  Crear Pagos.
+Paso 1  Crear recibos.
 
 vFecha = Inicializar con la fecha del sistema.
 
 vCodigo_pago =num serial num de 12 autoincrement (no edit)
 
-Vcuenta_bancariaSelect = Seleccionar de la lista de Cuentas bancarias devuelta por el SP get_cuentasbancarias
+vCodigo_cliente = Seleccionar de la lista de Clientes devuelta por el GET /api/clients (SP get_clientes)
 
-Vmonto = campo para escribir texto 
+vCuenta_bancariaSelect = Seleccionar de la lista de Cuentas bancarias devuelta por el SP get_cuentasbancarias
+
+vMonto = campo para escribir texto 
 
 
 Al terminar la captura del formulario multipaso, el usuario deberá tener disponible la posibilidad de “Registrar Recibo” como cierre del proceso.
@@ -70,6 +70,6 @@ Al dar click al botón “Registrar Recibo” el formulario deberá realizar las
 
 - Grabar el pago. Tomar los datos capturados en el paso 1:
 
-- Guardarlos en la tabla “Recibo”. vFecha, vCodigo_pago, Vcuenta_bancariaSelect,Vmonto
+- Guardarlos en la tabla mov_contable. fecha_emision, vCodigo_pago, vCuenta_bancariaSelect, vCodigo_cliente, vMonto.
 
   

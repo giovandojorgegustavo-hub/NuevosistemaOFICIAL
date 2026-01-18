@@ -3,6 +3,8 @@ const STORAGE_KEY = "formWizard:v1";
 const RE = {
   productId: /^[0-9]{1,9}$/,
   compositeKey: /^[0-9]{1,12}\|[0-9]{1,12}$/,
+  ubigeoPart: /^[0-9]{2}$/,
+  puntoEntrega: /^[0-9]{2}\|[0-9]{2}\|[0-9]{2}\|[0-9]{1,12}$/,
 };
 
 function nowLocalDate() {
@@ -49,8 +51,7 @@ export class FormWizard {
       products: [],
       bases: [],
       packings: [],
-      direcciones: [],
-      direccionesprov: [],
+      puntosEntrega: [],
       numrecibe: [],
     };
     this.productsById = new Map();
@@ -64,9 +65,20 @@ export class FormWizard {
       vCodigo_base: "",
       vCodigo_packing: "",
       vProdFactura: [],
-      vCodigo_Cliente_Direccion: "",
-      vCodigo_Cliente_DireccionProv: "",
       vCodigo_Cliente_Numrecibe: "",
+      vPuntoEntrega: "",
+      vCrearPuntoEntrega: false,
+      vCod_Dep: "",
+      vCod_Prov: "",
+      vCod_Dist: "",
+      vCodigo_puntoentrega: "",
+      vRegion_Entrega: "",
+      vDireccion_linea: "",
+      vReferencia: "",
+      vDestinatario_nombre: "",
+      vDestinatario_dni: "",
+      vAgencia: "",
+      vUbigeoInfo: "",
     };
 
     this.el = {
@@ -91,11 +103,21 @@ export class FormWizard {
 
       vFecha_emision: document.getElementById("vFecha_emision"),
       vCodigo_base: document.getElementById("vCodigo_base"),
-      vCodigo_packing: document.getElementById("vCodigo_packing"),
-
-      vCodigo_Cliente_Direccion: document.getElementById("vCodigo_Cliente_Direccion"),
-      vCodigo_Cliente_DireccionProv: document.getElementById("vCodigo_Cliente_DireccionProv"),
       vCodigo_Cliente_Numrecibe: document.getElementById("vCodigo_Cliente_Numrecibe"),
+      vPuntoEntrega: document.getElementById("vPuntoEntrega"),
+      vCrearPuntoEntrega: document.getElementById("vCrearPuntoEntrega"),
+      vRegion_Entrega: document.getElementById("vRegion_Entrega"),
+      vCod_Dep: document.getElementById("vCod_Dep"),
+      vCod_Prov: document.getElementById("vCod_Prov"),
+      vCod_Dist: document.getElementById("vCod_Dist"),
+      vDireccion_linea: document.getElementById("vDireccion_linea"),
+      vReferencia: document.getElementById("vReferencia"),
+      vDestinatario_nombre: document.getElementById("vDestinatario_nombre"),
+      vDestinatario_dni: document.getElementById("vDestinatario_dni"),
+      vAgencia: document.getElementById("vAgencia"),
+      btnBuscarUbigeo: document.getElementById("btnBuscarUbigeo"),
+      ubigeoInfo: document.getElementById("ubigeoInfo"),
+      puntoEntregaSelectWrap: document.getElementById("puntoEntregaSelectWrap"),
 
       btnAddProdPedido: document.getElementById("btnAddProdPedido"),
       btnAddProdFactura: document.getElementById("btnAddProdFactura"),
@@ -154,6 +176,28 @@ export class FormWizard {
       this._renderAll();
     });
 
+    this.el.vPuntoEntrega?.addEventListener("change", () => {
+      this._pullFromDom();
+      this._applyPuntoEntregaSelection();
+      this._renderEntregaFields();
+      this._saveDebounced();
+    });
+
+    this.el.vCrearPuntoEntrega?.addEventListener("change", () => {
+      this._pullFromDom();
+      if (!this.state.vCrearPuntoEntrega) this._applyPuntoEntregaSelection();
+      this._renderEntregaFields();
+      this._saveDebounced();
+    });
+
+    this.el.vRegion_Entrega?.addEventListener("change", () => {
+      this._pullFromDom();
+      this._renderEntregaFields();
+      this._saveDebounced();
+    });
+
+    this.el.btnBuscarUbigeo?.addEventListener("click", () => this.buscarUbigeo());
+
     document.getElementById("btnConfirmOk").addEventListener("click", () => this._confirmResolve?.(true));
     document.getElementById("confirmModal").addEventListener("hidden.bs.modal", () => this._confirmResolve?.(false));
   }
@@ -162,6 +206,7 @@ export class FormWizard {
     if (!this.state.vFechaPedido) this.state.vFechaPedido = nowLocalDate();
     if (!this.state.vHoraPedido) this.state.vHoraPedido = nowLocalTime();
     if (!this.state.vFecha_emision) this.state.vFecha_emision = nowLocalDate();
+    if (!this.state.vRegion_Entrega) this.state.vRegion_Entrega = "LIMA";
     if (this.state.vProdPedidos.length === 0) this.state.vProdPedidos = [this._blankProdRow({ withBalance: true })];
     if (this.state.vProdFactura.length === 0) this.state.vProdFactura = [];
   }
@@ -182,7 +227,6 @@ export class FormWizard {
 
     this._fillSelect(this.el.vClienteSelected, this.lookups.clients, { placeholder: this.t(this.locale, "loading") });
     this._fillSelect(this.el.vCodigo_base, this.lookups.bases, { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_packing, this.lookups.packings, { placeholder: this.t(this.locale, "loading") });
 
     const clientExists = this.lookups.clients.some((c) => String(c.id) === String(this.state.vClienteSelected));
     if ((!this.state.vClienteSelected || !clientExists) && this.lookups.clients[0])
@@ -190,6 +234,10 @@ export class FormWizard {
     if (!this.state.vCodigo_base && this.lookups.bases[0]) this.state.vCodigo_base = String(this.lookups.bases[0].id);
     if (!this.state.vCodigo_packing && this.lookups.packings[0])
       this.state.vCodigo_packing = String(this.lookups.packings[0].id);
+    const packingExists = this.lookups.packings.some((p) => String(p.id) === String(this.state.vCodigo_packing));
+    if (!packingExists && this.lookups.packings[0]) {
+      this.state.vCodigo_packing = String(this.lookups.packings[0].id);
+    }
 
     for (const row of [...this.state.vProdPedidos, ...this.state.vProdFactura]) {
       const id = String(row?.idProducto || "");
@@ -220,35 +268,27 @@ export class FormWizard {
     if (!clientId) return;
 
     if (!initial) {
-      this.state.vCodigo_Cliente_Direccion = "";
-      this.state.vCodigo_Cliente_DireccionProv = "";
       this.state.vCodigo_Cliente_Numrecibe = "";
+      this.state.vPuntoEntrega = "";
     }
 
-    this._fillSelect(this.el.vCodigo_Cliente_Direccion, [], { placeholder: this.t(this.locale, "loading") });
     this._fillSelect(this.el.vCodigo_Cliente_Numrecibe, [], { placeholder: this.t(this.locale, "loading") });
-    this._fillSelect(this.el.vCodigo_Cliente_DireccionProv, [], { placeholder: this.t(this.locale, "loading") });
+    if (this.el.vPuntoEntrega) {
+      this._fillSelect(this.el.vPuntoEntrega, [], { placeholder: this.t(this.locale, "loading") });
+    }
 
-    const [direcciones, numrecibe, direccionesprov] = await Promise.all([
-      this._safeJson(this.endpoints.clientDirecciones(clientId), []),
+    const [numrecibe, puntosEntrega] = await Promise.all([
       this._safeJson(this.endpoints.clientNumrecibe(clientId), []),
-      this._safeJson(this.endpoints.clientDireccionesProv(clientId), []),
+      this._safeJson(this.endpoints.clientPuntosEntrega(clientId), []),
     ]);
 
-    this.lookups.direcciones = Array.isArray(direcciones) ? direcciones : [];
     this.lookups.numrecibe = Array.isArray(numrecibe) ? numrecibe : [];
-    this.lookups.direccionesprov = Array.isArray(direccionesprov) ? direccionesprov : [];
+    this.lookups.puntosEntrega = Array.isArray(puntosEntrega) ? puntosEntrega : [];
 
-    this._fillSelect(this.el.vCodigo_Cliente_Direccion, this.lookups.direcciones);
     this._fillSelect(this.el.vCodigo_Cliente_Numrecibe, this.lookups.numrecibe);
-    this._fillSelect(this.el.vCodigo_Cliente_DireccionProv, this.lookups.direccionesprov);
+    if (this.el.vPuntoEntrega) this._fillSelect(this.el.vPuntoEntrega, this.lookups.puntosEntrega);
 
     const keepIfExists = (value, items) => items.some((i) => String(i.id) === String(value));
-    if (initial && keepIfExists(this.state.vCodigo_Cliente_Direccion, this.lookups.direcciones)) {
-      // keep
-    } else if (this.lookups.direcciones[0]) {
-      this.state.vCodigo_Cliente_Direccion = String(this.lookups.direcciones[0].id);
-    }
 
     if (initial && keepIfExists(this.state.vCodigo_Cliente_Numrecibe, this.lookups.numrecibe)) {
       // keep
@@ -256,11 +296,20 @@ export class FormWizard {
       this.state.vCodigo_Cliente_Numrecibe = String(this.lookups.numrecibe[0].id);
     }
 
-    if (initial && keepIfExists(this.state.vCodigo_Cliente_DireccionProv, this.lookups.direccionesprov)) {
+    if (initial && keepIfExists(this.state.vPuntoEntrega, this.lookups.puntosEntrega)) {
       // keep
-    } else if (this.lookups.direccionesprov[0]) {
-      this.state.vCodigo_Cliente_DireccionProv = String(this.lookups.direccionesprov[0].id);
+    } else if (this.lookups.puntosEntrega[0]) {
+      this.state.vPuntoEntrega = String(this.lookups.puntosEntrega[0].id);
     }
+
+    if (this.lookups.puntosEntrega.length === 0) {
+      this.state.vCrearPuntoEntrega = true;
+    } else if (!initial) {
+      this.state.vCrearPuntoEntrega = false;
+    }
+
+    this._applyPuntoEntregaSelection();
+    this._renderEntregaFields();
   }
 
   _fillSelect(select, items, { placeholder } = {}) {
@@ -391,11 +440,18 @@ export class FormWizard {
 
     this.state.vFecha_emision = this.el.vFecha_emision.value;
     this.state.vCodigo_base = this.el.vCodigo_base.value;
-    this.state.vCodigo_packing = this.el.vCodigo_packing.value;
-
-    this.state.vCodigo_Cliente_Direccion = this.el.vCodigo_Cliente_Direccion.value;
     this.state.vCodigo_Cliente_Numrecibe = this.el.vCodigo_Cliente_Numrecibe.value;
-    this.state.vCodigo_Cliente_DireccionProv = this.el.vCodigo_Cliente_DireccionProv.value;
+    this.state.vPuntoEntrega = this.el.vPuntoEntrega?.value || "";
+    this.state.vCrearPuntoEntrega = Boolean(this.el.vCrearPuntoEntrega?.checked);
+    this.state.vRegion_Entrega = this.el.vRegion_Entrega?.value || "";
+    this.state.vCod_Dep = this.el.vCod_Dep?.value || "";
+    this.state.vCod_Prov = this.el.vCod_Prov?.value || "";
+    this.state.vCod_Dist = this.el.vCod_Dist?.value || "";
+    this.state.vDireccion_linea = this.el.vDireccion_linea?.value || "";
+    this.state.vReferencia = this.el.vReferencia?.value || "";
+    this.state.vDestinatario_nombre = this.el.vDestinatario_nombre?.value || "";
+    this.state.vDestinatario_dni = this.el.vDestinatario_dni?.value || "";
+    this.state.vAgencia = this.el.vAgencia?.value || "";
   }
 
   _markInvalid(input, isInvalid) {
@@ -443,10 +499,8 @@ export class FormWizard {
     let ok = true;
     this._markInvalid(this.el.vFecha_emision, !this.state.vFecha_emision);
     this._markInvalid(this.el.vCodigo_base, !this.state.vCodigo_base);
-    this._markInvalid(this.el.vCodigo_packing, !this.state.vCodigo_packing);
     if (!this.state.vFecha_emision) ok = false;
     if (!this.state.vCodigo_base) ok = false;
-    if (!this.state.vCodigo_packing) ok = false;
 
     const rowsOk = this._validateProductRows(this.state.vProdFactura, { withBalance: false });
     if (!rowsOk) ok = false;
@@ -455,16 +509,112 @@ export class FormWizard {
 
   _validateStep3() {
     let ok = true;
-    const dirOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_Direccion || "").trim());
     const numOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_Numrecibe || "").trim());
-    const provOk = RE.compositeKey.test(String(this.state.vCodigo_Cliente_DireccionProv || "").trim());
-
-    this._markInvalid(this.el.vCodigo_Cliente_Direccion, !dirOk);
     this._markInvalid(this.el.vCodigo_Cliente_Numrecibe, !numOk);
-    this._markInvalid(this.el.vCodigo_Cliente_DireccionProv, !provOk);
+    if (!numOk) ok = false;
 
-    if (!dirOk || !numOk || !provOk) ok = false;
+    const creating = this._isCreatingPuntoEntrega();
+    if (!creating) {
+      const puntoOk = RE.puntoEntrega.test(String(this.state.vPuntoEntrega || "").trim());
+      this._markInvalid(this.el.vPuntoEntrega, !puntoOk);
+      if (!puntoOk) ok = false;
+      return ok;
+    }
+
+    const region = String(this.state.vRegion_Entrega || "").toUpperCase();
+    const regionOk = region === "LIMA" || region === "PROV";
+    const depOk = RE.ubigeoPart.test(String(this.state.vCod_Dep || "").trim());
+    const provOk = RE.ubigeoPart.test(String(this.state.vCod_Prov || "").trim());
+    const distOk = RE.ubigeoPart.test(String(this.state.vCod_Dist || "").trim());
+
+    this._markInvalid(this.el.vRegion_Entrega, !regionOk);
+    this._markInvalid(this.el.vCod_Dep, !depOk);
+    this._markInvalid(this.el.vCod_Prov, !provOk);
+    this._markInvalid(this.el.vCod_Dist, !distOk);
+
+    if (!regionOk || !depOk || !provOk || !distOk) ok = false;
+
+    if (region === "LIMA") {
+      const dirOk = Boolean(String(this.state.vDireccion_linea || "").trim());
+      this._markInvalid(this.el.vDireccion_linea, !dirOk);
+      if (!dirOk) ok = false;
+    } else if (region === "PROV") {
+      const nameOk = Boolean(String(this.state.vDestinatario_nombre || "").trim());
+      const dniOk = Boolean(String(this.state.vDestinatario_dni || "").trim());
+      const agenciaOk = Boolean(String(this.state.vAgencia || "").trim());
+      this._markInvalid(this.el.vDestinatario_nombre, !nameOk);
+      this._markInvalid(this.el.vDestinatario_dni, !dniOk);
+      this._markInvalid(this.el.vAgencia, !agenciaOk);
+      if (!nameOk || !dniOk || !agenciaOk) ok = false;
+    }
+
     return ok;
+  }
+
+  _isCreatingPuntoEntrega() {
+    return Boolean(this.state.vCrearPuntoEntrega || this.lookups.puntosEntrega.length === 0);
+  }
+
+  _getSelectedPuntoEntrega() {
+    return (
+      this.lookups.puntosEntrega.find((p) => String(p.id) === String(this.state.vPuntoEntrega)) || null
+    );
+  }
+
+  _applyPuntoEntregaSelection() {
+    const punto = this._getSelectedPuntoEntrega();
+    if (!punto) return;
+    this.state.vCod_Dep = String(punto.cod_dep || "");
+    this.state.vCod_Prov = String(punto.cod_prov || "");
+    this.state.vCod_Dist = String(punto.cod_dist || "");
+    this.state.vCodigo_puntoentrega = String(punto.codigo_puntoentrega || "");
+    this.state.vRegion_Entrega = String(punto.region_entrega || "");
+    this.state.vDireccion_linea = String(punto.direccion_linea || "");
+    this.state.vReferencia = String(punto.referencia || "");
+    this.state.vDestinatario_nombre = String(punto.destinatario_nombre || "");
+    this.state.vDestinatario_dni = String(punto.destinatario_dni || "");
+    this.state.vAgencia = String(punto.agencia || "");
+    this.state.vUbigeoInfo = "";
+  }
+
+  _renderEntregaFields() {
+    if (this.lookups.puntosEntrega.length === 0) {
+      this.state.vCrearPuntoEntrega = true;
+      if (this.el.vCrearPuntoEntrega) {
+        this.el.vCrearPuntoEntrega.checked = true;
+        this.el.vCrearPuntoEntrega.disabled = true;
+      }
+    } else if (this.el.vCrearPuntoEntrega) {
+      this.el.vCrearPuntoEntrega.disabled = false;
+    }
+    const creating = this._isCreatingPuntoEntrega();
+    const region = String(this.state.vRegion_Entrega || "").toUpperCase();
+    const showLima = region === "LIMA";
+    const showProv = region === "PROV";
+
+    document.querySelectorAll(".entrega-lima").forEach((el) => el.classList.toggle("d-none", !showLima));
+    document.querySelectorAll(".entrega-prov").forEach((el) => el.classList.toggle("d-none", !showProv));
+
+    if (this.el.puntoEntregaSelectWrap) {
+      this.el.puntoEntregaSelectWrap.classList.toggle("d-none", this.lookups.puntosEntrega.length === 0);
+    }
+    if (this.el.vPuntoEntrega) this.el.vPuntoEntrega.disabled = creating;
+
+    const lock = !creating;
+    [
+      this.el.vRegion_Entrega,
+      this.el.vCod_Dep,
+      this.el.vCod_Prov,
+      this.el.vCod_Dist,
+      this.el.vDireccion_linea,
+      this.el.vReferencia,
+      this.el.vDestinatario_nombre,
+      this.el.vDestinatario_dni,
+      this.el.vAgencia,
+      this.el.btnBuscarUbigeo,
+    ].forEach((el) => {
+      if (el) el.disabled = lock;
+    });
   }
 
   _renderAll() {
@@ -499,14 +649,22 @@ export class FormWizard {
 
     this.el.vFecha_emision.value = this.state.vFecha_emision || nowLocalDate();
     if (this.el.vCodigo_base.options.length) this.el.vCodigo_base.value = this.state.vCodigo_base || "";
-    if (this.el.vCodigo_packing.options.length) this.el.vCodigo_packing.value = this.state.vCodigo_packing || "";
-
-    if (this.el.vCodigo_Cliente_Direccion.options.length)
-      this.el.vCodigo_Cliente_Direccion.value = this.state.vCodigo_Cliente_Direccion || "";
     if (this.el.vCodigo_Cliente_Numrecibe.options.length)
       this.el.vCodigo_Cliente_Numrecibe.value = this.state.vCodigo_Cliente_Numrecibe || "";
-    if (this.el.vCodigo_Cliente_DireccionProv.options.length)
-      this.el.vCodigo_Cliente_DireccionProv.value = this.state.vCodigo_Cliente_DireccionProv || "";
+    if (this.el.vPuntoEntrega?.options?.length) this.el.vPuntoEntrega.value = this.state.vPuntoEntrega || "";
+    if (this.el.vCrearPuntoEntrega) this.el.vCrearPuntoEntrega.checked = Boolean(this.state.vCrearPuntoEntrega);
+    if (this.el.vRegion_Entrega) this.el.vRegion_Entrega.value = this.state.vRegion_Entrega || "";
+    if (this.el.vCod_Dep) this.el.vCod_Dep.value = this.state.vCod_Dep || "";
+    if (this.el.vCod_Prov) this.el.vCod_Prov.value = this.state.vCod_Prov || "";
+    if (this.el.vCod_Dist) this.el.vCod_Dist.value = this.state.vCod_Dist || "";
+    if (this.el.vDireccion_linea) this.el.vDireccion_linea.value = this.state.vDireccion_linea || "";
+    if (this.el.vReferencia) this.el.vReferencia.value = this.state.vReferencia || "";
+    if (this.el.vDestinatario_nombre) this.el.vDestinatario_nombre.value = this.state.vDestinatario_nombre || "";
+    if (this.el.vDestinatario_dni) this.el.vDestinatario_dni.value = this.state.vDestinatario_dni || "";
+    if (this.el.vAgencia) this.el.vAgencia.value = this.state.vAgencia || "";
+    if (this.el.ubigeoInfo) this.el.ubigeoInfo.textContent = this.state.vUbigeoInfo || "";
+
+    this._renderEntregaFields();
   }
 
   _renderTables() {
@@ -582,13 +740,19 @@ export class FormWizard {
 
     const products = this.state.vProdFactura.filter((r) => String(r.idProducto).trim() || String(r.descripcion).trim());
     const total = products.reduce((acc, r) => acc + Number(r.monto || 0), 0);
-    const dirName =
-      this.lookups.direcciones.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_Direccion))?.name || "";
     const numName =
       this.lookups.numrecibe.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_Numrecibe))?.name || "";
-    const provName =
-      this.lookups.direccionesprov.find((d) => String(d.id) === String(this.state.vCodigo_Cliente_DireccionProv))?.name ||
-      "";
+    const punto = this._getSelectedPuntoEntrega();
+    const creating = this._isCreatingPuntoEntrega();
+    const region = String(
+      (creating ? this.state.vRegion_Entrega : punto?.region_entrega) || ""
+    ).toUpperCase();
+    const entregaLinea = creating ? this.state.vDireccion_linea : punto?.direccion_linea;
+    const entregaRef = creating ? this.state.vReferencia : punto?.referencia;
+    const entregaNombre = creating ? this.state.vDestinatario_nombre : punto?.destinatario_nombre;
+    const entregaDni = creating ? this.state.vDestinatario_dni : punto?.destinatario_dni;
+    const entregaAgencia = creating ? this.state.vAgencia : punto?.agencia;
+    const puntoLabel = creating ? this.t(this.locale, "newDeliveryPoint") : punto?.name || "";
     const itemsHtml = products
       .map(
         (r) => `
@@ -623,23 +787,55 @@ export class FormWizard {
             </div>
             <hr class="my-2" />
             <div class="d-flex justify-content-between">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelBasePacking"))}</span>
-              <span class="kpi mono">${escapeHtml(String(this.state.vCodigo_base || ""))} / ${escapeHtml(
-      String(this.state.vCodigo_packing || "")
-    )}</span>
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelBase"))}</span>
+              <span class="kpi mono">${escapeHtml(String(this.state.vCodigo_base || ""))}</span>
             </div>
             <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryAddress"))}</span>
-              <span class="kpi">${escapeHtml(dirName || "—")}</span>
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryPoint"))}</span>
+              <span class="kpi">${escapeHtml(puntoLabel || "—")}</span>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryRegion"))}</span>
+              <span class="kpi">${escapeHtml(region || "—")}</span>
             </div>
             <div class="d-flex justify-content-between mt-1">
               <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryReceiver"))}</span>
               <span class="kpi">${escapeHtml(numName || "—")}</span>
             </div>
-            <div class="d-flex justify-content-between mt-1">
-              <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryShipTo"))}</span>
-              <span class="kpi">${escapeHtml(provName || "—")}</span>
-            </div>
+            ${
+              region === "LIMA"
+                ? `
+                <div class="d-flex justify-content-between mt-1">
+                  <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelDeliveryLine"))}</span>
+                  <span class="kpi">${escapeHtml(entregaLinea || "—")}</span>
+                </div>
+                ${
+                  entregaRef
+                    ? `
+                    <div class="d-flex justify-content-between mt-1">
+                      <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelReference"))}</span>
+                      <span class="kpi">${escapeHtml(entregaRef)}</span>
+                    </div>
+                  `
+                    : ""
+                }
+              `
+                : ""
+            }
+            ${
+              region === "PROV"
+                ? `
+                <div class="d-flex justify-content-between mt-1">
+                  <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelRecipient"))}</span>
+                  <span class="kpi">${escapeHtml(`${entregaNombre || ""} ${entregaDni || ""}`.trim() || "—")}</span>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                  <span class="text-secondary">${escapeHtml(this.t(this.locale, "labelAgency"))}</span>
+                  <span class="kpi">${escapeHtml(entregaAgencia || "—")}</span>
+                </div>
+              `
+                : ""
+            }
           </div>
         </div>
         <div class="col-12 col-lg-7">
@@ -754,13 +950,53 @@ export class FormWizard {
       vCodigo_base: "",
       vCodigo_packing: "",
       vProdFactura: [],
-      vCodigo_Cliente_Direccion: "",
-      vCodigo_Cliente_DireccionProv: "",
       vCodigo_Cliente_Numrecibe: "",
+      vPuntoEntrega: "",
+      vCrearPuntoEntrega: false,
+      vCod_Dep: "",
+      vCod_Prov: "",
+      vCod_Dist: "",
+      vCodigo_puntoentrega: "",
+      vRegion_Entrega: "LIMA",
+      vDireccion_linea: "",
+      vReferencia: "",
+      vDestinatario_nombre: "",
+      vDestinatario_dni: "",
+      vAgencia: "",
+      vUbigeoInfo: "",
     };
     this.step = 1;
     this._renderAll();
     this._toastInfo(this.t(this.locale, "draftCleared"));
+  }
+
+  async buscarUbigeo() {
+    this._pullFromDom();
+    const codDep = String(this.state.vCod_Dep || "").trim();
+    const codProv = String(this.state.vCod_Prov || "").trim();
+    const codDist = String(this.state.vCod_Dist || "").trim();
+
+    const depOk = RE.ubigeoPart.test(codDep);
+    const provOk = RE.ubigeoPart.test(codProv);
+    const distOk = RE.ubigeoPart.test(codDist);
+    this._markInvalid(this.el.vCod_Dep, !depOk);
+    this._markInvalid(this.el.vCod_Prov, !provOk);
+    this._markInvalid(this.el.vCod_Dist, !distOk);
+    if (!depOk || !provOk || !distOk) {
+      this.state.vUbigeoInfo = this.t(this.locale, "ubigeoInvalid");
+      this._renderFormValues();
+      return;
+    }
+
+    if (this.el.ubigeoInfo) this.el.ubigeoInfo.textContent = this.t(this.locale, "loading");
+    const data = await this._safeJson(this.endpoints.ubigeo(codDep, codProv, codDist), null);
+    if (!data || !data.departamento) {
+      this.state.vUbigeoInfo = this.t(this.locale, "ubigeoNotFound");
+    } else {
+      this.state.vUbigeoInfo = `${data.departamento} / ${data.provincia} / ${data.distrito}`;
+    }
+    this._saveDebounced();
+    this._renderFormValues();
   }
 
   async showSqlLogs() {
@@ -837,6 +1073,7 @@ export class FormWizard {
         precio: Number(r.precio || 0),
         monto: Number(r.monto || 0),
       }));
+    const creating = this._isCreatingPuntoEntrega();
     return {
       pedido: {
         fecha: this.state.vFechaPedido,
@@ -851,9 +1088,19 @@ export class FormWizard {
         productos: products,
       },
       entrega: {
-        codigo_cliente_direccion: this.state.vCodigo_Cliente_Direccion,
-        codigo_cliente_direccionprov: this.state.vCodigo_Cliente_DireccionProv,
         codigo_cliente_numrecibe: this.state.vCodigo_Cliente_Numrecibe,
+        crear_punto_entrega: creating,
+        punto_entrega: creating ? "" : this.state.vPuntoEntrega,
+        cod_dep: this.state.vCod_Dep,
+        cod_prov: this.state.vCod_Prov,
+        cod_dist: this.state.vCod_Dist,
+        codigo_puntoentrega: creating ? "" : this.state.vCodigo_puntoentrega,
+        region_entrega: this.state.vRegion_Entrega,
+        direccion_linea: this.state.vDireccion_linea,
+        referencia: this.state.vReferencia,
+        destinatario_nombre: this.state.vDestinatario_nombre,
+        destinatario_dni: this.state.vDestinatario_dni,
+        agencia: this.state.vAgencia,
       },
       locale: this.locale,
     };

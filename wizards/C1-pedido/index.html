@@ -10,7 +10,7 @@
       integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="./assets/css/styles-pedido.css" />
+    <link rel="stylesheet" href="./styles-pedido.css" />
   </head>
   <body class="bg-body-tertiary">
     <main class="container py-4 py-md-5">
@@ -118,19 +118,14 @@
                   </p>
 
                   <div class="row g-3 mb-3">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-6">
                       <label class="form-label" for="vFecha_emision" data-i18n="issueDate">Fecha emisión</label>
                       <input id="vFecha_emision" name="vFecha_emision" type="date" class="form-control" required />
                       <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
                     </div>
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-6">
                       <label class="form-label" for="vCodigo_base" data-i18n="base">Base</label>
                       <select id="vCodigo_base" name="vCodigo_base" class="form-select" required></select>
-                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                      <label class="form-label" for="vCodigo_packing" data-i18n="packing">Packing</label>
-                      <select id="vCodigo_packing" name="vCodigo_packing" class="form-select" required></select>
                       <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
                     </div>
                   </div>
@@ -163,20 +158,8 @@
                   <div class="row g-3">
                     <div class="col-12">
                       <div class="alert alert-info py-2 mb-0" role="alert" data-i18n="deliveryHint">
-                        Selecciona dirección, receptor y lugar de envío desde la base de datos.
+                        Selecciona receptor y punto de entrega, o crea uno nuevo.
                       </div>
-                    </div>
-                    <div class="col-12 col-lg-4">
-                      <label class="form-label" for="vCodigo_Cliente_Direccion" data-i18n="deliveryAddress">
-                        Dirección
-                      </label>
-                      <select
-                        id="vCodigo_Cliente_Direccion"
-                        name="vCodigo_Cliente_Direccion"
-                        class="form-select"
-                        required
-                      ></select>
-                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
                     </div>
                     <div class="col-12 col-lg-4">
                       <label class="form-label" for="vCodigo_Cliente_Numrecibe" data-i18n="deliveryReceiver">
@@ -190,16 +173,78 @@
                       ></select>
                       <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
                     </div>
-                    <div class="col-12 col-lg-4">
-                      <label class="form-label" for="vCodigo_Cliente_DireccionProv" data-i18n="deliveryShipTo">
-                        Lugar envío
+                    <div class="col-12 col-lg-4" id="puntoEntregaSelectWrap">
+                      <label class="form-label" for="vPuntoEntrega" data-i18n="deliveryPoint">
+                        Punto entrega
                       </label>
-                      <select
-                        id="vCodigo_Cliente_DireccionProv"
-                        name="vCodigo_Cliente_DireccionProv"
-                        class="form-select"
-                        required
-                      ></select>
+                      <select id="vPuntoEntrega" name="vPuntoEntrega" class="form-select"></select>
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4 d-flex align-items-end">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="vCrearPuntoEntrega" />
+                        <label class="form-check-label" for="vCrearPuntoEntrega" data-i18n="addDeliveryPoint">
+                          Agregar nuevo punto
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row g-3 mt-1">
+                    <div class="col-12 col-lg-4">
+                      <label class="form-label" for="vRegion_Entrega" data-i18n="deliveryRegion">Region</label>
+                      <select id="vRegion_Entrega" name="vRegion_Entrega" class="form-select">
+                        <option value="">—</option>
+                        <option value="LIMA">LIMA</option>
+                        <option value="PROV">PROV</option>
+                      </select>
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                      <label class="form-label" for="vCod_Dep" data-i18n="ubigeoDep">Cod dep</label>
+                      <input id="vCod_Dep" name="vCod_Dep" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                      <label class="form-label" for="vCod_Prov" data-i18n="ubigeoProv">Cod prov</label>
+                      <input id="vCod_Prov" name="vCod_Prov" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                      <label class="form-label" for="vCod_Dist" data-i18n="ubigeoDist">Cod dist</label>
+                      <input id="vCod_Dist" name="vCod_Dist" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4 d-flex align-items-end">
+                      <button id="btnBuscarUbigeo" type="button" class="btn btn-outline-primary w-100" data-i18n="findUbigeo">
+                        Buscar ubigeo
+                      </button>
+                    </div>
+                    <div class="col-12">
+                      <div id="ubigeoInfo" class="small text-secondary"></div>
+                    </div>
+                    <div class="col-12 col-lg-6 entrega-lima">
+                      <label class="form-label" for="vDireccion_linea" data-i18n="deliveryLine">Direccion linea</label>
+                      <input id="vDireccion_linea" name="vDireccion_linea" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-6 entrega-lima">
+                      <label class="form-label" for="vReferencia" data-i18n="reference">Referencia</label>
+                      <input id="vReferencia" name="vReferencia" class="form-control" />
+                    </div>
+                    <div class="col-12 col-lg-4 entrega-prov">
+                      <label class="form-label" for="vDestinatario_nombre" data-i18n="recipientName">Destinatario</label>
+                      <input id="vDestinatario_nombre" name="vDestinatario_nombre" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4 entrega-prov">
+                      <label class="form-label" for="vDestinatario_dni" data-i18n="recipientDni">DNI</label>
+                      <input id="vDestinatario_dni" name="vDestinatario_dni" class="form-control" />
+                      <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
+                    </div>
+                    <div class="col-12 col-lg-4 entrega-prov">
+                      <label class="form-label" for="vAgencia" data-i18n="agency">Agencia</label>
+                      <input id="vAgencia" name="vAgencia" class="form-control" />
                       <div class="invalid-feedback" data-i18n="requiredField">Campo requerido.</div>
                     </div>
                   </div>
@@ -296,6 +341,6 @@
       integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
       crossorigin="anonymous"
     ></script>
-    <script type="module" src="./assets/js/appPedido.js"></script>
+    <script type="module" src="./appPedido.js"></script>
   </body>
 </html>

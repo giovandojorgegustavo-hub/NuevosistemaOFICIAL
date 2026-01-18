@@ -1,6 +1,6 @@
 **  
 
-CU-010: Compras y facturar la compra.
+CU-007: Crear Remito de Movimiento de Stock.
 
 # **Prompt AI.
 
@@ -42,39 +42,35 @@ Se requiere que la interfaz gráfica de usuario (GUI) se muestre en el idioma pr
 
 - Ver Logs de sentencias SQL
 
-- Facturar Compra.
+- Crear Remito de Movimiento de Stock.
 
 # **Pasos del formulario-multipaso.
 
-1. Crear Compra.
+1. Crear Remito de Movimiento de Stock.
 
 # **Descripción de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexión con la DB, los datos de conexión se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexión y se debe usar la DB especificada en la variable {name}.
 
-Paso 1  Crear Compra.
+Paso 1  Crear Remito de Movimiento de Stock.
 
 vFecha = Inicializar con la fecha del sistema.
 
-vCodigo_provedor = Seleccionar de la lista de Proveedores devuelta por el SP get_proveedores.
+vTipo_documento = "REM".
 
-vNum_documento_compra = num serial num de 12 autoincrement (no edit).
+vNum_documento = num serial num de 12 autoincrement (no edit).
 
-vTipo_documento_compra = "FC".
+vCodigo_base = Seleccionar de la lista de Bases devuelta por el SP get_bases.
 
-Presentar un Grid editable llamado “vDetalleCompra” que permita agregar, borrar y editar líneas. El Grid debe tener las siguientes columnas: codigo_producto, cantidad, saldo, precio_compra.
+Presentar un Grid editable llamado “vDetalleRemito” que permita agregar, borrar y editar líneas. El Grid debe tener las siguientes columnas: codigo_producto, cantidad.
 
 Para la columna codigo_producto ofrecer la lista de productos que devuelve el SP get_productos.
 
-El saldo se pone como valor inicial el valor de la cantidad.
+Crear Remito de Movimiento de Stock. Al terminar el formulario multipasos, cuando el usuario da click al boton “Crear Remito” el sistema deberá realizar las siguientes transacciones sobre la DB:
 
-Facturar Compra. Al terminar el formulario multipasos, cuando el usuario da click al boton “Facturar Compra” el sistema deberá realizar las siguientes transacciones sobre la DB:
+- Guardar en la tabla “movimiento_stock”. vTipo_documento, vNum_documento, vFecha, vCodigo_base.
 
-- Grabar Compra.
-
-- Guardar en la tabla “mov_contable_compras”. vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, vFecha.
-
-- Guardar en la tabla “detalle_mov_contable_compras” los datos del grid “vDetalleCompra”.
+- Guardar en la tabla “detalle_movimiento_stock” los datos del grid “vDetalleRemito”.
 
 No utilizar datos mock. 
 

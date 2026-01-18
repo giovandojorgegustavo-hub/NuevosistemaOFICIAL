@@ -2,6 +2,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -179,6 +180,90 @@ async function callSp(connOrPool, spName, params = []) {
   return Array.isArray(out) ? out[0] ?? [] : [];
 }
 
+function getClientIp(req) {
+  const header = req.headers["x-forwarded-for"];
+  if (header) return String(header).split(",")[0].trim();
+  return req.socket?.remoteAddress || "";
+}
+
+function parseLoginRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return { status: null, user: null };
+  const row = rows[0];
+  if (row && (row.codigo_usuario !== undefined || row.nombre !== undefined)) {
+    return {
+      status: 0,
+      user: {
+        codigo_usuario: String(row.codigo_usuario ?? ""),
+        nombre: String(row.nombre ?? ""),
+      },
+    };
+  }
+  for (const value of Object.values(row || {})) {
+    const num = Number(value);
+    if (Number.isFinite(num) && (num === 0 || num === 1 || num === 2)) {
+      return { status: num, user: null };
+    }
+  }
+  return { status: null, user: null };
+}
+
+async function findUsuarioByInput(pool, usuarioInput) {
+  const sql =
+    "SELECT codigo_usuario, nombre FROM usuarios WHERE codigo_usuario = ? OR nombre = ? OR CAST(numero AS CHAR) = ? LIMIT 1";
+  const params = [usuarioInput, usuarioInput, usuarioInput];
+  pushSqlLog("INFO", formatSqlWithParams(`${sql};`, params));
+  const [rows] = await pool.query(sql, params);
+  if (!rows?.[0]) return null;
+  return {
+    codigo_usuario: String(rows[0].codigo_usuario ?? ""),
+    nombre: String(rows[0].nombre ?? ""),
+  };
+}
+
+function buildModulesFromUsecases(rows) {
+  const modules = new Map();
+  const fallbackKey = "__GENERAL__";
+  for (const r of Array.isArray(rows) ? rows : []) {
+    const moduloId = r.codigo_modulo ? String(r.codigo_modulo) : fallbackKey;
+    const modulo = modules.get(moduloId) ?? {
+      codigo_modulo: moduloId === fallbackKey ? null : moduloId,
+      descripcion: String(r.descripcion || r.caption || "General"),
+      caption: String(r.caption || r.descripcion || "General"),
+      usecases: [],
+    };
+    if (!modules.has(moduloId)) modules.set(moduloId, modulo);
+    if (r.codigo_usecase) {
+      modulo.usecases.push({
+        codigo_usecase: String(r.codigo_usecase),
+        linktolaunch: String(r.linktolaunch || ""),
+      });
+    }
+  }
+  return Array.from(modules.values());
+}
+
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSIONS = new Map();
+
+function createSession(payload) {
+  const token = crypto.randomBytes(16).toString("hex");
+  SESSIONS.set(token, { ...payload, createdAt: Date.now() });
+  return token;
+}
+
+function getSessionFromReq(req) {
+  const auth = String(req.headers.authorization || "");
+  if (!auth.toLowerCase().startsWith("bearer ")) return null;
+  const token = auth.slice(7).trim();
+  const session = SESSIONS.get(token);
+  if (!session) return null;
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    SESSIONS.delete(token);
+    return null;
+  }
+  return { token, session };
+}
+
 function json(res, status, body) {
   const data = Buffer.from(JSON.stringify(body));
   res.writeHead(status, {
@@ -248,6 +333,50 @@ function renderInvoiceHtml(payload) {
   const ids = payload?.ids ?? {};
   const numeroDocumento = ids?.numeroDocumento ? String(ids.numeroDocumento) : "";
   const title = numeroDocumento ? `Factura ${numeroDocumento}` : "Factura";
+  const entrega = payload?.entrega ?? {};
+  const baseLabel = String(payload?.factura?.codigo_base ?? "");
+  const packingLabel = String(payload?.factura?.codigo_packing ?? "");
+  const basePacking = packingLabel ? `${baseLabel} / ${packingLabel}` : baseLabel;
+  const puntoEntregaLabel =
+    entrega?.cod_dep && entrega?.cod_prov && entrega?.cod_dist && entrega?.codigo_puntoentrega != null
+      ? `${entrega.cod_dep}-${entrega.cod_prov}-${entrega.cod_dist} / ${entrega.codigo_puntoentrega}`
+      : entrega?.punto_entrega
+        ? entrega.punto_entrega
+        : "";
+  const regionEntrega = String(entrega?.region_entrega || "").toUpperCase();
+  const entregaLines = [];
+  if (puntoEntregaLabel) entregaLines.push(`<div><strong>Punto entrega:</strong> ${safe(puntoEntregaLabel)}</div>`);
+  if (regionEntrega) entregaLines.push(`<div><strong>Region entrega:</strong> ${safe(regionEntrega)}</div>`);
+  if (regionEntrega === "LIMA") {
+    if (entrega?.direccion_linea)
+      entregaLines.push(`<div><strong>Direccion:</strong> ${safe(entrega.direccion_linea)}</div>`);
+    if (entrega?.referencia) entregaLines.push(`<div><strong>Referencia:</strong> ${safe(entrega.referencia)}</div>`);
+  } else if (regionEntrega === "PROV") {
+    if (entrega?.destinatario_nombre || entrega?.destinatario_dni) {
+      entregaLines.push(
+        `<div><strong>Destinatario:</strong> ${safe(entrega.destinatario_nombre || "")} ${safe(
+          entrega.destinatario_dni || ""
+        )}</div>`
+      );
+    }
+    if (entrega?.agencia) entregaLines.push(`<div><strong>Agencia:</strong> ${safe(entrega.agencia)}</div>`);
+  } else {
+    if (entrega?.direccion_linea)
+      entregaLines.push(`<div><strong>Direccion:</strong> ${safe(entrega.direccion_linea)}</div>`);
+    if (entrega?.referencia) entregaLines.push(`<div><strong>Referencia:</strong> ${safe(entrega.referencia)}</div>`);
+    if (entrega?.destinatario_nombre || entrega?.destinatario_dni) {
+      entregaLines.push(
+        `<div><strong>Destinatario:</strong> ${safe(entrega.destinatario_nombre || "")} ${safe(
+          entrega.destinatario_dni || ""
+        )}</div>`
+      );
+    }
+    if (entrega?.agencia) entregaLines.push(`<div><strong>Agencia:</strong> ${safe(entrega.agencia)}</div>`);
+  }
+  if (entrega?.codigo_cliente_numrecibe) {
+    entregaLines.push(`<div><strong>Num recibe:</strong> ${safe(entrega.codigo_cliente_numrecibe)}</div>`);
+  }
+  const entregaHtml = entregaLines.join("");
 
   return `<!doctype html>
 <html lang="${payload?.locale === "en" ? "en" : "es"}">
@@ -273,10 +402,8 @@ function renderInvoiceHtml(payload) {
     <div><strong>Cliente:</strong> ${safe(payload?.pedido?.clienteId)}</div>
     <div><strong>Fecha pedido:</strong> ${safe(payload?.pedido?.fecha)} ${safe(payload?.pedido?.hora)}</div>
     <div><strong>Fecha emisión:</strong> ${safe(payload?.factura?.fecha_emision)}</div>
-    <div><strong>Base/Packing:</strong> ${safe(payload?.factura?.codigo_base)} / ${safe(payload?.factura?.codigo_packing)}</div>
-    <div><strong>Dirección:</strong> ${safe(payload?.entrega?.codigo_cliente_direccion)}</div>
-    <div><strong>Receptor:</strong> ${safe(payload?.entrega?.codigo_cliente_numrecibe)}</div>
-    <div><strong>Lugar envío:</strong> ${safe(payload?.entrega?.codigo_cliente_direccionprov)}</div>
+    ${basePacking ? `<div><strong>Base${packingLabel ? "/Packing" : ""}:</strong> ${safe(basePacking)}</div>` : ""}
+    ${entregaHtml}
   </div>
   <table>
     <thead>
@@ -305,29 +432,27 @@ async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === "/") pathname = "/index.html";
-  if (pathname === "/Compras" || pathname === "/compras") pathname = "/compras.html";
-  if (pathname === "/Remito" || pathname === "/remito" || pathname === "/Remitos" || pathname === "/remitos") {
-    pathname = "/remito.html";
-  }
-  if (
-    pathname === "/Fabricacion" ||
-    pathname === "/fabricacion" ||
-    pathname === "/Fabricaciones" ||
-    pathname === "/fabricaciones"
-  ) {
-    pathname = "/fabricacion.html";
-  }
-  if (
-    pathname === "/Transferencias" ||
-    pathname === "/transferencias" ||
-    pathname === "/Transferencia" ||
-    pathname === "/transferencia"
-  ) {
-    pathname = "/transferencias.html";
-  }
-  if (pathname === "/Ajustes" || pathname === "/ajustes" || pathname === "/Ajuste" || pathname === "/ajuste") {
-    pathname = "/ajustes.html";
-  }
+  const wizardRoutes = new Map([
+    ["/compras", "/wizards/C6-compras/index.html"],
+    ["/remito", "/wizards/C7-remito/index.html"],
+    ["/remitos", "/wizards/C7-remito/index.html"],
+    ["/fabricacion", "/wizards/C11-fabricacion/index.html"],
+    ["/fabricaciones", "/wizards/C11-fabricacion/index.html"],
+    ["/transferencias", "/wizards/C8-transferencias/index.html"],
+    ["/transferencia", "/wizards/C8-transferencias/index.html"],
+    ["/ajustes", "/wizards/C9-ajustes/index.html"],
+    ["/ajuste", "/wizards/C9-ajustes/index.html"],
+    ["/pedido", "/wizards/C1-pedido/index.html"],
+    ["/gestion-pedidos", "/wizards/C4-gestion-pedidos/index.html"],
+    ["/gestionpedidos", "/wizards/C4-gestion-pedidos/index.html"],
+    ["/pagos", "/wizards/C3-pagos/index.html"],
+    ["/recibos-provedores", "/wizards/C12-recibos-provedores/index.html"],
+    ["/nota-credito", "/wizards/C5-nota-credito/index.html"],
+  ]);
+  const lower = pathname.toLowerCase();
+  const normalized = lower.endsWith(".html") ? lower.slice(0, -5) : lower;
+  const trimmed = normalized.endsWith("/") && normalized.length > 1 ? normalized.slice(0, -1) : normalized;
+  if (wizardRoutes.has(trimmed)) pathname = wizardRoutes.get(trimmed);
 
   const safePath = path.normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, "");
   const filePath = path.join(__dirname, safePath);
@@ -727,6 +852,35 @@ async function handlePagosSave(pool, payload) {
     await conn.execute(sql, values);
 
     return { numero_documento: numeroDocumento, tipo_documento: tipoDocumento };
+  });
+}
+
+async function handleRecibosProvedoresSave(pool, payload) {
+  return await withTx(pool, async (conn) => {
+    const recibo = payload?.recibo ?? {};
+    const vFecha = requiredDate(recibo?.vFecha, "vFecha");
+    const vCodigo_provedor = requiredNumber(recibo?.vCodigo_provedor, "vCodigo_provedor");
+    const tipoDocumento = String(recibo?.vTipo_documento_compra || "RC").trim().toUpperCase();
+    if (tipoDocumento !== "RC") {
+      const err = new Error("invalid_tipo_documento_compra");
+      err.code = "invalid_tipo_documento_compra";
+      throw err;
+    }
+
+    const selectSql =
+      "SELECT COALESCE(MAX(`num_documento_compra`), 0) + 1 AS nextNum FROM mov_contable_compras WHERE `tipo_documento_compra` = ? FOR UPDATE";
+    pushSqlLog("INFO", formatSqlWithParams(`${selectSql};`, [tipoDocumento]));
+    const [[{ nextNum }]] = await conn.query(selectSql, [tipoDocumento]);
+    const numDocumento = Number(nextNum || 0) || 1;
+
+    const fechaTs = `${vFecha} 00:00:00`;
+    const insertSql =
+      "INSERT INTO mov_contable_compras (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha) VALUES (?, ?, ?, ?)";
+    const params = [tipoDocumento, numDocumento, vCodigo_provedor, fechaTs];
+    pushSqlLog("INFO", formatSqlWithParams(`${insertSql};`, params));
+    await conn.execute(insertSql, params);
+
+    return { num_documento_compra: numDocumento, tipo_documento_compra: tipoDocumento };
   });
 }
 
@@ -1138,6 +1292,118 @@ function parseCompositeKey(value, field) {
   return { codigo, ordinal };
 }
 
+function normalizeUbigeoPart(value, field) {
+  const s = requiredString(value, field).trim();
+  if (!/^\d{2}$/.test(s)) {
+    const err = new Error(`invalid_${field}`);
+    err.code = `invalid_${field}`;
+    throw err;
+  }
+  return s;
+}
+
+function normalizeRegion(value, field) {
+  const s = requiredString(value, field).trim().toUpperCase();
+  if (s !== "LIMA" && s !== "PROV") {
+    const err = new Error(`invalid_${field}`);
+    err.code = `invalid_${field}`;
+    throw err;
+  }
+  return s;
+}
+
+function parsePuntoEntregaKey(value, field) {
+  const s = requiredString(value, field);
+  const parts = s.split("|").map((p) => p.trim());
+  if (parts.length !== 4) {
+    const err = new Error(`invalid_${field}`);
+    err.code = `invalid_${field}`;
+    throw err;
+  }
+  const codDep = normalizeUbigeoPart(parts[0], `${field}_cod_dep`);
+  const codProv = normalizeUbigeoPart(parts[1], `${field}_cod_prov`);
+  const codDist = normalizeUbigeoPart(parts[2], `${field}_cod_dist`);
+  const codigo = Number(parts[3]);
+  if (!Number.isFinite(codigo)) {
+    const err = new Error(`invalid_${field}`);
+    err.code = `invalid_${field}`;
+    throw err;
+  }
+  return { codDep, codProv, codDist, codigo };
+}
+
+function resolvePuntoEntregaFromPayload(entrega) {
+  const parts = [entrega?.cod_dep, entrega?.cod_prov, entrega?.cod_dist, entrega?.codigo_puntoentrega];
+  const hasFields = parts.every((v) => v !== null && v !== undefined && String(v).trim() !== "");
+  if (hasFields) {
+    const codDep = normalizeUbigeoPart(entrega.cod_dep, "cod_dep");
+    const codProv = normalizeUbigeoPart(entrega.cod_prov, "cod_prov");
+    const codDist = normalizeUbigeoPart(entrega.cod_dist, "cod_dist");
+    const codigo = Number(entrega.codigo_puntoentrega);
+    if (!Number.isFinite(codigo)) {
+      const err = new Error("invalid_codigo_puntoentrega");
+      err.code = "invalid_codigo_puntoentrega";
+      throw err;
+    }
+    return { codDep, codProv, codDist, codigo };
+  }
+  return parsePuntoEntregaKey(entrega?.punto_entrega, "punto_entrega");
+}
+
+async function resolvePuntoEntrega(conn, entrega, clienteId) {
+  const wantsNew = Boolean(entrega?.crear_punto_entrega || entrega?.nuevo_punto_entrega);
+  if (!wantsNew) return resolvePuntoEntregaFromPayload(entrega);
+
+  const codDep = normalizeUbigeoPart(entrega?.cod_dep, "cod_dep");
+  const codProv = normalizeUbigeoPart(entrega?.cod_prov, "cod_prov");
+  const codDist = normalizeUbigeoPart(entrega?.cod_dist, "cod_dist");
+  const region = normalizeRegion(entrega?.region_entrega, "region_entrega");
+
+  const direccionLinea = region === "LIMA" ? requiredString(entrega?.direccion_linea, "direccion_linea") : null;
+  const referencia = region === "LIMA" ? optionalString(entrega?.referencia) : null;
+  const destinatarioNombre =
+    region === "PROV" ? requiredString(entrega?.destinatario_nombre, "destinatario_nombre") : null;
+  const destinatarioDni = region === "PROV" ? requiredString(entrega?.destinatario_dni, "destinatario_dni") : null;
+  const agencia = region === "PROV" ? requiredString(entrega?.agencia, "agencia") : null;
+
+  const insertSql = `
+    INSERT INTO puntos_entrega (
+      codigo_cliente,
+      cod_dep,
+      cod_prov,
+      cod_dist,
+      region_entrega,
+      direccion_linea,
+      referencia,
+      destinatario_nombre,
+      destinatario_dni,
+      agencia,
+      estado
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'activo')
+  `;
+  const params = [
+    clienteId,
+    codDep,
+    codProv,
+    codDist,
+    region,
+    direccionLinea,
+    referencia,
+    destinatarioNombre,
+    destinatarioDni,
+    agencia,
+  ];
+  pushSqlLog("INFO", formatSqlWithParams(`${insertSql.trim()};`, params));
+  const [result] = await conn.execute(insertSql, params);
+  const codigo = Number(result?.insertId);
+  if (!Number.isFinite(codigo)) {
+    const err = new Error("invalid_codigo_puntoentrega");
+    err.code = "invalid_codigo_puntoentrega";
+    throw err;
+  }
+  return { codDep, codProv, codDist, codigo };
+}
+
 async function handleErpEmit(pool, payload) {
   return await withTx(pool, async (conn) => {
     const clienteId = requiredNumber(payload?.pedido?.clienteId, "clienteId");
@@ -1149,8 +1415,6 @@ async function handleErpEmit(pool, payload) {
     const packingId = requiredNumber(factura?.codigo_packing, "codigo_packing");
 
     const entrega = payload?.entrega ?? {};
-    const dir = parseCompositeKey(entrega?.codigo_cliente_direccion, "codigo_cliente_direccion");
-    const dirProv = parseCompositeKey(entrega?.codigo_cliente_direccionprov, "codigo_cliente_direccionprov");
     const numRec = parseCompositeKey(entrega?.codigo_cliente_numrecibe, "codigo_cliente_numrecibe");
 
     const pedidoProductos = Array.isArray(payload?.pedido?.productos) ? payload.pedido.productos : [];
@@ -1166,6 +1430,8 @@ async function handleErpEmit(pool, payload) {
       err.code = "factura_sin_productos";
       throw err;
     }
+
+    const puntoEntrega = await resolvePuntoEntrega(conn, entrega, clienteId);
 
     const [[{ nextPedido }]] = await conn.query(
       "SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS nextPedido FROM pedidos FOR UPDATE"
@@ -1255,7 +1521,7 @@ async function handleErpEmit(pool, payload) {
     pushSqlLog(
       "INFO",
       formatSqlWithParams(
-        "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe, cod_dep, cod_prov, cod_dist, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         [
           codigoPedido,
           fechaEmisionDt,
@@ -1267,17 +1533,17 @@ async function handleErpEmit(pool, payload) {
           numeroDocumento,
           baseId,
           packingId,
-          dir.codigo,
-          dir.ordinal,
-          dirProv.codigo,
-          dirProv.ordinal,
           numRec.codigo,
           numRec.ordinal,
+          puntoEntrega.codDep,
+          puntoEntrega.codProv,
+          puntoEntrega.codDist,
+          puntoEntrega.codigo,
         ]
       )
     );
     await conn.execute(
-      "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe, cod_dep, cod_prov, cod_dist, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         codigoPedido,
         fechaEmisionDt,
@@ -1289,12 +1555,12 @@ async function handleErpEmit(pool, payload) {
         numeroDocumento,
         baseId,
         packingId,
-        dir.codigo,
-        dir.ordinal,
-        dirProv.codigo,
-        dirProv.ordinal,
         numRec.codigo,
         numRec.ordinal,
+        puntoEntrega.codDep,
+        puntoEntrega.codProv,
+        puntoEntrega.codDist,
+        puntoEntrega.codigo,
       ]
     );
 
@@ -1343,34 +1609,26 @@ async function handleErpEmit(pool, payload) {
     pushSqlLog(
       "INFO",
       formatSqlWithParams(
-        "INSERT INTO movimientos (fk_mov_codigopedido, tipo_movimiento, numero_movimiento, codigo_cliente, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, 'SALIDA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "INSERT INTO movimientos (fk_mov_codigopedido, tipo_movimiento, numero_movimiento, codigo_cliente, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, 'SALIDA', ?, ?, ?, ?, ?, ?);",
         [
           codigoPedido,
           numeroMovimiento,
           clienteId,
           baseId,
           packingId,
-          dir.codigo,
-          dir.ordinal,
-          dirProv.codigo,
-          dirProv.ordinal,
           numRec.codigo,
           numRec.ordinal,
         ]
       )
     );
     await conn.execute(
-      "INSERT INTO movimientos (fk_mov_codigopedido, tipo_movimiento, numero_movimiento, codigo_cliente, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, 'SALIDA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO movimientos (fk_mov_codigopedido, tipo_movimiento, numero_movimiento, codigo_cliente, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, 'SALIDA', ?, ?, ?, ?, ?, ?)",
       [
         codigoPedido,
         numeroMovimiento,
         clienteId,
         baseId,
         packingId,
-        dir.codigo,
-        dir.ordinal,
-        dirProv.codigo,
-        dirProv.ordinal,
         numRec.codigo,
         numRec.ordinal,
       ]
@@ -1413,8 +1671,6 @@ async function handlePedidoFacturaEmit(pool, payload) {
     const tipoDocumento = "F";
 
     const entrega = payload?.entrega ?? {};
-    const dir = parseCompositeKey(entrega?.codigo_cliente_direccion, "codigo_cliente_direccion");
-    const dirProv = parseCompositeKey(entrega?.codigo_cliente_direccionprov, "codigo_cliente_direccionprov");
     const numRec = parseCompositeKey(entrega?.codigo_cliente_numrecibe, "codigo_cliente_numrecibe");
 
     const invoiceLines = Array.isArray(factura?.productos) ? factura.productos : [];
@@ -1435,6 +1691,7 @@ async function handlePedidoFacturaEmit(pool, payload) {
     }
     const clienteId = requiredNumber(pedidoRow.codigo_cliente, "codigo_cliente");
     const pedidoFechaParts = splitDateTime(pedidoRow.fecha);
+    const puntoEntrega = await resolvePuntoEntrega(conn, entrega, clienteId);
 
     const [[{ nextFactura }]] = await conn.query(
       "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS nextFactura FROM mov_contable WHERE tipo_documento = ? FOR UPDATE",
@@ -1448,7 +1705,7 @@ async function handlePedidoFacturaEmit(pool, payload) {
     pushSqlLog(
       "INFO",
       formatSqlWithParams(
-        "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+        "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe, cod_dep, cod_prov, cod_dist, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         [
           pedidoId,
           fechaEmisionDt,
@@ -1460,17 +1717,17 @@ async function handlePedidoFacturaEmit(pool, payload) {
           numeroDocumento,
           baseId,
           null,
-          dir.codigo,
-          dir.ordinal,
-          dirProv.codigo,
-          dirProv.ordinal,
           numRec.codigo,
           numRec.ordinal,
+          puntoEntrega.codDep,
+          puntoEntrega.codProv,
+          puntoEntrega.codDist,
+          puntoEntrega.codigo,
         ]
       )
     );
     await conn.execute(
-      "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_direccion, ordinal_direccion, codigo_cliente_direccionprov, ordinal_direccionprov, codigo_cliente_numrecibe, ordinal_numrecibe) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, tipo_documento, numero_documento, codigo_base, codigo_packing, codigo_cliente_numrecibe, ordinal_numrecibe, cod_dep, cod_prov, cod_dist, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         pedidoId,
         fechaEmisionDt,
@@ -1482,12 +1739,12 @@ async function handlePedidoFacturaEmit(pool, payload) {
         numeroDocumento,
         baseId,
         null,
-        dir.codigo,
-        dir.ordinal,
-        dirProv.codigo,
-        dirProv.ordinal,
         numRec.codigo,
         numRec.ordinal,
+        puntoEntrega.codDep,
+        puntoEntrega.codProv,
+        puntoEntrega.codDist,
+        puntoEntrega.codigo,
       ]
     );
 
@@ -1545,7 +1802,6 @@ async function handlePedidoFacturaEmit(pool, payload) {
       },
       factura: {
         ...(payload?.factura ?? {}),
-        codigo_packing: "",
       },
       ids: { codigoPedido: pedidoId, numeroDocumento },
     };
@@ -1556,6 +1812,101 @@ async function handlePedidoFacturaEmit(pool, payload) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  if (url.pathname === "/api/auth/login" && req.method === "POST") {
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const vUsuario = requiredString(payload.vUsuario ?? payload.usuario ?? payload.user, "usuario");
+      const vPassword = requiredString(payload.vPassword ?? payload.password, "password");
+      const pool = await getPool();
+      const ip = getClientIp(req);
+
+      const loginRows = await callSp(pool, "validar_credenciales_usuario", [vUsuario, vPassword]);
+      const parsed = parseLoginRows(loginRows);
+      let status = parsed.status;
+      let user = parsed.user;
+
+      if (status === null && user) status = 0;
+      if (status === null) {
+        const userRow = await findUsuarioByInput(pool, vUsuario);
+        if (userRow) {
+          status = 2;
+          user = userRow;
+        } else {
+          status = 1;
+        }
+      }
+
+      if (status !== 0) {
+        const message = status === 1 ? "usuario_invalido" : "password_invalida";
+        try {
+          await callSp(pool, "log_intento_fallido", [user?.codigo_usuario ?? null, vUsuario, ip, message]);
+        } catch {
+          // ignore logging failures
+        }
+        return json(res, 401, { ok: false, code: status, error: message });
+      }
+
+      if (!user || !user.codigo_usuario) {
+        user = await findUsuarioByInput(pool, vUsuario);
+      }
+      const usecases = await callSp(pool, "get_usecases_usuario", [vUsuario]);
+      const modules = buildModulesFromUsecases(usecases);
+      try {
+        await callSp(pool, "log_sesion", [user?.codigo_usuario ?? vUsuario, ip]);
+      } catch {
+        // ignore logging failures
+      }
+      const token = createSession({ user, modules, usecases, ip });
+      return json(res, 200, { ok: true, token, user, modules, usecases });
+    } catch (e) {
+      return serverError(res, "login_failed", e?.code || e?.message || String(e));
+    }
+  }
+
+  if (url.pathname === "/api/auth/session" && req.method === "GET") {
+    const info = getSessionFromReq(req);
+    if (!info) return json(res, 401, { ok: false, error: "unauthorized" });
+    return json(res, 200, { ok: true, user: info.session.user, modules: info.session.modules, usecases: info.session.usecases });
+  }
+
+  if (url.pathname === "/api/auth/logout" && req.method === "POST") {
+    const info = getSessionFromReq(req);
+    if (info) SESSIONS.delete(info.token);
+    return json(res, 200, { ok: true });
+  }
+
+  if (url.pathname === "/api/log/trace" && req.method === "POST") {
+    try {
+      const info = getSessionFromReq(req);
+      if (!info) return json(res, 401, { ok: false, error: "unauthorized" });
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const codigoUsecase = requiredString(payload.codigo_usecase ?? payload.usecase, "codigo_usecase");
+      const pool = await getPool();
+      await callSp(pool, "log_traza_sesion", [info.session.user?.codigo_usuario ?? "", codigoUsecase]);
+      return json(res, 200, { ok: true });
+    } catch (e) {
+      return serverError(res, "log_failed", e?.code || e?.message || String(e));
+    }
+  }
+
+  if (url.pathname === "/api/log/error" && req.method === "POST") {
+    try {
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const mensaje = requiredString(payload.message ?? payload.mensaje, "mensaje");
+      const detalle = optionalString(payload.detail ?? payload.detalle) || "";
+      const info = getSessionFromReq(req);
+      const codigoUsuario = info?.session?.user?.codigo_usuario ?? payload.codigo_usuario ?? null;
+      const pool = await getPool();
+      await callSp(pool, "log_error", [codigoUsuario, mensaje, detalle]);
+      return json(res, 200, { ok: true });
+    } catch (e) {
+      return serverError(res, "log_failed", e?.code || e?.message || String(e));
+    }
+  }
 
   if (url.pathname === "/api/db-status") {
     try {
@@ -1754,6 +2105,21 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, out);
     } catch (e) {
       if (e?.code?.startsWith("invalid_") || e?.code?.startsWith("missing_column_") || e?.code?.includes("pago_")) {
+        return json(res, 400, { error: e.code, detail: e.detail });
+      }
+      return serverError(res, "register_failed", e?.code || e?.message || String(e));
+    }
+  }
+
+  if (url.pathname === "/api/recibos-provedores/registrar" && req.method === "POST") {
+    try {
+      const pool = await getPool();
+      const raw = await readBody(req);
+      const payload = JSON.parse(raw || "{}");
+      const out = await handleRecibosProvedoresSave(pool, payload);
+      return json(res, 200, out);
+    } catch (e) {
+      if (e?.code?.startsWith("invalid_") || e?.code?.startsWith("missing_column_") || e?.code?.includes("recibo_")) {
         return json(res, 400, { error: e.code, detail: e.detail });
       }
       return serverError(res, "register_failed", e?.code || e?.message || String(e));
@@ -2058,6 +2424,72 @@ const server = http.createServer(async (req, res) => {
         }))
       );
     } catch (e) {
+      return serverError(res, "db_error", e?.code || e?.message);
+    }
+  }
+
+  if (url.pathname.endsWith("/puntos-entrega") && url.pathname.startsWith("/api/clients/")) {
+    try {
+      const clientId = parseIdFromPath(url.pathname, "/api/clients");
+      if (!clientId) return badRequest(res, "invalid_clientId");
+      const pool = await getPool();
+      const rows = await callSp(pool, "get_puntos_entrega", [clientId]);
+      return json(
+        res,
+        200,
+        rows.map((r) => {
+          const region = String(r.region_entrega || "").toUpperCase();
+          let label = region || "ENTREGA";
+          if (region === "LIMA") {
+            if (r.direccion_linea) label += ` · ${r.direccion_linea}`;
+            if (r.referencia) label += ` (${r.referencia})`;
+          } else if (region === "PROV") {
+            if (r.destinatario_nombre) label += ` · ${r.destinatario_nombre}`;
+            if (r.destinatario_dni) label += ` (${r.destinatario_dni})`;
+            if (r.agencia) label += ` · ${r.agencia}`;
+          }
+          return {
+            id: `${r.cod_dep}|${r.cod_prov}|${r.cod_dist}|${r.codigo_puntoentrega}`,
+            name: label,
+            cod_dep: String(r.cod_dep || ""),
+            cod_prov: String(r.cod_prov || ""),
+            cod_dist: String(r.cod_dist || ""),
+            codigo_puntoentrega: Number(r.codigo_puntoentrega),
+            codigo_cliente: Number(r.codigo_cliente),
+            region_entrega: String(r.region_entrega || ""),
+            direccion_linea: r.direccion_linea == null ? null : String(r.direccion_linea),
+            referencia: r.referencia == null ? null : String(r.referencia),
+            destinatario_nombre: r.destinatario_nombre == null ? null : String(r.destinatario_nombre),
+            destinatario_dni: r.destinatario_dni == null ? null : String(r.destinatario_dni),
+            agencia: r.agencia == null ? null : String(r.agencia),
+            estado: String(r.estado || ""),
+          };
+        })
+      );
+    } catch (e) {
+      return serverError(res, "db_error", e?.code || e?.message);
+    }
+  }
+
+  if (url.pathname === "/api/ubigeo") {
+    try {
+      const codDep = normalizeUbigeoPart(url.searchParams.get("cod_dep"), "cod_dep");
+      const codProv = normalizeUbigeoPart(url.searchParams.get("cod_prov"), "cod_prov");
+      const codDist = normalizeUbigeoPart(url.searchParams.get("cod_dist"), "cod_dist");
+      const pool = await getPool();
+      const rows = await callSp(pool, "get_ubigeo", [codDep, codProv, codDist]);
+      const row = rows?.[0];
+      if (!row) return json(res, 404, { error: "not_found" });
+      return json(res, 200, {
+        cod_dep: String(row.cod_dep),
+        cod_prov: String(row.cod_prov),
+        cod_dist: String(row.cod_dist),
+        departamento: String(row.departamento),
+        provincia: String(row.provincia),
+        distrito: String(row.distrito),
+      });
+    } catch (e) {
+      if (e?.code?.startsWith("invalid_")) return badRequest(res, e.code);
       return serverError(res, "db_error", e?.code || e?.message);
     }
   }

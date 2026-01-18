@@ -1,0 +1,26 @@
+en facturas necesito poner estados para diferenciar de facturas pendientes de mandar y facturas pendientes de empacar
+creo estados para esto?
+
+si es si como lo actualizo los estados con procedimientos? 
+
+si es no entonces como jalo las vistas para esto.
+
+META PROMTS 
+
+
+
+ proceso C12 Crear Empacado
+ detalle de C11
+vamos a hacer la creacion de una parte de empacado que es cuando despues de que se hace la factura donde voy a tener createdat fecha inicio que es la fecha apenas entro y fecha fin que es cuando le dio cerrar.
+
+ahi van a ir el tipodocumento codigodocumento de mov_contable
+
+se debe poder elegir con un num de documento en este caso solo facturas
+
+y poner un boton que diga registrar empacado 
+
+serian creo que 1 paso nada mas no? poder escribir el num de documento y un boton de empacar 
+tmb seria mejor un get_facturas_por_empacar que serian las facturas que existan no?
+
+
+tenemos un archivo donde estan el contexto de los casos de uso revisalo. no le agreges cosas respeta esa estructura solo ponle los campos que necesita para que funcione el sistema. dame el promt donde corresponde como titulo el nombre de este proceso numero que arriba te mencione de la forma en que estan guardadoas nuestras carpetas. 
