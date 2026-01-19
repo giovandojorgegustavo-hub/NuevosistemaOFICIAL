@@ -1,0 +1,30 @@
+[2026-01-19T18:00:23.106Z] Servidor iniciado en http://localhost:3002
+[2026-01-19T18:00:26.029Z] Endpoint: GET /api/bases
+[2026-01-19T18:00:26.030Z] SQL: CALL get_bases() | params: []
+[2026-01-19T18:00:26.036Z] Endpoint: GET /api/paquetes
+[2026-01-19T18:00:26.036Z] SQL: CALL get_paquetes_por_estado(?) | params: ["empacado"]
+[2026-01-19T18:00:26.478Z] Endpoint: GET /api/viajes/next
+[2026-01-19T18:00:26.478Z] SQL: SELECT IFNULL(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params: []
+[2026-01-19T18:02:17.996Z] Endpoint: POST /api/viajes
+[2026-01-19T18:02:17.997Z] SQL: START TRANSACTION | params: []
+[2026-01-19T18:02:17.999Z] SQL: SELECT IFNULL(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params: []
+[2026-01-19T18:02:17.999Z] SQL: INSERT INTO viajes
+        (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()) | params: [1,"2","asdgasdgasd","2351232","5215213","5123523","www.asdgasd.com","adasdgasd"]
+[2026-01-19T18:02:18.001Z] SQL: INSERT INTO detalleviaje
+          (codigoviaje, tipo_documento, numero_documento, fecha_inicio, fecha_fin)
+         VALUES (?, 'F', ?, NOW(), NOW()) | params: [1,"1"]
+[2026-01-19T18:02:18.003Z] SQL: SELECT ordinal
+         FROM mov_contable_detalle
+         WHERE tipo_documento = 'F'
+           AND numero_documento = ?
+         ORDER BY ordinal | params: ["1"]
+[2026-01-19T18:02:18.004Z] SQL: INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, fecha_registro)
+           VALUES (?, ?, 'en camino', NOW())
+           ON DUPLICATE KEY UPDATE estado = VALUES(estado) | params: ["1",1]
+[2026-01-19T18:02:18.005Z] SQL: CALL cambiar_estado_paquete(?, ?) | params: ["1","en camino"]
+[2026-01-19T18:02:18.006Z] SQL: COMMIT | params: []
+[2026-01-19T18:02:18.159Z] Endpoint: GET /api/paquetes
+[2026-01-19T18:02:18.159Z] SQL: CALL get_paquetes_por_estado(?) | params: ["empacado"]
+[2026-01-19T18:02:18.607Z] Endpoint: GET /api/viajes/next
+[2026-01-19T18:02:18.607Z] SQL: SELECT IFNULL(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params: []

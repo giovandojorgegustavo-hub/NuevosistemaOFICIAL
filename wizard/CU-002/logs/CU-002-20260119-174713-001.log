@@ -1,0 +1,54 @@
+[2026-01-19T17:47:13.338Z] Servidor iniciado en http://localhost:3001
+[2026-01-19T17:47:16.152Z] Endpoint: GET /api/paquetes
+[2026-01-19T17:47:16.153Z] SQL: CALL get_paquetes_por_estado(?) | params: ["pendiente empacar"]
+[2026-01-19T17:47:17.196Z] Endpoint: GET /api/paquetes/detalle
+[2026-01-19T17:47:17.197Z] SQL: SELECT p.nombre AS nombre_producto, mcd.cantidad
+         FROM mov_contable_detalle mcd
+         JOIN productos p ON p.codigo_producto = mcd.codigo_producto
+         WHERE mcd.tipo_documento = 'F'
+           AND mcd.numero_documento = ?
+         ORDER BY mcd.ordinal | params: ["1"]
+[2026-01-19T17:47:17.198Z] Endpoint: GET /api/paquetes/info
+[2026-01-19T17:47:17.199Z] SQL: SELECT mc.codigo_cliente,
+                mc.codigo_cliente_numrecibe,
+                mc.ordinal_numrecibe,
+                mc.ubigeo,
+                mc.codigo_puntoentrega,
+                pe.region_entrega,
+                pe.direccion_linea,
+                pe.referencia,
+                pe.destinatario_nombre,
+                pe.destinatario_dni,
+                pe.agencia
+         FROM mov_contable mc
+         LEFT JOIN puntos_entrega pe
+           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+          AND pe.ubigeo = mc.ubigeo
+         WHERE mc.tipo_documento = 'F'
+           AND mc.numero_documento = ?
+         LIMIT 1 | params: ["1"]
+[2026-01-19T17:47:17.205Z] SQL: SELECT departamento, provincia, distrito
+           FROM ubigeo
+           WHERE cod_dep = ? AND cod_prov = ? AND cod_dist = ?
+           LIMIT 1 | params: ["15","01","31"]
+[2026-01-19T17:47:17.207Z] SQL: SELECT numero, nombre
+           FROM numrecibe
+           WHERE codigo_cliente_numrecibe = ?
+             AND ordinal_numrecibe = ?
+           LIMIT 1 | params: [1,1]
+[2026-01-19T17:47:27.305Z] Endpoint: POST /api/empacar
+[2026-01-19T17:47:27.307Z] SQL: START TRANSACTION | params: []
+[2026-01-19T17:47:27.308Z] SQL: SELECT ordinal
+       FROM mov_contable_detalle
+       WHERE tipo_documento = 'F'
+         AND numero_documento = ?
+       ORDER BY ordinal | params: ["1"]
+[2026-01-19T17:47:27.309Z] SQL: INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, fecha_registro)
+         VALUES (?, ?, 'empacado', NOW())
+         ON DUPLICATE KEY UPDATE estado = VALUES(estado) | params: ["1",1]
+[2026-01-19T17:47:27.310Z] SQL: CALL cambiar_estado_paquete(?, ?) | params: ["1","empacado"]
+[2026-01-19T17:47:27.311Z] SQL: COMMIT | params: []
+[2026-01-19T17:47:27.468Z] Endpoint: GET /api/paquetes
+[2026-01-19T17:47:27.469Z] SQL: CALL get_paquetes_por_estado(?) | params: ["pendiente empacar"]
+[2026-01-19T17:47:31.789Z] Endpoint: GET /api/paquetes
+[2026-01-19T17:47:31.789Z] SQL: CALL get_paquetes_por_estado(?) | params: ["pendiente empacar"]

@@ -332,6 +332,7 @@ async function handleLogin(event) {
       vUsuario: document.getElementById("vUsuario").value.trim(),
       vPassword: document.getElementById("vPassword").value,
     };
+    console.log("[login] intento de login", { usuario: payload.vUsuario || "(vacio)" });
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },

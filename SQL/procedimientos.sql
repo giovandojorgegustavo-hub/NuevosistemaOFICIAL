@@ -321,6 +321,49 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `actualizarsaldosclientes`;
+DELIMITER //
+CREATE PROCEDURE `actualizarsaldosclientes`(
+  IN p_codigo_cliente numeric(12,0),
+  IN p_tipo_documento varchar(3),
+  IN p_monto numeric(12,2)
+)
+BEGIN
+  DECLARE v_delta numeric(12,2);
+
+  SET v_delta = CASE
+    WHEN p_tipo_documento IN ('F','FAC') THEN p_monto
+    WHEN p_tipo_documento IN ('RC','REC') THEN -p_monto
+    ELSE p_monto
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM saldos_clientes
+    WHERE codigo_cliente = p_codigo_cliente
+  ) THEN
+    UPDATE saldos_clientes
+      SET saldo_final = saldo_final + v_delta,
+          fecha_actualizado = CURRENT_TIMESTAMP
+    WHERE codigo_cliente = p_codigo_cliente;
+  ELSE
+    INSERT INTO saldos_clientes (
+      codigo_cliente,
+      fecha_inicio,
+      saldo_inicial,
+      fecha_actualizado,
+      saldo_final
+    ) VALUES (
+      p_codigo_cliente,
+      CURRENT_TIMESTAMP,
+      v_delta,
+      CURRENT_TIMESTAMP,
+      v_delta
+    );
+  END IF;
+END//
+DELIMITER ;
+
 
 
 DROP PROCEDURE IF EXISTS `get_proveedores`;
@@ -389,6 +432,46 @@ CREATE PROCEDURE log_error(IN p_usuario varchar(36), IN p_mensaje varchar(512), 
 BEGIN
   INSERT INTO errores_app (codigo_usuario, mensaje, detalle)
   VALUES (p_usuario, p_mensaje, p_detalle);
+END//
+
+
+DROP PROCEDURE IF EXISTS get_paquetes_por_estado;
+DROP PROCEDURE IF EXISTS cambiar_estado_paquete;
+
+DELIMITER //
+CREATE PROCEDURE get_paquetes_por_estado(IN p_estado varchar(30))
+BEGIN
+  SELECT
+    p.codigo_paquete,
+    p.estado,
+    p.fecha_registro,
+    mc.codigo_cliente,
+    c.nombre AS nombre_cliente,
+    mc.ubigeo,
+    pe.region_entrega,
+    mc.codigo_puntoentrega
+  FROM paquete p
+  LEFT JOIN mov_contable mc
+    ON mc.numero_documento = p.codigo_paquete
+    AND mc.tipo_documento = 'F'
+  LEFT JOIN clientes c
+    ON c.codigo_cliente = mc.codigo_cliente
+  LEFT JOIN puntos_entrega pe
+    ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+    AND pe.ubigeo = mc.ubigeo
+  WHERE p.estado = p_estado
+  ORDER BY p.fecha_registro DESC, p.codigo_paquete DESC;
+END//
+DELIMITER ;
+
+
+DELIMITER //
+CREATE PROCEDURE cambiar_estado_paquete(IN p_codigo_paquete numeric(12,0), IN p_estado varchar(30))
+BEGIN
+  UPDATE paquete
+  SET estado = p_estado,
+      fecha_actualizado = NOW()
+  WHERE codigo_paquete = p_codigo_paquete;
 END//
 
 DELIMITER ;

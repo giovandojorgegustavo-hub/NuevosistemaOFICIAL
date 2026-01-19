@@ -21,6 +21,18 @@ CREATE TABLE `clientes` (
   PRIMARY KEY (`codigo_cliente`)
 ) ENGINE=InnoDB;
 
+DROP TABLE IF EXISTS `saldos_clientes`;
+
+CREATE TABLE `saldos_clientes` (
+  `codigo_cliente` numeric(12,0) NOT NULL,
+  `fecha_inicio` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `saldo_inicial` numeric(12,2) NOT NULL DEFAULT 0,
+  `fecha_actualizado` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `saldo_final` numeric(12,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`codigo_cliente`),
+  FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`)
+) ENGINE=InnoDB;
+
 DROP TABLE IF EXISTS `puntos_entrega`;
 DROP TABLE IF EXISTS `ubigeo`;
 
@@ -137,7 +149,7 @@ CREATE TABLE `mov_contable` (
   `fecha_vencimiento` datetime DEFAULT CURRENT_TIMESTAMP,
   `fecha_valor` datetime DEFAULT CURRENT_TIMESTAMP,
   `codigo_cliente` numeric(12,0) NOT NULL,
-  `monto` numeric(12,2) DEFAULT NULL,
+  `saldo` numeric(12,2) DEFAULT NULL,
   `tipo_documento` varchar(3) NOT NULL,
   `numero_documento` numeric(12,0) NOT NULL,
   `estado` enum('activo','anulado') NOT NULL DEFAULT 'activo',
@@ -146,7 +158,7 @@ CREATE TABLE `mov_contable` (
   `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
   `codigo_cliente_numrecibe` numeric(12,0) DEFAULT NULL,
   `ordinal_numrecibe` numeric(12,0) DEFAULT NULL,
-  `ubigeo` char(2) DEFAULT NULL,
+  `ubigeo` char(6) DEFAULT NULL,
   `codigo_puntoentrega` numeric(12,0) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento`, `numero_documento`),
@@ -193,12 +205,33 @@ CREATE TABLE `mov_contable_detalle` (
   `ordinal` numeric(12,0) NOT NULL,
   `codigo_producto` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
+  `saldo` numeric(12,3) NOT NULL,
   `precio_total` numeric(12,2) ,
   `monto_linea` numeric(12,2) ,
   PRIMARY KEY (`tipo_documento`, `numero_documento`, `ordinal`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
   FOREIGN KEY (`tipo_documento`,`numero_documento`) REFERENCES `mov_contable` (`tipo_documento`,`numero_documento`)
 
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `paquete`;
+
+CREATE TABLE `paquete` (
+  `codigo_paquete` numeric(12,0) NOT NULL,
+  `estado` varchar(30) NOT NULL,
+  `fecha_registro` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_actualizado` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigo_paquete`)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `paquetedetalle`;
+CREATE TABLE `paquetedetalle` (
+  `codigo_paquete` numeric(12,0) NOT NULL,
+  `ordinal` numeric(12,0) NOT NULL,
+  `estado` varchar(30) NOT NULL,
+  `fecha_registro` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigo_paquete`, `ordinal`),
+  FOREIGN KEY (`codigo_paquete`) REFERENCES `paquete` (`codigo_paquete`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `movimiento_detalle`;

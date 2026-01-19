@@ -1,0 +1,110 @@
+[2026-01-19T18:26:55.443Z] Servidor iniciado en http://localhost:3003
+[2026-01-19T18:26:59.837Z] Endpoint: GET /api/paquetes
+[2026-01-19T18:26:59.837Z] SQL: CALL get_paquetes_por_estado(?) | params: ["en camino"]
+[2026-01-19T18:27:06.394Z] Endpoint: GET /api/paquetes/info
+[2026-01-19T18:27:06.395Z] SQL: SELECT mc.codigo_cliente,
+                c.nombre AS nombre_cliente,
+                mc.codigo_cliente_numrecibe,
+                mc.ordinal_numrecibe,
+                mc.ubigeo,
+                mc.codigo_puntoentrega,
+                pe.region_entrega,
+                pe.direccion_linea,
+                pe.referencia,
+                pe.destinatario_nombre,
+                pe.destinatario_dni,
+                pe.agencia
+         FROM mov_contable mc
+         LEFT JOIN clientes c ON c.codigo_cliente = mc.codigo_cliente
+         LEFT JOIN puntos_entrega pe
+           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+          AND pe.ubigeo = mc.ubigeo
+         WHERE mc.tipo_documento = 'F'
+           AND mc.numero_documento = ?
+         LIMIT 1 | params: ["1"]
+[2026-01-19T18:27:06.397Z] SQL: SELECT departamento, provincia, distrito
+           FROM ubigeo
+           WHERE cod_dep = ? AND cod_prov = ? AND cod_dist = ?
+           LIMIT 1 | params: ["15","01","31"]
+[2026-01-19T18:27:06.400Z] SQL: SELECT numero, nombre
+           FROM numrecibe
+           WHERE codigo_cliente_numrecibe = ?
+             AND ordinal_numrecibe = ?
+           LIMIT 1 | params: [1,1]
+[2026-01-19T18:27:06.437Z] Endpoint: GET /api/paquetes/viaje
+[2026-01-19T18:27:06.437Z] SQL: SELECT v.codigoviaje,
+                v.codigo_base,
+                v.nombre_motorizado,
+                v.numero_wsp,
+                v.num_llamadas,
+                v.num_yape,
+                v.link,
+                v.observacion,
+                v.fecha
+         FROM detalleviaje dv
+         JOIN viajes v ON v.codigoviaje = dv.codigoviaje
+         WHERE dv.tipo_documento = 'F'
+           AND dv.numero_documento = ?
+         ORDER BY v.fecha DESC
+         LIMIT 1 | params: ["1"]
+[2026-01-19T18:27:06.478Z] Endpoint: GET /api/paquetes/detalle
+[2026-01-19T18:27:06.479Z] SQL: SELECT p.nombre AS nombre_producto, mcd.cantidad
+         FROM mov_contable_detalle mcd
+         JOIN productos p ON p.codigo_producto = mcd.codigo_producto
+         WHERE mcd.tipo_documento = 'F'
+           AND mcd.numero_documento = ?
+         ORDER BY mcd.ordinal | params: ["1"]
+[2026-01-19T18:29:33.348Z] Endpoint: GET /api/paquetes/detalle
+[2026-01-19T18:29:33.348Z] SQL: SELECT p.nombre AS nombre_producto, mcd.cantidad
+         FROM mov_contable_detalle mcd
+         JOIN productos p ON p.codigo_producto = mcd.codigo_producto
+         WHERE mcd.tipo_documento = 'F'
+           AND mcd.numero_documento = ?
+         ORDER BY mcd.ordinal | params: ["1"]
+[2026-01-19T18:29:33.349Z] Endpoint: GET /api/paquetes/viaje
+[2026-01-19T18:29:33.349Z] SQL: SELECT v.codigoviaje,
+                v.codigo_base,
+                v.nombre_motorizado,
+                v.numero_wsp,
+                v.num_llamadas,
+                v.num_yape,
+                v.link,
+                v.observacion,
+                v.fecha
+         FROM detalleviaje dv
+         JOIN viajes v ON v.codigoviaje = dv.codigoviaje
+         WHERE dv.tipo_documento = 'F'
+           AND dv.numero_documento = ?
+         ORDER BY v.fecha DESC
+         LIMIT 1 | params: ["1"]
+[2026-01-19T18:29:33.391Z] Endpoint: GET /api/paquetes/info
+[2026-01-19T18:29:33.391Z] SQL: SELECT mc.codigo_cliente,
+                c.nombre AS nombre_cliente,
+                mc.codigo_cliente_numrecibe,
+                mc.ordinal_numrecibe,
+                mc.ubigeo,
+                mc.codigo_puntoentrega,
+                pe.region_entrega,
+                pe.direccion_linea,
+                pe.referencia,
+                pe.destinatario_nombre,
+                pe.destinatario_dni,
+                pe.agencia
+         FROM mov_contable mc
+         LEFT JOIN clientes c ON c.codigo_cliente = mc.codigo_cliente
+         LEFT JOIN puntos_entrega pe
+           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+          AND pe.ubigeo = mc.ubigeo
+         WHERE mc.tipo_documento = 'F'
+           AND mc.numero_documento = ?
+         LIMIT 1 | params: ["1"]
+[2026-01-19T18:29:33.393Z] SQL: SELECT departamento, provincia, distrito
+           FROM ubigeo
+           WHERE cod_dep = ? AND cod_prov = ? AND cod_dist = ?
+           LIMIT 1 | params: ["15","01","31"]
+[2026-01-19T18:29:33.398Z] SQL: SELECT numero, nombre
+           FROM numrecibe
+           WHERE codigo_cliente_numrecibe = ?
+             AND ordinal_numrecibe = ?
+           LIMIT 1 | params: [1,1]
+[2026-01-19T18:29:47.363Z] Endpoint: GET /api/logs/latest
