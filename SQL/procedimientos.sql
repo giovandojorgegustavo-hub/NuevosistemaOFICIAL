@@ -1,5 +1,182 @@
 USE erpdb;
 
+-- =====================================================================================
+-- MODULO 0: LOG
+-- =====================================================================================
+
+DROP PROCEDURE IF EXISTS log_sesion;
+DROP PROCEDURE IF EXISTS log_intento_fallido;
+DROP PROCEDURE IF EXISTS log_traza_sesion;
+DROP PROCEDURE IF EXISTS log_error;
+
+DELIMITER //
+
+CREATE PROCEDURE log_sesion(IN p_usuario varchar(36), IN p_ip varchar(128))
+BEGIN
+  INSERT INTO sesiones (codigo_usuario, ip) VALUES (p_usuario, p_ip);
+END//
+
+CREATE PROCEDURE log_intento_fallido(IN p_usuario varchar(36), IN p_usuario_input varchar(128), IN p_ip varchar(128), IN p_mensaje varchar(256))
+BEGIN
+  INSERT INTO login_fallido (codigo_usuario, usuario_input, ip, mensaje)
+  VALUES (p_usuario, p_usuario_input, p_ip, p_mensaje);
+END//
+
+CREATE PROCEDURE log_traza_sesion(IN p_usuario varchar(36), IN p_usecase varchar(36))
+BEGIN
+  INSERT INTO trazas_sesion (codigo_usuario, codigo_usecase)
+  VALUES (p_usuario, p_usecase);
+END//
+
+CREATE PROCEDURE log_error(IN p_usuario varchar(36), IN p_mensaje varchar(512), IN p_detalle text)
+BEGIN
+  INSERT INTO errores_app (codigo_usuario, mensaje, detalle)
+  VALUES (p_usuario, p_mensaje, p_detalle);
+END//
+
+DELIMITER ;
+
+-- VIAJES: buscar viaje activo por numero de documento
+
+DROP PROCEDURE IF EXISTS get_viaje_por_documento;
+DELIMITER //
+CREATE PROCEDURE get_viaje_por_documento(IN p_numero_documento numeric(12,0))
+BEGIN
+  SELECT
+    v.codigoviaje,
+    b.nombre AS nombrebase,
+    v.nombre_motorizado,
+    v.numero_wsp,
+    v.num_llamadas,
+    v.num_yape,
+    v.link,
+    v.observacion,
+    v.fecha
+  FROM detalleviaje dv
+  JOIN viajes v
+    ON v.codigoviaje = dv.codigoviaje
+  JOIN bases b
+    ON b.codigo_base = v.codigo_base
+  WHERE dv.fecha_fin IS NULL
+    AND dv.numero_documento = p_numero_documento
+  LIMIT 1;
+END//
+DELIMITER ;
+
+-- CONSULTA: detalle de mov_contable por tipo y numero de documento
+
+DROP PROCEDURE IF EXISTS `get_mov_contable_detalle`;
+DELIMITER //
+CREATE PROCEDURE `get_mov_contable_detalle`(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+BEGIN
+  SELECT
+    mcd.tipo_documento,
+    mcd.numero_documento,
+    mcd.ordinal,
+    mcd.codigo_producto,
+    p.nombre AS nombre_producto,
+    mcd.cantidad,
+    mcd.saldo,
+    mcd.precio_total
+  FROM mov_contable_detalle mcd
+  JOIN productos p
+    ON p.codigo_producto = mcd.codigo_producto
+  WHERE mcd.tipo_documento = p_tipo_documento
+    AND mcd.numero_documento = p_numero_documento
+  ORDER BY mcd.ordinal;
+END//
+DELIMITER ;
+DROP PROCEDURE IF EXISTS get_next_value;
+DELIMITER //
+CREATE PROCEDURE get_next_value(
+  IN p_table varchar(64),
+  IN p_column varchar(64),
+  OUT p_next varchar(255)
+)
+proc: BEGIN
+  DECLARE v_max bigint;
+  DECLARE v_sql text;
+  DECLARE v_exists int DEFAULT 0;
+
+  IF p_table IS NULL OR p_column IS NULL
+     OR p_table NOT REGEXP '^[0-9A-Za-z_]+$'
+     OR p_column NOT REGEXP '^[0-9A-Za-z_]+$' THEN
+    SET p_next = '1';
+    LEAVE proc;
+  END IF;
+
+  SELECT COUNT(*)
+  INTO v_exists
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = p_table
+    AND COLUMN_NAME = p_column;
+
+  IF v_exists = 0 THEN
+    SET p_next = '1';
+    LEAVE proc;
+  END IF;
+
+  SET @v_max := NULL;
+  SET @v_sql = CONCAT(
+    'SELECT MAX(CAST(`', p_column, '` AS UNSIGNED)) INTO @v_max FROM `', p_table, '`'
+  );
+  PREPARE stmt FROM @v_sql;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+  SET v_max = @v_max;
+
+  IF v_max IS NULL THEN
+    SET p_next = '1';
+  ELSE
+    SET p_next = CAST(v_max + 1 AS CHAR);
+  END IF;
+END//
+DELIMITER ;
+
+-- =====================================================================================
+-- MODULO 1: CONSULTAS (LECTURA)
+-- =====================================================================================
+
+DROP PROCEDURE IF EXISTS validar_credenciales_usuario;
+DELIMITER //
+CREATE PROCEDURE validar_credenciales_usuario(IN p_usuario varchar(128), IN p_password varchar(255))
+BEGIN
+  SELECT u.codigo_usuario, u.nombre
+  FROM usuarios u
+  WHERE (u.codigo_usuario COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci
+    OR u.nombre COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci
+    OR CAST(u.numero AS CHAR) COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci)
+    AND u.password COLLATE utf8mb4_unicode_ci = p_password COLLATE utf8mb4_unicode_ci
+  LIMIT 1;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS get_usecases_usuario;
+DELIMITER //
+CREATE PROCEDURE get_usecases_usuario(IN p_usuario varchar(128))
+BEGIN
+  SELECT DISTINCT
+    m.codigo_modulo,
+    m.descripcion,
+    m.caption,
+    u.codigo_usecase,
+    u.linktolaunch
+  FROM usuarios usr
+  JOIN usuarios_perfiles up ON up.codigo_usuario = usr.codigo_usuario
+  JOIN perfiles_ucases pu ON pu.codigo_perfil = up.codigo_perfil
+  JOIN usecases u ON u.codigo_usecase = pu.codigo_usecase
+  LEFT JOIN modulo_usecases mu ON mu.codigo_usecase = u.codigo_usecase
+  LEFT JOIN modulos m ON m.codigo_modulo = mu.codigo_modulo
+  WHERE usr.codigo_usuario COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci
+    OR usr.nombre COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci
+    OR CAST(usr.numero AS CHAR) COLLATE utf8mb4_unicode_ci = p_usuario COLLATE utf8mb4_unicode_ci;
+END//
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS `get_clientes`;
 DELIMITER //
 CREATE PROCEDURE `get_clientes`()
@@ -9,7 +186,21 @@ BEGIN
 END//
 DELIMITER ;
 
-
+DROP PROCEDURE IF EXISTS get_clientes_saldo_pendiente;
+DELIMITER //
+CREATE PROCEDURE get_clientes_saldo_pendiente()
+BEGIN
+  SELECT
+    c.codigo_cliente,
+    c.nombre,
+    sc.saldo_final
+  FROM saldos_clientes sc
+  INNER JOIN clientes c
+    ON c.codigo_cliente = sc.codigo_cliente
+  WHERE sc.saldo_final > 0
+  ORDER BY sc.saldo_final DESC, c.nombre;
+END//
+DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `get_productos`;
 DELIMITER //
@@ -19,7 +210,6 @@ BEGIN
   FROM `productos`;
 END//
 DELIMITER ;
-
 
 DROP PROCEDURE IF EXISTS `get_bases`;
 DELIMITER //
@@ -39,53 +229,75 @@ BEGIN
 END//
 DELIMITER ;
 
-
 DROP PROCEDURE IF EXISTS `get_puntos_entrega`;
 DELIMITER //
 CREATE PROCEDURE `get_puntos_entrega`(IN p_codigo_cliente numeric(12,0))
 BEGIN
   SELECT
-    `cod_dep`,
-    `cod_prov`,
-    `cod_dist`,
-    `codigo_puntoentrega`,
-    `codigo_cliente`,
-    `region_entrega`,
-    `direccion_linea`,
-    `referencia`,
-    `destinatario_nombre`,
-    `destinatario_dni`,
-    `agencia`,
-    `estado`
-  FROM `puntos_entrega`
-  WHERE `codigo_cliente` = p_codigo_cliente
-  ORDER BY `cod_dep`, `cod_prov`, `cod_dist`, `codigo_puntoentrega`;
+    u.`cod_dep`,
+    u.`cod_prov`,
+    u.`cod_dist`,
+    u.`departamento`,
+    u.`provincia`,
+    u.`distrito`,
+    u.`ubigeo` AS `ubigeo`,
+    pe.`codigo_puntoentrega`,
+    pe.`codigo_cliente_puntoentrega` AS `codigo_cliente`,
+    pe.`region_entrega`,
+    pe.`direccion_linea`,
+    pe.`referencia`,
+    pe.`nombre` AS `nombre`,
+    pe.`dni` AS `dni`,
+    pe.`agencia`,
+    pe.`observaciones`,
+    pe.`concatenarpuntoentrega`,
+    pe.`estado`
+  FROM `puntos_entrega` pe
+  INNER JOIN `ubigeo` u
+    ON u.`ubigeo` = pe.`ubigeo`
+  WHERE pe.`codigo_cliente_puntoentrega` = p_codigo_cliente
+  ORDER BY u.`cod_dep`, u.`cod_prov`, u.`cod_dist`, pe.`codigo_puntoentrega`;
 END//
 DELIMITER ;
 
-
-
-
-DROP PROCEDURE IF EXISTS `get_ubigeo`;
+DROP PROCEDURE IF EXISTS `get_ubigeo_departamentos`;
 DELIMITER //
-CREATE PROCEDURE `get_ubigeo`(IN p_cod_dep char(2), IN p_cod_prov char(2), IN p_cod_dist char(2))
+CREATE PROCEDURE `get_ubigeo_departamentos`()
 BEGIN
-  SELECT
+  SELECT DISTINCT
     `cod_dep`,
+    `departamento`
+  FROM `ubigeo`
+  ORDER BY `cod_dep`;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_ubigeo_provincias`;
+DELIMITER //
+CREATE PROCEDURE `get_ubigeo_provincias`(IN p_cod_dep char(2))
+BEGIN
+  SELECT DISTINCT
     `cod_prov`,
+    `provincia`
+  FROM `ubigeo`
+  WHERE `cod_dep` = p_cod_dep
+  ORDER BY `cod_prov`;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_ubigeo_distritos`;
+DELIMITER //
+CREATE PROCEDURE `get_ubigeo_distritos`(IN p_cod_dep char(2), IN p_cod_prov char(2))
+BEGIN
+  SELECT DISTINCT
     `cod_dist`,
-    `departamento`,
-    `provincia`,
     `distrito`
   FROM `ubigeo`
   WHERE `cod_dep` = p_cod_dep
     AND `cod_prov` = p_cod_prov
-    AND `cod_dist` = p_cod_dist
-  LIMIT 1;
+  ORDER BY `cod_dist`;
 END//
 DELIMITER ;
-
-
 
 DROP PROCEDURE IF EXISTS `get_numrecibe`;
 DELIMITER //
@@ -95,7 +307,8 @@ BEGIN
     `codigo_cliente_numrecibe`,
     `ordinal_numrecibe`,
     `numero`,
-    `nombre`
+    `nombre`,
+    `concatenarnumrecibe`
   FROM `numrecibe`
   WHERE `codigo_cliente_numrecibe` = p_codigo_cliente
   ORDER BY `ordinal_numrecibe`;
@@ -119,165 +332,103 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `get_cuentasbancarias`;
+DELIMITER //
+CREATE PROCEDURE `get_cuentasbancarias`()
+BEGIN
+  SELECT `codigo_cuentabancaria`, `nombre`, `banco`
+  FROM `cuentas_bancarias`;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_proveedores`;
+DELIMITER //
+CREATE PROCEDURE `get_proveedores`()
+BEGIN
+  SELECT `codigo_provedor`, `nombre`
+  FROM `provedores`;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS get_paquetes_por_estado;
+DELIMITER //
+CREATE PROCEDURE get_paquetes_por_estado(IN p_estado varchar(30))
+BEGIN
+  SELECT
+    p.codigo_paquete,
+    p.fecha_actualizado,
+    mc.codigo_cliente,
+    c.nombre AS nombre_cliente,
+    c.numero AS num_cliente,
+    mc.codigo_puntoentrega,
+    mc.ordinal_numrecibe,
+    pe.concatenarpuntoentrega,
+    nr.concatenarnumrecibe
+  FROM paquete p
+  LEFT JOIN mov_contable mc
+    ON mc.numero_documento = p.codigo_paquete
+    AND mc.tipo_documento = p.tipo_documento
+  LEFT JOIN clientes c
+    ON c.codigo_cliente = mc.codigo_cliente
+  LEFT JOIN numrecibe nr
+    ON nr.codigo_cliente_numrecibe = mc.codigo_cliente_numrecibe
+    AND nr.ordinal_numrecibe = mc.ordinal_numrecibe
+  LEFT JOIN puntos_entrega pe
+    ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+    AND pe.codigo_cliente_puntoentrega = mc.codigo_cliente_puntoentrega
+  WHERE p.estado = p_estado
+  ORDER BY p.fecha_registro DESC, p.codigo_paquete DESC;
+END//
+DELIMITER ;
+
 -- =====================================================================================
--- STOCK: descontar saldo_stock por detalle de factura emitida (mov_contable + detalle)
+-- MODULO 2: PROCEDIMIENTOS ACTUALIZADORES
 -- =====================================================================================
 
-DROP PROCEDURE IF EXISTS `aplicar_salida_factura_a_saldo_stock`;
+-- STOCK: actualiza saldo_stock por detalle de mov_contable (mov_contable + detalle)
+
+DROP PROCEDURE IF EXISTS `get_actualizarsaldostock`;
 DELIMITER //
-CREATE PROCEDURE `aplicar_salida_factura_a_saldo_stock`(
+CREATE PROCEDURE `get_actualizarsaldostock`(
   IN p_tipo_documento varchar(3),
   IN p_numero_documento numeric(12,0)
 )
-proc: BEGIN
-  DECLARE v_now datetime;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  SET v_now = NOW();
-
-  DROP TEMPORARY TABLE IF EXISTS tmp_factura_qty;
-  CREATE TEMPORARY TABLE tmp_factura_qty (
-    codigo_base numeric(12,0) NOT NULL,
-    codigo_producto numeric(12,0) NOT NULL,
-    cantidad numeric(12,3) NOT NULL,
-    PRIMARY KEY (codigo_base, codigo_producto)
-  ) ENGINE=InnoDB;
-
-  INSERT INTO tmp_factura_qty (codigo_base, codigo_producto, cantidad)
+BEGIN
+  INSERT INTO saldo_stock (
+    codigo_base,
+    codigo_producto,
+    saldo_actual,
+    saldo_inicial,
+    fecha_saldoinicial,
+    fecha_saldoactual
+  )
   SELECT
     mc.codigo_base,
     mcd.codigo_producto,
-    SUM(mcd.cantidad) AS cantidad
+    CASE
+      WHEN p_tipo_documento = 'FAC' THEN -SUM(mcd.cantidad)
+      ELSE SUM(mcd.cantidad)
+    END AS saldo_actual,
+    CASE
+      WHEN p_tipo_documento = 'FAC' THEN -SUM(mcd.cantidad)
+      ELSE SUM(mcd.cantidad)
+    END AS saldo_inicial,
+    NOW() AS fecha_saldoinicial,
+    NOW() AS fecha_saldoactual
   FROM mov_contable mc
   JOIN mov_contable_detalle mcd
     ON mcd.tipo_documento = mc.tipo_documento
    AND mcd.numero_documento = mc.numero_documento
   WHERE mc.tipo_documento = p_tipo_documento
     AND mc.numero_documento = p_numero_documento
-  GROUP BY mc.codigo_base, mcd.codigo_producto;
-
-  IF (SELECT COUNT(*) FROM tmp_factura_qty) = 0 THEN
-    SELECT
-      'SIN_LINEAS' AS estado,
-      p_tipo_documento AS tipo_documento,
-      p_numero_documento AS numero_documento;
-    LEAVE proc;
-  END IF;
-
-  -- Si faltan saldos para algun (base, producto), no aplica nada.
-  IF EXISTS (
-    SELECT 1
-    FROM tmp_factura_qty t
-    LEFT JOIN saldo_stock ss
-      ON ss.codigo_base = t.codigo_base
-     AND ss.codigo_producto = t.codigo_producto
-    WHERE ss.codigo_base IS NULL
-  ) THEN
-    SELECT
-      'ERROR_FALTAN_SALDOS_STOCK' AS estado,
-      t.codigo_base,
-      t.codigo_producto,
-      t.cantidad
-    FROM tmp_factura_qty t
-    LEFT JOIN saldo_stock ss
-      ON ss.codigo_base = t.codigo_base
-     AND ss.codigo_producto = t.codigo_producto
-    WHERE ss.codigo_base IS NULL;
-    LEAVE proc;
-  END IF;
-
-  START TRANSACTION;
-
-  DROP TEMPORARY TABLE IF EXISTS tmp_before;
-  CREATE TEMPORARY TABLE tmp_before AS
-  SELECT
-    ss.codigo_base,
-    ss.codigo_producto,
-    ss.saldo_actual AS saldo_antes,
-    t.cantidad AS cantidad_descontar
-  FROM saldo_stock ss
-  JOIN tmp_factura_qty t
-    ON t.codigo_base = ss.codigo_base
-   AND t.codigo_producto = ss.codigo_producto;
-
-  -- Lock filas objetivo
-  SELECT ss.codigo_base, ss.codigo_producto
-  FROM saldo_stock ss
-  JOIN tmp_factura_qty t
-    ON t.codigo_base = ss.codigo_base
-   AND t.codigo_producto = ss.codigo_producto
-  FOR UPDATE;
-
-  UPDATE saldo_stock ss
-  JOIN tmp_factura_qty t
-    ON t.codigo_base = ss.codigo_base
-   AND t.codigo_producto = ss.codigo_producto
-  SET
-    ss.saldo_actual = GREATEST(0, ss.saldo_actual - t.cantidad),
-    ss.fecha_saldoactual = v_now;
-
-  COMMIT;
-
-  -- Resultado (antes / despues) para validar
-  SELECT
-    b.codigo_base,
-    b.codigo_producto,
-    b.saldo_antes,
-    b.cantidad_descontar,
-    ss.saldo_actual AS saldo_despues,
-    ss.fecha_saldoactual
-  FROM tmp_before b
-  JOIN saldo_stock ss
-    ON ss.codigo_base = b.codigo_base
-   AND ss.codigo_producto = b.codigo_producto
-  ORDER BY b.codigo_base, b.codigo_producto;
-
-  DROP TEMPORARY TABLE IF EXISTS tmp_before;
-  DROP TEMPORARY TABLE IF EXISTS tmp_factura_qty;
+  GROUP BY mc.codigo_base, mcd.codigo_producto
+  ON DUPLICATE KEY UPDATE
+    saldo_actual = saldo_actual + VALUES(saldo_actual),
+    fecha_saldoactual = NOW();
 END//
 DELIMITER ;
 
--- =====================================================================================
--- STOCK: descuento simple por detalle de factura emitida (mov_contable + detalle)
--- =====================================================================================
-
-DROP PROCEDURE IF EXISTS `salidasinventario`;
-DELIMITER //
-CREATE PROCEDURE `salidasinventario`(
-  IN p_tipo_documento varchar(3),
-  IN p_numero_documento numeric(12,0)
-)
-BEGIN
-  UPDATE saldo_stock ss
-  JOIN (
-    SELECT
-      mc.codigo_base,
-      mcd.codigo_producto,
-      SUM(mcd.cantidad) AS cantidad
-    FROM mov_contable mc
-    JOIN mov_contable_detalle mcd
-      ON mcd.tipo_documento = mc.tipo_documento
-     AND mcd.numero_documento = mc.numero_documento
-    WHERE mc.tipo_documento = p_tipo_documento
-      AND mc.numero_documento = p_numero_documento
-    GROUP BY mc.codigo_base, mcd.codigo_producto
-  ) t
-    ON t.codigo_base = ss.codigo_base
-   AND t.codigo_producto = ss.codigo_producto
-  SET
-    ss.saldo_actual = GREATEST(0, ss.saldo_actual - t.cantidad),
-    ss.fecha_saldoactual = NOW();
-END//
-DELIMITER ;
-
--- =====================================================================================
 -- PEDIDO_DETALLE: descontar saldo por detalle de factura emitida (mov_contable + detalle)
--- =====================================================================================
 
 DROP PROCEDURE IF EXISTS `salidaspedidos`;
 DELIMITER //
@@ -311,15 +462,6 @@ DELIMITER ;
 -- Ejemplo editable:
 -- CALL aplicar_salida_factura_a_saldo_stock('FAC', 123);
 -- CALL salidasinventario('FAC', 123);
-
-DROP PROCEDURE IF EXISTS `get_cuentasbancarias`;
-DELIMITER //
-CREATE PROCEDURE `get_cuentasbancarias`()
-BEGIN
-  SELECT `codigo_cuentabancaria`, `nombre`, `banco`
-  FROM `cuentas_bancarias`;
-END//
-DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `actualizarsaldosclientes`;
 DELIMITER //
@@ -364,114 +506,47 @@ BEGIN
 END//
 DELIMITER ;
 
-
-
-DROP PROCEDURE IF EXISTS `get_proveedores`;
+DROP PROCEDURE IF EXISTS `get_pedido_detalle_por_pedido`;
 DELIMITER //
-CREATE PROCEDURE `get_proveedores`()
-BEGIN
-  SELECT `codigo_provedor`, `nombre`
-  FROM `provedores`;
-END//
-DELIMITER ;
-
-
-DROP PROCEDURE IF EXISTS validar_credenciales_usuario;
-DROP PROCEDURE IF EXISTS get_usecases_usuario;
-DROP PROCEDURE IF EXISTS log_sesion;
-DROP PROCEDURE IF EXISTS log_intento_fallido;
-DROP PROCEDURE IF EXISTS log_traza_sesion;
-DROP PROCEDURE IF EXISTS log_error;
-
-DELIMITER //
-
-CREATE PROCEDURE validar_credenciales_usuario(IN p_usuario varchar(128), IN p_password varchar(255))
-BEGIN
-  SELECT u.codigo_usuario, u.nombre
-  FROM usuarios u
-  WHERE (u.codigo_usuario = p_usuario OR u.nombre = p_usuario OR CAST(u.numero AS CHAR) = p_usuario)
-    AND u.password = p_password
-  LIMIT 1;
-END//
-
-CREATE PROCEDURE get_usecases_usuario(IN p_usuario varchar(128))
-BEGIN
-  SELECT DISTINCT
-    m.codigo_modulo,
-    m.descripcion,
-    m.caption,
-    u.codigo_usecase,
-    u.linktolaunch
-  FROM usuarios usr
-  JOIN usuarios_perfiles up ON up.codigo_usuario = usr.codigo_usuario
-  JOIN perfiles_ucases pu ON pu.codigo_perfil = up.codigo_perfil
-  JOIN usecases u ON u.codigo_usecase = pu.codigo_usecase
-  LEFT JOIN modulo_usecases mu ON mu.codigo_usecase = u.codigo_usecase
-  LEFT JOIN modulos m ON m.codigo_modulo = mu.codigo_modulo
-  WHERE usr.codigo_usuario = p_usuario OR usr.nombre = p_usuario OR CAST(usr.numero AS CHAR) = p_usuario;
-END//
-
-CREATE PROCEDURE log_sesion(IN p_usuario varchar(36), IN p_ip varchar(128))
-BEGIN
-  INSERT INTO sesiones (codigo_usuario, ip) VALUES (p_usuario, p_ip);
-END//
-
-CREATE PROCEDURE log_intento_fallido(IN p_usuario varchar(36), IN p_usuario_input varchar(128), IN p_ip varchar(128), IN p_mensaje varchar(256))
-BEGIN
-  INSERT INTO login_fallido (codigo_usuario, usuario_input, ip, mensaje)
-  VALUES (p_usuario, p_usuario_input, p_ip, p_mensaje);
-END//
-
-CREATE PROCEDURE log_traza_sesion(IN p_usuario varchar(36), IN p_usecase varchar(36))
-BEGIN
-  INSERT INTO trazas_sesion (codigo_usuario, codigo_usecase)
-  VALUES (p_usuario, p_usecase);
-END//
-
-CREATE PROCEDURE log_error(IN p_usuario varchar(36), IN p_mensaje varchar(512), IN p_detalle text)
-BEGIN
-  INSERT INTO errores_app (codigo_usuario, mensaje, detalle)
-  VALUES (p_usuario, p_mensaje, p_detalle);
-END//
-
-
-DROP PROCEDURE IF EXISTS get_paquetes_por_estado;
-DROP PROCEDURE IF EXISTS cambiar_estado_paquete;
-
-DELIMITER //
-CREATE PROCEDURE get_paquetes_por_estado(IN p_estado varchar(30))
+CREATE PROCEDURE `get_pedido_detalle_por_pedido`(IN p_codigo_pedido numeric(12,0))
 BEGIN
   SELECT
-    p.codigo_paquete,
-    p.estado,
-    p.fecha_registro,
-    mc.codigo_cliente,
-    c.nombre AS nombre_cliente,
-    mc.ubigeo,
-    pe.region_entrega,
-    mc.codigo_puntoentrega
-  FROM paquete p
-  LEFT JOIN mov_contable mc
-    ON mc.numero_documento = p.codigo_paquete
-    AND mc.tipo_documento = 'F'
-  LEFT JOIN clientes c
-    ON c.codigo_cliente = mc.codigo_cliente
-  LEFT JOIN puntos_entrega pe
-    ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
-    AND pe.ubigeo = mc.ubigeo
-  WHERE p.estado = p_estado
-  ORDER BY p.fecha_registro DESC, p.codigo_paquete DESC;
+    pd.codigo_producto,
+    pr.nombre AS nombre_producto,
+    pd.saldo,
+    COALESCE(
+      pd.precio_unitario,
+      CASE
+        WHEN pd.cantidad = 0 THEN 0
+        ELSE pd.precio_total / pd.cantidad
+      END
+    ) AS precio_unitario
+  FROM pedido_detalle pd
+  JOIN productos pr
+    ON pr.codigo_producto = pd.codigo_producto
+  WHERE pd.codigo_pedido = p_codigo_pedido
+  ORDER BY pd.ordinal;
 END//
 DELIMITER ;
 
-
+DROP PROCEDURE IF EXISTS cambiar_estado_paquete;
 DELIMITER //
 CREATE PROCEDURE cambiar_estado_paquete(IN p_codigo_paquete numeric(12,0), IN p_estado varchar(30))
 BEGIN
+  DECLARE v_estado_actual varchar(30);
+
+  SELECT estado
+  INTO v_estado_actual
+  FROM paquete
+  WHERE codigo_paquete = p_codigo_paquete
+  LIMIT 1;
+
   UPDATE paquete
   SET estado = p_estado,
       fecha_actualizado = NOW()
   WHERE codigo_paquete = p_codigo_paquete;
+
+  -- Solo cambia estado; no aplica movimientos de stock aqui.
 END//
 
 DELIMITER ;

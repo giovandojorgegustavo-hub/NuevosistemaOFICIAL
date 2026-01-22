@@ -145,145 +145,46 @@ async function handleApi(req, res) {
       return;
     }
 
-    if (pathname === '/api/paquetes') {
-      const estado = query.estado || 'en camino';
-      const [rows] = await execQuery(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
+    if (pathname === '/api/paquetes/en-camino') {
+      const [rows] = await execQuery(pool, 'CALL get_paquetes_por_estado(?)', ['en camino']);
       sendJson(res, 200, rows[0]);
       return;
     }
 
     if (pathname === '/api/paquetes/detalle') {
       const codigo = query.codigo;
-      if (!codigo) {
-        sendJson(res, 400, { error: 'Codigo requerido' });
-        return;
-      }
-      const [rows] = await execQuery(
-        pool,
-        `SELECT p.nombre AS nombre_producto, mcd.cantidad
-         FROM mov_contable_detalle mcd
-         JOIN productos p ON p.codigo_producto = mcd.codigo_producto
-         WHERE mcd.tipo_documento = 'F'
-           AND mcd.numero_documento = ?
-         ORDER BY mcd.ordinal`,
-        [codigo]
-      );
-      sendJson(res, 200, rows);
-      return;
-    }
-
-    if (pathname === '/api/paquetes/info') {
-      const codigo = query.codigo;
-      if (!codigo) {
-        sendJson(res, 400, { error: 'Codigo requerido' });
-        return;
-      }
-      const [rows] = await execQuery(
-        pool,
-        `SELECT mc.codigo_cliente,
-                c.nombre AS nombre_cliente,
-                mc.codigo_cliente_numrecibe,
-                mc.ordinal_numrecibe,
-                mc.ubigeo,
-                mc.codigo_puntoentrega,
-                pe.region_entrega,
-                pe.direccion_linea,
-                pe.referencia,
-                pe.destinatario_nombre,
-                pe.destinatario_dni,
-                pe.agencia
-         FROM mov_contable mc
-         LEFT JOIN clientes c ON c.codigo_cliente = mc.codigo_cliente
-         LEFT JOIN puntos_entrega pe
-           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
-          AND pe.ubigeo = mc.ubigeo
-         WHERE mc.tipo_documento = 'F'
-           AND mc.numero_documento = ?
-         LIMIT 1`,
-        [codigo]
-      );
-      const entrega = rows[0] || {};
-
-      let ubigeoInfo = { codigo: entrega.ubigeo || '' };
-      if (entrega.ubigeo && String(entrega.ubigeo).length >= 6) {
-        const codDep = String(entrega.ubigeo).slice(0, 2);
-        const codProv = String(entrega.ubigeo).slice(2, 4);
-        const codDist = String(entrega.ubigeo).slice(4, 6);
-        const [ubigeoRows] = await execQuery(
-          pool,
-          `SELECT departamento, provincia, distrito
-           FROM ubigeo
-           WHERE cod_dep = ? AND cod_prov = ? AND cod_dist = ?
-           LIMIT 1`,
-          [codDep, codProv, codDist]
-        );
-        if (ubigeoRows[0]) {
-          const { departamento, provincia, distrito } = ubigeoRows[0];
-          ubigeoInfo = {
-            codigo: entrega.ubigeo,
-            nombre: [departamento, provincia, distrito].filter(Boolean).join(' / '),
-          };
-        }
-      }
-
-      let recibe = {};
-      if (entrega.codigo_cliente_numrecibe && entrega.ordinal_numrecibe) {
-        const [recibeRows] = await execQuery(
-          pool,
-          `SELECT numero, nombre
-           FROM numrecibe
-           WHERE codigo_cliente_numrecibe = ?
-             AND ordinal_numrecibe = ?
-           LIMIT 1`,
-          [entrega.codigo_cliente_numrecibe, entrega.ordinal_numrecibe]
-        );
-        recibe = recibeRows[0] || {};
-      }
-
-      sendJson(res, 200, {
-        entrega,
-        recibe,
-        ubigeo: ubigeoInfo,
-      });
+      if (!codigo) throw new Error('Codigo de paquete requerido');
+      const [rows] = await execQuery(pool, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
+      sendJson(res, 200, rows[0]);
       return;
     }
 
     if (pathname === '/api/paquetes/viaje') {
       const codigo = query.codigo;
-      if (!codigo) {
-        sendJson(res, 400, { error: 'Codigo requerido' });
-        return;
-      }
-      const [rows] = await execQuery(
-        pool,
-        `SELECT v.codigoviaje,
-                v.codigo_base,
-                v.nombre_motorizado,
-                v.numero_wsp,
-                v.num_llamadas,
-                v.num_yape,
-                v.link,
-                v.observacion,
-                v.fecha
-         FROM detalleviaje dv
-         JOIN viajes v ON v.codigoviaje = dv.codigoviaje
-         WHERE dv.tipo_documento = 'F'
-           AND dv.numero_documento = ?
-         ORDER BY v.fecha DESC
-         LIMIT 1`,
-        [codigo]
-      );
-      sendJson(res, 200, rows[0] || {});
+      if (!codigo) throw new Error('Codigo de paquete requerido');
+      const [rows] = await execQuery(pool, 'CALL get_viaje_por_documento(?)', [codigo]);
+      sendJson(res, 200, rows[0]);
       return;
     }
 
-    if (pathname === '/api/paquetes/estado' && req.method === 'POST') {
+    if (pathname === '/api/paquetes/ordinal') {
+      const codigo = query.codigo;
+      if (!codigo) throw new Error('Codigo de paquete requerido');
+      const [rows] = await execQuery(
+        pool,
+        `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next
+         FROM paquetedetalle
+         WHERE codigo_paquete = ?
+           AND tipo_documento = 'FAC'`,
+        [codigo]
+      );
+      sendJson(res, 200, rows[0]);
+      return;
+    }
+
+    if (pathname === '/api/paquetes/confirmar' && req.method === 'POST') {
       const body = await parseBody(req);
-      if (!body.codigo_paquete || !body.estado) {
-        sendJson(res, 400, { error: 'Datos incompletos' });
-        return;
-      }
-      const response = await actualizarEstado(body);
+      const response = await confirmarPaquete(body);
       sendJson(res, 200, response);
       return;
     }
@@ -301,22 +202,50 @@ async function handleApi(req, res) {
   }
 }
 
-async function actualizarEstado(payload) {
+async function confirmarPaquete(payload) {
   const codigoPaquete = payload.codigo_paquete;
   const estado = payload.estado;
+  if (!codigoPaquete || !estado) {
+    throw new Error('Datos incompletos para actualizar estado');
+  }
+
   const conn = await pool.getConnection();
   try {
     await execQuery(conn, 'START TRANSACTION');
+
+    const [ordinalRows] = await execQuery(
+      conn,
+      `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next
+       FROM paquetedetalle
+       WHERE codigo_paquete = ?
+         AND tipo_documento = 'FAC'`,
+      [codigoPaquete]
+    );
+    const ordinal = ordinalRows[0]?.next || 1;
+
     await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, estado]);
+
     await execQuery(
       conn,
-      `UPDATE paquetedetalle
-       SET estado = ?
-       WHERE codigo_paquete = ?`,
-      [estado, codigoPaquete]
+      `INSERT INTO paquetedetalle
+        (codigo_paquete, ordinal, estado, tipo_documento)
+       VALUES (?, ?, ?, 'FAC')`,
+      [codigoPaquete, ordinal, estado]
     );
+
+    if (['robado', 'devuelto', 'llegado'].includes(estado)) {
+      await execQuery(
+        conn,
+        `UPDATE detalleviaje
+         SET fecha_fin = NOW()
+         WHERE numero_documento = ?
+           AND tipo_documento = 'FAC'`,
+        [codigoPaquete]
+      );
+    }
+
     await execQuery(conn, 'COMMIT');
-    return { codigo_paquete: codigoPaquete, estado };
+    return { codigo_paquete: codigoPaquete, estado, ordinal };
   } catch (error) {
     await execQuery(conn, 'ROLLBACK');
     logLine(`ERROR: ${error.message}`);
@@ -336,7 +265,7 @@ const server = http.createServer(async (req, res) => {
   serveStatic(res, path.join(BASE_DIR, filePath));
 });
 
-const PORT = Number(process.env.PORT || 3003);
+const PORT = Number(process.env.PORT || 3004);
 server.listen(PORT, () => {
   logLine(`Servidor iniciado en http://localhost:${PORT}`);
 });

@@ -82,7 +82,7 @@ const pool = mysql.createPool({
   database: dbConfig.database,
   port: dbConfig.port,
   waitForConnections: true,
-  connectionLimit: 5,
+  connectionLimit: 6,
   decimalNumbers: true,
 });
 
@@ -108,7 +108,6 @@ function serveStatic(res, filePath) {
     '.html': 'text/html',
     '.css': 'text/css',
     '.js': 'application/javascript',
-    '.json': 'application/json',
   };
   res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
   fs.createReadStream(filePath).pipe(res);
@@ -134,8 +133,223 @@ function parseBody(req) {
   });
 }
 
-function round2(value) {
-  return Number(Number(value).toFixed(2));
+function getSystemTime() {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const time = now.toTimeString().slice(0, 5);
+  return { date, time };
+}
+
+function buildConcat(parts) {
+  return parts.filter((part) => part && part.trim()).join(' | ');
+}
+
+async function handleEmitFactura(payload) {
+  const pedido = payload.pedido || {};
+  const pedidoDetalles = payload.pedido_detalles || [];
+  const factura = payload.factura || {};
+  const facturaDetalles = payload.factura_detalles || [];
+  const entrega = payload.entrega || {};
+  const recibe = payload.recibe || {};
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [pedidoRows] = await execQuery(conn, 'SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos');
+    const codigoPedido = pedidoRows[0].next;
+
+    await execQuery(conn, 'INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha) VALUES (?, ?, ?)', [
+      codigoPedido,
+      pedido.codigo_cliente,
+      pedido.fecha,
+    ]);
+
+    const [pedidoOrdRows] = await execQuery(
+      conn,
+      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM pedido_detalle'
+    );
+    let pedidoOrdinal = pedidoOrdRows[0].next;
+
+    for (const item of pedidoDetalles) {
+      const precioUnitario = item.precio_unitario || (item.cantidad ? item.precio_total / item.cantidad : 0);
+      await execQuery(
+        conn,
+        `INSERT INTO pedido_detalle
+          (codigo_pedido, ordinal, codigo_producto, cantidad, precio_total, saldo, precio_unitario)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          codigoPedido,
+          pedidoOrdinal,
+          item.codigo_producto,
+          item.cantidad,
+          item.precio_total,
+          item.cantidad,
+          precioUnitario,
+        ]
+      );
+      pedidoOrdinal += 1;
+    }
+
+    let codigoPuntoEntrega = entrega.codigo_puntoentrega || null;
+    let regionEntrega = entrega.region_entrega || 'PROV';
+    let ubigeo = null;
+    let concatenarPunto = null;
+
+    if (entrega.mode === 'nuevo') {
+      const dep = entrega.dep || '';
+      const prov = entrega.prov || '';
+      const dist = entrega.dist || '';
+      ubigeo = `${dep}${prov}${dist}`;
+      regionEntrega = dep === '15' && prov === '01' ? 'LIMA' : 'PROV';
+
+      const [puntoRows] = await execQuery(
+        conn,
+        'SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = ?',
+        [pedido.codigo_cliente]
+      );
+      codigoPuntoEntrega = puntoRows[0].next;
+
+      concatenarPunto =
+        regionEntrega === 'LIMA'
+          ? buildConcat([entrega.direccion_linea, entrega.dist_label, entrega.referencia])
+          : buildConcat([entrega.nombre, entrega.dni, entrega.agencia, entrega.observaciones]);
+
+      await execQuery(
+        conn,
+        `INSERT INTO puntos_entrega
+          (ubigeo, codigo_puntoentrega, codigo_cliente_puntoentrega, direccion_linea, referencia, nombre, dni, agencia, observaciones, region_entrega, concatenarpuntoentrega)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          ubigeo,
+          codigoPuntoEntrega,
+          pedido.codigo_cliente,
+          entrega.direccion_linea || null,
+          entrega.referencia || null,
+          entrega.nombre || null,
+          entrega.dni || null,
+          entrega.agencia || null,
+          entrega.observaciones || null,
+          regionEntrega,
+          concatenarPunto,
+        ]
+      );
+    }
+
+    let codigoClienteNumrecibe = recibe.codigo_cliente_numrecibe || null;
+    let ordinalNumrecibe = null;
+    if (regionEntrega === 'LIMA' && recibe.mode === 'nuevo') {
+      const [recibeRows] = await execQuery(
+        conn,
+        'SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = ?',
+        [pedido.codigo_cliente]
+      );
+      ordinalNumrecibe = recibeRows[0].next;
+      codigoClienteNumrecibe = pedido.codigo_cliente;
+      const concatenarNumrecibe = buildConcat([recibe.numero, recibe.nombre]);
+      await execQuery(
+        conn,
+        `INSERT INTO numrecibe
+          (ordinal_numrecibe, numero, nombre, codigo_cliente_numrecibe, concatenarnumrecibe)
+         VALUES (?, ?, ?, ?, ?)`,
+        [ordinalNumrecibe, recibe.numero, recibe.nombre, codigoClienteNumrecibe, concatenarNumrecibe]
+      );
+    }
+
+    const [docRows] = await execQuery(
+      conn,
+      'SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = ?',
+      ['FAC']
+    );
+    const numeroDocumento = docRows[0].next;
+
+    await execQuery(
+      conn,
+      `INSERT INTO mov_contable
+        (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, saldo, tipo_documento,
+         numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        codigoPedido,
+        pedido.fecha,
+        pedido.fecha,
+        pedido.fecha,
+        pedido.codigo_cliente,
+        factura.saldo,
+        'FAC',
+        numeroDocumento,
+        factura.codigo_base,
+        codigoClienteNumrecibe,
+        ordinalNumrecibe,
+        pedido.codigo_cliente,
+        codigoPuntoEntrega,
+      ]
+    );
+
+    const [movOrdRows] = await execQuery(
+      conn,
+      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle'
+    );
+    let movOrdinal = movOrdRows[0].next;
+
+    for (const item of facturaDetalles) {
+      await execQuery(
+        conn,
+        `INSERT INTO mov_contable_detalle
+          (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'FAC',
+          numeroDocumento,
+          movOrdinal,
+          item.codigo_producto,
+          item.cantidad_factura,
+          item.cantidad_factura,
+          item.precio_total_factura,
+        ]
+      );
+      movOrdinal += 1;
+    }
+
+    await execQuery(conn, 'INSERT INTO paquete (codigo_paquete, tipo_documento, estado) VALUES (?, ?, ?)', [
+      numeroDocumento,
+      'FAC',
+      'pendiente empacar',
+    ]);
+
+    const [paqOrdRows] = await execQuery(
+      conn,
+      "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+      [numeroDocumento]
+    );
+    let paqueteOrdinal = paqOrdRows[0].next;
+
+    for (const _item of facturaDetalles) {
+      await execQuery(
+        conn,
+        'INSERT INTO paquetedetalle (codigo_paquete, tipo_documento, ordinal, estado) VALUES (?, ?, ?, ?)',
+        [numeroDocumento, 'FAC', paqueteOrdinal, 'pendiente empacar']
+      );
+      paqueteOrdinal += 1;
+    }
+
+    await execQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [
+      pedido.codigo_cliente,
+      'FAC',
+      factura.saldo,
+    ]);
+
+    await execQuery(conn, 'CALL salidaspedidos(?, ?)', ['FAC', numeroDocumento]);
+
+    await conn.commit();
+    return { ok: true, numero_documento: numeroDocumento };
+  } catch (error) {
+    await conn.rollback();
+    logLine(`ERROR: ${error.stack || error.message}`);
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 async function handleApi(req, res) {
@@ -149,374 +363,181 @@ async function handleApi(req, res) {
       return;
     }
 
+    if (pathname === '/api/system-time') {
+      sendJson(res, 200, getSystemTime());
+      return;
+    }
+
     if (pathname === '/api/clientes') {
       const [rows] = await execQuery(pool, 'CALL get_clientes()');
-      sendJson(res, 200, rows[0]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/productos') {
       const [rows] = await execQuery(pool, 'CALL get_productos()');
-      sendJson(res, 200, rows[0]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/bases') {
       const [rows] = await execQuery(pool, 'CALL get_bases()');
-      sendJson(res, 200, rows[0]);
+      sendJson(res, 200, rows[0] || rows);
+      return;
+    }
+
+    if (pathname === '/api/pedido/next-codigo') {
+      const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos');
+      sendJson(res, 200, rows[0] || rows);
+      return;
+    }
+
+    if (pathname === '/api/pedido-detalle/next-ordinal') {
+      const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM pedido_detalle');
+      sendJson(res, 200, rows[0] || rows);
+      return;
+    }
+
+    if (pathname === '/api/mov-contable/next-numero') {
+      const [rows] = await execQuery(
+        pool,
+        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'"
+      );
+      sendJson(res, 200, rows[0] || rows);
+      return;
+    }
+
+    if (pathname === '/api/mov-contable-det/next-ordinal') {
+      const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle');
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/puntos-entrega') {
-      const codigoCliente = query.cliente;
-      if (!codigoCliente) {
+      const cliente = query.cliente;
+      if (!cliente) {
         sendJson(res, 400, { error: 'Cliente requerido' });
         return;
       }
-      const [rows] = await execQuery(pool, 'CALL get_puntos_entrega(?)', [codigoCliente]);
-      sendJson(res, 200, rows[0]);
+      const [rows] = await execQuery(pool, 'CALL get_puntos_entrega(?)', [cliente]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
-    if (pathname === '/api/numrecibe' && req.method === 'GET') {
-      const codigoCliente = query.cliente;
-      if (!codigoCliente) {
+    if (pathname === '/api/puntos-entrega/next-codigo') {
+      const cliente = query.cliente;
+      if (!cliente) {
         sendJson(res, 400, { error: 'Cliente requerido' });
         return;
       }
-      const [rows] = await execQuery(pool, 'CALL get_numrecibe(?)', [codigoCliente]);
-      sendJson(res, 200, rows[0]);
-      return;
-    }
-
-    if (pathname === '/api/numrecibe' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const codigoCliente = body.codigo_cliente;
-      const numero = body.numero;
-      const nombre = body.nombre;
-      if (!codigoCliente || !numero || !nombre) {
-        sendJson(res, 400, { error: 'Datos incompletos' });
-        return;
-      }
-      const conn = await pool.getConnection();
-      try {
-        const [rows] = await execQuery(
-          conn,
-          'SELECT IFNULL(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = ?',
-          [codigoCliente]
-        );
-        const ordinal = rows[0]?.next || 1;
-        await execQuery(
-          conn,
-          `INSERT INTO numrecibe (numero, nombre, ordinal_numrecibe, codigo_cliente_numrecibe)
-           VALUES (?, ?, ?, ?)`,
-          [numero, nombre, ordinal, codigoCliente]
-        );
-        sendJson(res, 200, {
-          codigo_cliente_numrecibe: codigoCliente,
-          ordinal_numrecibe: ordinal,
-          numero,
-          nombre,
-        });
-      } finally {
-        conn.release();
-      }
+      const [rows] = await execQuery(
+        pool,
+        'SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = ?',
+        [cliente]
+      );
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/ubigeo/departamentos') {
       const [rows] = await execQuery(pool, 'CALL get_ubigeo_departamentos()');
-      sendJson(res, 200, rows[0]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/ubigeo/provincias') {
-      const codDep = query.cod_dep;
-      if (!codDep) {
+      const dep = query.dep;
+      if (!dep) {
         sendJson(res, 400, { error: 'Departamento requerido' });
         return;
       }
-      const [rows] = await execQuery(pool, 'CALL get_ubigeo_provincias(?)', [codDep]);
-      sendJson(res, 200, rows[0]);
+      const [rows] = await execQuery(pool, 'CALL get_ubigeo_provincias(?)', [dep]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/ubigeo/distritos') {
-      const codDep = query.cod_dep;
-      const codProv = query.cod_prov;
-      if (!codDep || !codProv) {
-        sendJson(res, 400, { error: 'Departamento y provincia requeridos' });
+      const dep = query.dep;
+      const prov = query.prov;
+      if (!dep || !prov) {
+        sendJson(res, 400, { error: 'Parametros incompletos' });
         return;
       }
-      const [rows] = await execQuery(pool, 'CALL get_ubigeo_distritos(?, ?)', [codDep, codProv]);
-      sendJson(res, 200, rows[0]);
+      const [rows] = await execQuery(pool, 'CALL get_ubigeo_distritos(?, ?)', [dep, prov]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
-    if (pathname === '/api/logs/latest') {
-      const content = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, 'utf8') : '';
-      sendJson(res, 200, { file: path.basename(LOG_FILE), content });
-      return;
-    }
-
-    if (pathname === '/api/pedido/emitir' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const response = await emitirFactura(body);
-      sendJson(res, 200, response);
-      return;
-    }
-
-    sendJson(res, 404, { error: 'Endpoint no encontrado' });
-  } catch (error) {
-    logLine(`ERROR: ${error.message}`);
-    sendJson(res, 500, { error: error.message });
-  }
-}
-
-function parseRecibe(recibe) {
-  if (!recibe) return { codigo: null, ordinal: null };
-  const parts = String(recibe).split('|');
-  if (parts.length !== 2) return { codigo: null, ordinal: null };
-  return { codigo: parts[0], ordinal: parts[1] };
-}
-
-async function emitirFactura(payload) {
-  const codigoCliente = payload.codigo_cliente;
-  const pedidoDetalle = Array.isArray(payload.pedido_detalle) ? payload.pedido_detalle : [];
-  const facturaDetalle = Array.isArray(payload.factura_detalle) ? payload.factura_detalle : [];
-  const codigoBase = payload.codigo_base;
-  const fechaPedido = payload.fecha_pedido;
-  const horaPedido = payload.hora_pedido;
-  const fechaEmision = payload.fecha_emision;
-  const entrega = payload.entrega || {};
-  const tipoDocumento = payload.tipo_documento || 'F';
-
-  if (!codigoCliente || !codigoBase || !fechaPedido || !horaPedido || !fechaEmision) {
-    throw new Error('Datos principales incompletos');
-  }
-
-  if (pedidoDetalle.length === 0 || facturaDetalle.length === 0) {
-    throw new Error('Detalle de pedido o factura incompleto');
-  }
-
-  if (!entrega.modo) {
-    throw new Error('Datos de entrega incompletos');
-  }
-
-  const pedidoMap = new Map();
-  pedidoDetalle.forEach((row) => {
-    const key = String(row.codigo_producto);
-    const qty = Number(row.cantidad) || 0;
-    const total = Number(row.precio_total) || 0;
-    if (!row.codigo_producto || qty <= 0 || total <= 0) {
-      throw new Error('Detalle de pedido invalido');
-    }
-    if (!pedidoMap.has(key)) {
-      pedidoMap.set(key, { qty: 0, total: 0 });
-    }
-    const entry = pedidoMap.get(key);
-    entry.qty += qty;
-    entry.total += total;
-  });
-
-  const facturaMap = new Map();
-  facturaDetalle.forEach((row) => {
-    const key = String(row.codigo_producto);
-    const qty = Number(row.cantidad) || 0;
-    if (!row.codigo_producto || qty <= 0) {
-      throw new Error('Detalle de factura invalido');
-    }
-    if (!pedidoMap.has(key)) {
-      throw new Error('Producto facturado no corresponde al pedido');
-    }
-    facturaMap.set(key, (facturaMap.get(key) || 0) + qty);
-  });
-
-  for (const [key, qty] of facturaMap.entries()) {
-    const maxQty = pedidoMap.get(key).qty;
-    if (qty > maxQty) {
-      throw new Error('Cantidad facturada excede la del pedido');
-    }
-  }
-
-  let entregaUbigeo = entrega.ubigeo;
-  let codigoPuntoEntrega = entrega.codigo_puntoentrega || null;
-  let regionEntrega = entrega.region;
-
-  if (entrega.modo === 'existente') {
-    if (!entregaUbigeo || !codigoPuntoEntrega) {
-      throw new Error('Punto de entrega requerido');
-    }
-  } else {
-    if (!entregaUbigeo || !regionEntrega) {
-      throw new Error('Ubigeo o region de entrega incompletos');
-    }
-    if (!entrega.direccion || !entrega.referencia) {
-      throw new Error('Direccion y referencia requeridas');
-    }
-    if (regionEntrega === 'LIMA') {
-      if (!entrega.destinatario_nombre || !entrega.destinatario_dni) {
-        throw new Error('Destinatario requerido para LIMA');
+    if (pathname === '/api/numrecibe') {
+      const cliente = query.cliente;
+      if (!cliente) {
+        sendJson(res, 400, { error: 'Cliente requerido' });
+        return;
       }
+      const [rows] = await execQuery(pool, 'CALL get_numrecibe(?)', [cliente]);
+      sendJson(res, 200, rows[0] || rows);
+      return;
     }
-    if (regionEntrega === 'PROV') {
-      if (!entrega.agencia) {
-        throw new Error('Agencia requerida para PROV');
+
+    if (pathname === '/api/numrecibe/next-ordinal') {
+      const cliente = query.cliente;
+      if (!cliente) {
+        sendJson(res, 400, { error: 'Cliente requerido' });
+        return;
       }
-    }
-  }
-
-  const recibe = parseRecibe(payload.recibe);
-  if (regionEntrega === 'LIMA' && (!recibe.codigo || !recibe.ordinal)) {
-    throw new Error('Numrecibe requerido para LIMA');
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await execQuery(conn, 'START TRANSACTION');
-    const [pedidoRows] = await execQuery(conn, 'SELECT IFNULL(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos');
-    const codigoPedido = pedidoRows[0]?.next || 1;
-
-    const fechaPedidoCompleta = `${fechaPedido} ${horaPedido}:00`;
-    await execQuery(
-      conn,
-      `INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha)
-       VALUES (?, ?, ?)`,
-      [codigoPedido, codigoCliente, fechaPedidoCompleta]
-    );
-
-    for (let i = 0; i < pedidoDetalle.length; i += 1) {
-      const item = pedidoDetalle[i];
-      const cantidad = Number(item.cantidad) || 0;
-      const precioTotal = Number(item.precio_total) || 0;
-      const precioUnitario = cantidad > 0 ? round2(precioTotal / cantidad) : 0;
-      await execQuery(
-        conn,
-        `INSERT INTO pedido_detalle (codigo_pedido, ordinal, codigo_producto, cantidad, precio_unitario, precio_total, saldo)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [codigoPedido, i + 1, item.codigo_producto, cantidad, precioUnitario, round2(precioTotal), cantidad]
+      const [rows] = await execQuery(
+        pool,
+        'SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = ?',
+        [cliente]
       );
+      sendJson(res, 200, rows[0] || rows);
+      return;
     }
 
-    if (entrega.modo === 'nuevo') {
-      const [puntoRows] = await execQuery(
-        conn,
-        'SELECT IFNULL(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE ubigeo = ?',
-        [entregaUbigeo]
+    if (pathname === '/api/paquetedetalle/next-ordinal') {
+      const numero = query.numero;
+      if (!numero) {
+        sendJson(res, 400, { error: 'Numero requerido' });
+        return;
+      }
+      const [rows] = await execQuery(
+        pool,
+        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+        [numero]
       );
-      codigoPuntoEntrega = puntoRows[0]?.next || 1;
-      await execQuery(
-        conn,
-        `INSERT INTO puntos_entrega
-          (codigo_puntoentrega, codigo_cliente, ubigeo, region_entrega, direccion_linea, referencia, destinatario_nombre, destinatario_dni, agencia)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          codigoPuntoEntrega,
-          codigoCliente,
-          entregaUbigeo,
-          regionEntrega,
-          entrega.direccion,
-          entrega.referencia,
-          entrega.destinatario_nombre || null,
-          entrega.destinatario_dni || null,
-          entrega.agencia || null,
-        ]
-      );
+      sendJson(res, 200, rows[0] || rows);
+      return;
     }
 
-    const [docRows] = await execQuery(
-      conn,
-      'SELECT IFNULL(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = ?',
-      [tipoDocumento]
-    );
-    const numeroDocumento = docRows[0]?.next || 1;
-
-    let saldoTotal = 0;
-    const facturaCalculada = facturaDetalle.map((row) => {
-      const key = String(row.codigo_producto);
-      const qty = Number(row.cantidad) || 0;
-      const pedidoInfo = pedidoMap.get(key);
-      const unitPrice = pedidoInfo.qty > 0 ? pedidoInfo.total / pedidoInfo.qty : 0;
-      const precioTotal = round2(unitPrice * qty);
-      saldoTotal += precioTotal;
-      return {
-        codigo_producto: row.codigo_producto,
-        cantidad: qty,
-        precio_total: precioTotal,
-      };
-    });
-
-    await execQuery(
-      conn,
-      `INSERT INTO mov_contable
-        (codigo_pedido, fecha_emision, codigo_cliente, saldo, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, ubigeo, codigo_puntoentrega)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        codigoPedido,
-        `${fechaEmision} 00:00:00`,
-        codigoCliente,
-        round2(saldoTotal),
-        tipoDocumento,
-        numeroDocumento,
-        codigoBase,
-        recibe.codigo,
-        recibe.ordinal,
-        entregaUbigeo,
-        codigoPuntoEntrega,
-      ]
-    );
-
-    for (let i = 0; i < facturaCalculada.length; i += 1) {
-      const item = facturaCalculada[i];
-      await execQuery(
-        conn,
-        `INSERT INTO mov_contable_detalle
-          (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total, monto_linea)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [tipoDocumento, numeroDocumento, i + 1, item.codigo_producto, item.cantidad, item.cantidad, item.precio_total, item.precio_total]
-      );
+    if (pathname === '/api/emitir-factura' && req.method === 'POST') {
+      const payload = await parseBody(req);
+      const result = await handleEmitFactura(payload);
+      sendJson(res, 200, result);
+      return;
     }
 
-    await execQuery(conn, 'CALL salidaspedidos(?, ?)', [tipoDocumento, numeroDocumento]);
-
-    await execQuery(
-      conn,
-      `INSERT INTO paquete (codigo_paquete, estado, fecha_registro, fecha_actualizado)
-       VALUES (?, 'pendiente empacar', NOW(), NOW())`,
-      [numeroDocumento]
-    );
-
-    for (let i = 0; i < facturaCalculada.length; i += 1) {
-      await execQuery(
-        conn,
-        `INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, fecha_registro)
-         VALUES (?, ?, 'pendiente empacar', NOW())`,
-        [numeroDocumento, i + 1]
-      );
-    }
-
-    await execQuery(conn, 'COMMIT');
-    return { codigo_pedido: codigoPedido, numero_documento: numeroDocumento, saldo: round2(saldoTotal) };
+    res.writeHead(404);
+    res.end('Not found');
   } catch (error) {
-    await execQuery(conn, 'ROLLBACK');
-    logLine(`ERROR: ${error.message}`);
-    throw error;
-  } finally {
-    conn.release();
+    logLine(`ERROR: ${error.stack || error.message}`);
+    sendJson(res, 500, { error: 'Error interno' });
   }
 }
 
-const server = http.createServer(async (req, res) => {
-  if (req.url.startsWith('/api/')) {
-    await handleApi(req, res);
+const server = http.createServer((req, res) => {
+  const parsedUrl = url.parse(req.url);
+  if (parsedUrl.pathname.startsWith('/api/')) {
+    handleApi(req, res);
     return;
   }
-
-  const filePath = req.url === '/' ? 'index.html' : req.url.slice(1);
-  serveStatic(res, path.join(BASE_DIR, filePath));
+  if (parsedUrl.pathname === '/' || parsedUrl.pathname === '/index.html') {
+    serveStatic(res, path.join(BASE_DIR, 'index.html'));
+    return;
+  }
+  serveStatic(res, path.join(BASE_DIR, parsedUrl.pathname));
 });
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  logLine(`Servidor iniciado en http://localhost:${PORT}`);
+  logLine(`Servidor iniciado en puerto ${PORT}`);
 });

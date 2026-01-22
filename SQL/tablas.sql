@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS `bases`;
 CREATE TABLE `bases` (
   `nombre` varchar(100) NOT NULL,
   `codigo_base` numeric(12,0) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_base`)
 ) ENGINE=InnoDB;
 
@@ -17,7 +17,7 @@ CREATE TABLE `clientes` (
   `nombre` text NOT NULL,
   `numero` numeric(12,0) NOT NULL,
   `codigo_cliente` numeric(12,0) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_cliente`)
 ) ENGINE=InnoDB;
 
@@ -49,18 +49,21 @@ CREATE TABLE `ubigeo` (
 
 CREATE TABLE `puntos_entrega` (
   `codigo_puntoentrega` numeric(12,0) NOT NULL ,
-  `codigo_cliente` numeric(12,0) NOT NULL,
+  `codigo_cliente_puntoentrega` numeric(12,0) NOT NULL,
   `ubigeo` char(6) NOT NULL,
-  `region_entrega` enum('LIMA','PROV') NOT NULL,
   `direccion_linea` varchar(255) DEFAULT NULL,
+  `region_entrega` varchar(255) DEFAULT NULL,
+
   `referencia` varchar(255) DEFAULT NULL,
-  `destinatario_nombre` varchar(255) DEFAULT NULL,
-  `destinatario_dni` varchar(20) DEFAULT NULL,
+  `nombre` varchar(255) DEFAULT NULL,
+  `dni` varchar(20) DEFAULT NULL,
   `agencia` varchar(255) DEFAULT NULL,
+  `observaciones` varchar(255) DEFAULT NULL,
+  `concatenarpuntoentrega` varchar(255) DEFAULT NULL,
   `estado` enum('activo','inactivo') NOT NULL DEFAULT 'activo',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`codigo_puntoentrega`, `ubigeo`),
-  CONSTRAINT `fk_puntos_entrega_cliente` FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`),
+  PRIMARY KEY (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`),
+  CONSTRAINT `fk_puntos_entrega_cliente` FOREIGN KEY (`codigo_cliente_puntoentrega`) REFERENCES `clientes` (`codigo_cliente`),
   CONSTRAINT `fk_puntos_entrega_ubigeo` FOREIGN KEY (`ubigeo`) REFERENCES `ubigeo` (`ubigeo`)
 ) ENGINE=InnoDB;
 
@@ -71,6 +74,7 @@ CREATE TABLE `numrecibe` (
   `nombre` varchar(255) DEFAULT NULL,
   `ordinal_numrecibe` numeric(12,0) NOT NULL,
   `codigo_cliente_numrecibe` numeric(12,0)NOT NULL,
+  `concatenarnumrecibe` varchar(255) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_cliente_numrecibe`,`ordinal_numrecibe`),
   CONSTRAINT `fk_clientenumrecibe_codigo_cliente` FOREIGN KEY (`codigo_cliente_numrecibe`) REFERENCES `clientes` (`codigo_cliente`)
@@ -92,10 +96,10 @@ CREATE TABLE `packing` (
 
 DROP TABLE IF EXISTS `pedidos`;
 
-CREATE TABLE `pedidos` (
+CREATE TABLE `pedidos` ( 
   `codigo_pedido` numeric(12,0) NOT NULL,
   `codigo_cliente` numeric(12,0) NOT NULL,
-  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `estado` enum('activo','anulado') NOT NULL DEFAULT 'activo',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_pedido`),
@@ -124,7 +128,7 @@ CREATE TABLE `pedido_detalle` (
   `precio_unitario` numeric(12,2),
   `precio_total` numeric(12,2) NOT NULL,
   `saldo` numeric(12,2) NOT NULL DEFAULT '0.00',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_pedido`,`ordinal`),
   CONSTRAINT `fk_pedidosdetalle_codigo_pedidos` FOREIGN KEY (`codigo_pedido`) REFERENCES `pedidos` (`codigo_pedido`),
   CONSTRAINT `fk_pedido_detalle_producto` FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`)
@@ -137,7 +141,7 @@ CREATE TABLE `cuentas_bancarias` (
   `codigo_cuentabancaria` numeric(12,0) NOT NULL,
   `nombre` varchar(20) NOT NULL,
   `banco` varchar(20) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_cuentabancaria`)
 ) ENGINE=InnoDB;
 
@@ -158,7 +162,7 @@ CREATE TABLE `mov_contable` (
   `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
   `codigo_cliente_numrecibe` numeric(12,0) DEFAULT NULL,
   `ordinal_numrecibe` numeric(12,0) DEFAULT NULL,
-  `ubigeo` char(6) DEFAULT NULL,
+  `codigo_cliente_puntoentrega` numeric(12,0) DEFAULT NULL,
   `codigo_puntoentrega` numeric(12,0) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento`, `numero_documento`),
@@ -168,7 +172,7 @@ CREATE TABLE `mov_contable` (
   FOREIGN KEY (`codigo_packing`) REFERENCES `packing` (`codigo_packing`),
   FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
   FOREIGN KEY (`codigo_cliente_numrecibe`,`ordinal_numrecibe`) REFERENCES `numrecibe` (`codigo_cliente_numrecibe`,`ordinal_numrecibe`),
-  FOREIGN KEY (`codigo_puntoentrega`, `ubigeo`) REFERENCES `puntos_entrega` (`codigo_puntoentrega`, `ubigeo`)
+  FOREIGN KEY (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`) REFERENCES `puntos_entrega` (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `movimientos`;
@@ -177,7 +181,7 @@ CREATE TABLE `movimientos` (
   `fk_mov_codigopedido` numeric(12,0) NOT NULL,
   `tipo_movimiento` enum('SALIDA','ENTRADA','TRASLADO','AJUSTE') NOT NULL,
   `numero_movimiento` varchar(64) NOT NULL,
-  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   
   `codigo_cliente` numeric(12,0) NOT NULL,
   `codigo_base` numeric(12,0) NOT NULL,
@@ -207,7 +211,6 @@ CREATE TABLE `mov_contable_detalle` (
   `cantidad` numeric(12,3) NOT NULL,
   `saldo` numeric(12,3) NOT NULL,
   `precio_total` numeric(12,2) ,
-  `monto_linea` numeric(12,2) ,
   PRIMARY KEY (`tipo_documento`, `numero_documento`, `ordinal`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
   FOREIGN KEY (`tipo_documento`,`numero_documento`) REFERENCES `mov_contable` (`tipo_documento`,`numero_documento`)
@@ -218,20 +221,22 @@ DROP TABLE IF EXISTS `paquete`;
 
 CREATE TABLE `paquete` (
   `codigo_paquete` numeric(12,0) NOT NULL,
+  `tipo_documento` varchar(3) NOT NULL,
   `estado` varchar(30) NOT NULL,
   `fecha_registro` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `fecha_actualizado` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`codigo_paquete`)
+  PRIMARY KEY (`codigo_paquete`,`tipo_documento`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `paquetedetalle`;
 CREATE TABLE `paquetedetalle` (
   `codigo_paquete` numeric(12,0) NOT NULL,
+  `tipo_documento` varchar(3) NOT NULL,
   `ordinal` numeric(12,0) NOT NULL,
   `estado` varchar(30) NOT NULL,
   `fecha_registro` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`codigo_paquete`, `ordinal`),
-  FOREIGN KEY (`codigo_paquete`) REFERENCES `paquete` (`codigo_paquete`)
+  PRIMARY KEY (`codigo_paquete`,`tipo_documento`, `ordinal`),
+  FOREIGN KEY (`codigo_paquete`,`tipo_documento`) REFERENCES `paquete` (`codigo_paquete`,`tipo_documento`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `movimiento_detalle`;
@@ -242,7 +247,7 @@ CREATE TABLE `movimiento_detalle` (
   `tipo_movimiento` enum('SALIDA','ENTRADA','TRASLADO','AJUSTE') NOT NULL,
   `numero_movimiento` varchar(64) NOT NULL,
   `ordinal` numeric(12,0) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_movimiento`, `numero_movimiento`, `ordinal`),
   FOREIGN KEY (`tipo_movimiento`,`numero_movimiento`) REFERENCES `movimientos` (`tipo_movimiento`,`numero_movimiento`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`)
@@ -251,7 +256,7 @@ CREATE TABLE `movimiento_detalle` (
 
 
 
-
+ 
 
 
 DROP TABLE IF EXISTS `saldo_stock`;
@@ -283,7 +288,7 @@ CREATE TABLE `viajes` (
   `num_yape` varchar(50) DEFAULT NULL,
   `link` text,
   `observacion` text,
-  `fecha` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha` datetime ,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigoviaje`),
   CONSTRAINT `fk_viajes_codigo_base` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`)
@@ -295,8 +300,8 @@ CREATE TABLE `detalleviaje` (
   `codigoviaje` numeric(12,0) NOT NULL,
   `tipo_documento` varchar(3) NOT NULL,
   `numero_documento` numeric(12,0) NOT NULL,
-  `fecha_inicio` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `fecha_fin` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_inicio` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fecha_fin` datetime NULL DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigoviaje`, `tipo_documento`, `numero_documento`),
   CONSTRAINT `fk_detalleviaje_codigoviaje` FOREIGN KEY (`codigoviaje`) REFERENCES `viajes` (`codigoviaje`),
@@ -374,7 +379,7 @@ CREATE TABLE `usuarios` (
   `numero` numeric(12,0) NOT NULL,
   `password` varchar(255) NOT NULL,
   `codigo_usuario` varchar(36) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_usuario`)
 ) ENGINE=InnoDB;
 

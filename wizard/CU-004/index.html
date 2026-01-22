@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CU-004 Gestionar paquetes en camino</title>
+    <title>CU-004 Gestionar Paquetes en Camino</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,10 +19,10 @@
   <body>
     <main>
       <section class="hero">
-        <span class="badge-status" id="wizardStatus" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 id="wizardTitle" data-i18n="wizardTitle">Paquetes en Camino</h1>
-        <p id="wizardSubtitle" data-i18n="wizardSubtitle">
-          Gestione estados, detalle y trazabilidad de paquetes con operaciones globales.
+        <span class="badge-status" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
+        <h1 data-i18n="wizardTitle">Gestionar Paquetes en Camino</h1>
+        <p data-i18n="wizardSubtitle">
+          Controle estados de paquetes en ruta con visibilidad operativa para servicios globales.
         </p>
       </section>
 
@@ -31,10 +31,10 @@
           <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
               <h2 class="section-title" id="stepTitle">Paso 1: Seleccion de Paquete</h2>
-              <p class="small-muted" id="stepHint">Seleccione un paquete en camino para continuar.</p>
+              <p class="small-muted" id="stepHint">Seleccione un paquete en camino.</p>
             </div>
             <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
-              Ver Logs de SQL
+              Ver Logs de sentencias SQL
             </button>
           </div>
           <div class="progress mt-3">
@@ -57,7 +57,7 @@
           <div class="step active" data-step="1">
             <div class="grid-toolbar">
               <h3 class="section-title mb-0" data-i18n="paquetesEnCamino">vPaquetesEnCamino</h3>
-              <span class="small-muted" id="selectedPackageLabel" data-i18n="sinSeleccion">
+              <span class="small-muted" id="selectedLabel" data-i18n="sinSeleccion">
                 Ningun paquete seleccionado
               </span>
             </div>
@@ -67,12 +67,11 @@
                   <tr>
                     <th></th>
                     <th data-i18n="codigoPaquete">Codigo Paquete</th>
-                    <th data-i18n="estado">Estado</th>
-                    <th data-i18n="fechaRegistro">Fecha Registro</th>
-                    <th data-i18n="codigoCliente">Codigo Cliente</th>
+                    <th data-i18n="fecha">Fecha</th>
                     <th data-i18n="nombreCliente">Nombre Cliente</th>
-                    <th data-i18n="ubigeo">Ubigeo</th>
-                    <th data-i18n="regionEntrega">Region Entrega</th>
+                    <th data-i18n="numCliente">Numero Cliente</th>
+                    <th data-i18n="puntoEntrega">Punto Entrega</th>
+                    <th data-i18n="numRecibe">Numero Recibe</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -83,58 +82,63 @@
           <div class="step" data-step="2">
             <div class="row g-3">
               <div class="col-lg-6">
-                <div class="summary-card" id="clienteEntregaCard"></div>
+                <div class="summary-card">
+                  <div class="summary-title" data-i18n="detallePaquete">Detalle del Paquete</div>
+                  <ul class="summary-list" id="paqueteDetalle"></ul>
+                </div>
               </div>
               <div class="col-lg-6">
-                <div class="summary-card" id="viajeCard"></div>
+                <div class="summary-card">
+                  <div class="summary-title" data-i18n="detalleViaje">Datos del Viaje</div>
+                  <ul class="summary-list" id="viajeDetalle"></ul>
+                </div>
               </div>
             </div>
 
-            <div class="mt-4">
-              <div class="grid-toolbar">
-                <h3 class="section-title mb-0" data-i18n="productosDocumento">Productos del Documento</h3>
-                <span class="small-muted" id="productosCountLabel">0 items</span>
-              </div>
-              <div class="table-responsive">
-                <table class="table table-dark table-bordered align-middle" id="productosTable">
-                  <thead>
-                    <tr>
-                      <th data-i18n="nombreProducto">Nombre Producto</th>
-                      <th data-i18n="cantidad">Cantidad</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-              </div>
+            <div class="grid-toolbar mt-4">
+              <h3 class="section-title mb-0" data-i18n="movContableDetalle">mov_contable_detalle</h3>
+              <span class="small-muted" data-i18n="detalleSoloLectura">Solo lectura</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-dark table-bordered align-middle" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="nombreProducto">Producto</th>
+                    <th data-i18n="cantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
 
           <div class="step" data-step="3">
             <div class="row g-3">
               <div class="col-lg-6">
-                <div class="summary-card" id="resumenPaqueteCard"></div>
+                <div class="summary-card" id="resumenPaquete"></div>
               </div>
               <div class="col-lg-6">
-                <div class="summary-card" id="resumenViajeCard"></div>
+                <div class="summary-card">
+                  <div class="summary-title" data-i18n="nuevoEstado">Nuevo Estado</div>
+                  <select class="form-select" id="estadoSelect" required>
+                    <option value="" data-i18n="seleccione">Seleccione...</option>
+                    <option value="robado" data-i18n="estadoRobado">robado</option>
+                    <option value="devuelto" data-i18n="estadoDevuelto">devuelto</option>
+                    <option value="standby" data-i18n="estadoStandby">standby</option>
+                    <option value="llegado" data-i18n="estadoLlegado">llegado</option>
+                  </select>
+                  <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="confirmOperacion" />
+                    <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
+                      Confirmo que la informacion es correcta
+                    </label>
+                  </div>
+                  <button class="btn btn-primary mt-3" type="button" id="guardarBtn" data-i18n="guardar">
+                    Guardar Estado
+                  </button>
+                </div>
               </div>
             </div>
-
-            <div class="row g-3 mt-2">
-              <div class="col-md-6">
-                <label class="form-label" for="nuevoEstado" data-i18n="nuevoEstado">Nuevo Estado</label>
-                <select class="form-select" id="nuevoEstado" required></select>
-              </div>
-            </div>
-
-            <div class="form-check mt-3">
-              <input class="form-check-input" type="checkbox" id="confirmOperacion" />
-              <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
-                Confirmo que la informacion es correcta
-              </label>
-            </div>
-            <button class="btn btn-primary mt-3" type="button" id="guardarBtn" data-i18n="guardar">
-              Guardar Estado
-            </button>
           </div>
 
           <div class="step-actions">
@@ -163,15 +167,11 @@
       </div>
     </div>
 
-    <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-overlay d-none" id="loadingOverlay">
       <div class="loading-card">
-        <div class="d-flex align-items-center gap-3">
-          <div class="spinner-border text-light" role="status"></div>
-          <div>
-            <div class="fw-semibold" id="loadingText" data-i18n="loading">Procesando...</div>
-            <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
-          </div>
-        </div>
+        <div class="spinner-border text-info" role="status"></div>
+        <div class="loading-text" id="loadingText" data-i18n="loading">Procesando...</div>
+        <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
       </div>
     </div>
 

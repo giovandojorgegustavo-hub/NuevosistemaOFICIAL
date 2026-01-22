@@ -16,7 +16,7 @@ El código generado debe guardarse en una sola carpeta por caso de uso: `wizard/
 - Validaciones con expresiones regulares
 - Componentes Bootstrap (progress bar, alerts, etc.)
 - Responsive design para móviles
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 

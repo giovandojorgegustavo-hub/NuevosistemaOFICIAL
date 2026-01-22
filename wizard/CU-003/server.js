@@ -152,8 +152,8 @@ async function handleApi(req, res) {
     }
 
     if (pathname === '/api/viajes/next') {
-      const [rows] = await execQuery(pool, 'SELECT IFNULL(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
-      sendJson(res, 200, rows[0] || { next: 1 });
+      const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
+      sendJson(res, 200, rows[0]);
       return;
     }
 
@@ -164,16 +164,16 @@ async function handleApi(req, res) {
       return;
     }
 
-    if (pathname === '/api/logs/latest') {
-      const content = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, 'utf8') : '';
-      sendJson(res, 200, { file: path.basename(LOG_FILE), content });
+    if (pathname === '/api/viajes/guardar' && req.method === 'POST') {
+      const body = await parseBody(req);
+      const response = await guardarViaje(body);
+      sendJson(res, 200, response);
       return;
     }
 
-    if (pathname === '/api/viajes' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const response = await registrarViaje(body);
-      sendJson(res, 200, response);
+    if (pathname === '/api/logs/latest') {
+      const content = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, 'utf8') : '';
+      sendJson(res, 200, { file: path.basename(LOG_FILE), content });
       return;
     }
 
@@ -184,72 +184,72 @@ async function handleApi(req, res) {
   }
 }
 
-async function registrarViaje(payload) {
-  const codigoBase = payload.codigo_base;
-  const nombreMotorizado = payload.nombre_motorizado;
+async function guardarViaje(payload) {
+  const viaje = payload.viaje || {};
   const paquetes = Array.isArray(payload.paquetes) ? payload.paquetes : [];
 
-  if (!codigoBase || !nombreMotorizado || paquetes.length === 0) {
-    throw new Error('Datos incompletos para registrar viaje');
+  if (!viaje.codigoviaje || !viaje.codigo_base || !viaje.nombre_motorizado || !viaje.link) {
+    throw new Error('Datos incompletos para el viaje');
+  }
+  if (paquetes.length === 0) {
+    throw new Error('Debe seleccionar paquetes');
   }
 
   const conn = await pool.getConnection();
   try {
     await execQuery(conn, 'START TRANSACTION');
-    const [rows] = await execQuery(conn, 'SELECT IFNULL(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
-    const codigoviaje = rows[0]?.next || 1;
-
     await execQuery(
       conn,
       `INSERT INTO viajes
         (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ,
       [
-        codigoviaje,
-        codigoBase,
-        nombreMotorizado,
-        payload.numero_wsp || null,
-        payload.num_llamadas || null,
-        payload.num_yape || null,
-        payload.link || null,
-        payload.observacion || null,
+        viaje.codigoviaje,
+        viaje.codigo_base,
+        viaje.nombre_motorizado,
+        viaje.numero_wsp,
+        viaje.num_llamadas,
+        viaje.num_yape,
+        viaje.link,
+        viaje.observacion,
+        viaje.fecha || new Date(),
       ]
     );
 
-    for (const codigoPaquete of paquetes) {
+    for (const paquete of paquetes) {
+      const codigoPaquete = paquete.codigo_paquete;
       await execQuery(
         conn,
         `INSERT INTO detalleviaje
-          (codigoviaje, tipo_documento, numero_documento, fecha_inicio, fecha_fin)
-         VALUES (?, 'F', ?, NOW(), NOW())`,
-        [codigoviaje, codigoPaquete]
+          (codigoviaje, numero_documento, tipo_documento, fecha_inicio)
+         VALUES (?, ?, 'FAC', NOW())`,
+        [viaje.codigoviaje, codigoPaquete]
       );
 
-      const [detalleRows] = await execQuery(
+      const [ordinalRows] = await execQuery(
         conn,
-        `SELECT ordinal
-         FROM mov_contable_detalle
-         WHERE tipo_documento = 'F'
-           AND numero_documento = ?
-         ORDER BY ordinal`,
+        `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next
+         FROM paquetedetalle
+         WHERE codigo_paquete = ?
+           AND tipo_documento = 'FAC'`,
         [codigoPaquete]
       );
+      const ordinal = ordinalRows[0]?.next || 1;
 
-      for (const detalle of detalleRows) {
-        await execQuery(
-          conn,
-          `INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, fecha_registro)
-           VALUES (?, ?, 'en camino', NOW())
-           ON DUPLICATE KEY UPDATE estado = VALUES(estado)`,
-          [codigoPaquete, detalle.ordinal]
-        );
-      }
+      await execQuery(
+        conn,
+        `INSERT INTO paquetedetalle
+          (codigo_paquete, ordinal, estado, tipo_documento)
+         VALUES (?, ?, 'en camino', 'FAC')`,
+        [codigoPaquete, ordinal]
+      );
 
-      await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'en camino']);
+      await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'empacado']);
     }
 
     await execQuery(conn, 'COMMIT');
-    return { codigoviaje, paquetes: paquetes.length };
+    return { codigoviaje: viaje.codigoviaje, paquetes: paquetes.length };
   } catch (error) {
     await execQuery(conn, 'ROLLBACK');
     logLine(`ERROR: ${error.message}`);
@@ -269,7 +269,7 @@ const server = http.createServer(async (req, res) => {
   serveStatic(res, path.join(BASE_DIR, filePath));
 });
 
-const PORT = Number(process.env.PORT || 3002);
+const PORT = Number(process.env.PORT || 3003);
 server.listen(PORT, () => {
   logLine(`Servidor iniciado en http://localhost:${PORT}`);
 });

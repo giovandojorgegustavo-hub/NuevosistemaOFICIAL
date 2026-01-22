@@ -20,7 +20,7 @@ El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/C
 
 - Responsive design para moviles
 
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 

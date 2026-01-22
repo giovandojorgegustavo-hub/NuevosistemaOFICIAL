@@ -16,7 +16,7 @@ El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/C
 - Validaciones con expresiones regulares
 - Componentes Bootstrap (progress bar, alerts, etc.)
 - Responsive design para moviles
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 
@@ -68,28 +68,58 @@ El Grid se debe cargar mediante el procedimiento almacenado:
 - `get_paquetes_por_estado(p_estado)` con `p_estado = "en camino"`.
 
 Columnas sugeridas del Grid:
-- codigo_paquete
-- estado
-- fecha_registro
-- codigo_cliente
-- nombre_cliente
-- ubigeo
-- region_entrega
+
+- Vcodigo_paquete=codigo_paquete
+- vfecha=fecha_actualizado
+- vnombre_cliente=nombre_cliente
+- vnum_cliente=num_cliente
+- vconcatenarpuntoentrega=concatenarpuntoentrega
+- vconcatenarnumrecibe=concatenarnumrecibe
 
 El usuario podra seleccionar un paquete para continuar al detalle.
 
-Paso 2. Detalle completo del paquete.
+Al seleccionar un paquete del Grid, llama el procedimiento get_mov_contable_detalle(Tipo_documento,Num_documento) los parametros son
+Tipo_documento="FAC"
+Num_documento=Vcodigo_paquete
 
-Mostrar:
-- Datos del cliente y entrega (como en CU-002).
-- Productos del documento (`mov_contable_detalle` + `productos`).
-- Datos del viaje asociado (tabla `viajes` + `detalleviaje`).
-  - `codigoviaje`, `codigo_base`, `nombre_motorizado`, `numero_wsp`, `num_llamadas`, `num_yape`, `link`, `observacion`, `fecha`.
+
+Vordinal=`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = Vcodigo_paquete AND tipo_documento = 'FAC';` (si no hay filas, usar 1).
+
+
+Paso 2. Mostrar informacion de ese paquete que esta en camino (solo lectura).
+
+traer el procedimiento get_viaje_por_documento(Vcodigo_paquete);
+aqui nos va a mostrar los datos del viaje de este paquete
+mostrar como lectura
+
+fecha
+nombrebase
+nombre_motorizado
+numero_wsp
+num_llamadas
+num_yape
+link
+observacion
+
+tambien mostrar 
+vconcatenarpuntoentrega mostrar como lectura
+vconcatenarnumrecibe mostrar como lectura
+
+Mostrar un grid con el detalle de `mov_contable_detalle` del documento seleccionado (solo lectura, no editable): con los datos campos traidos del procedimiento get_mov_contable_detalle
+
+Vnombre_producto=nombre_producto
+vcantidad=cantidad
+
+
+
+
 
 Paso 3. Confirmar y Guardar.
 
 El usuario define el nuevo estado del paquete:
-- `robado`, `devuelto`, `standby` o `llegado`.
+- `robado`, `devuelto`, `standby` o `llegado`. dale para escoger solo entre estas opciones
+
+
 
 Mostrar resumen del paquete seleccionado y el viaje asociado (incluyendo `link`).
 
@@ -97,17 +127,16 @@ Al confirmar, guardar:
 
 1) Llamar a `cambiar_estado_paquete(p_codigo_paquete, p_estado)` con el nuevo estado.
 
-2) Actualizar `paquetedetalle.estado` para el paquete, si aplica, para mantener consistencia.
+2) Registrar en `paquetedetalle` 
+- `codigo_paquete` = paquete seleccionado.
+- `ordinal` = Vordinal 
+- `estado` = con el nuevo estado.
+- `tipo_documento` = "FAC".
 
-# **Procedimientos necesarios (revisar SQL/procedimientos.sql)
+3) Registrar en `detalleviaje` 
+- `fecha_fin` = now en datetime
+siempre y cuando los estados `robado`, `devuelto` o `llegado`.
 
-Si no existen, crear los siguientes SP:
-
-- `get_paquetes_por_estado(p_estado)`
-  - Debe listar paquetes por estado y devolver datos del cliente/entrega usando join con `mov_contable`, `clientes` y `puntos_entrega`.
-
-- `cambiar_estado_paquete(p_codigo_paquete, p_estado)`
-  - Debe actualizar `paquete.estado` y `paquete.fecha_actualizado`.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

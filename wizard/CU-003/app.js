@@ -11,172 +11,162 @@ class FormWizard {
     this.loadingText = document.getElementById('loadingText');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
-    this.asignarBtn = document.getElementById('asignarBtn');
+    this.guardarBtn = document.getElementById('guardarBtn');
     this.confirmOperacion = document.getElementById('confirmOperacion');
-    this.codigoViajeInput = document.getElementById('codigoViaje');
-    this.fechaViajeInput = document.getElementById('fechaViaje');
-    this.codigoBaseSelect = document.getElementById('codigoBase');
-    this.nombreMotorizadoInput = document.getElementById('nombreMotorizado');
-    this.numeroWspInput = document.getElementById('numeroWsp');
-    this.numLlamadasInput = document.getElementById('numLlamadas');
-    this.numYapeInput = document.getElementById('numYape');
-    this.linkInput = document.getElementById('link');
-    this.observacionInput = document.getElementById('observacion');
-    this.paquetesTableBody = document.querySelector('#paquetesTable tbody');
-    this.selectedCountLabel = document.getElementById('selectedCountLabel');
-    this.viajeCard = document.getElementById('viajeCard');
-    this.paquetesCard = document.getElementById('paquetesCard');
+    this.viewLogsBtn = document.getElementById('viewLogsBtn');
     this.logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
     this.logsContent = document.getElementById('logsContent');
+    this.paquetesTableBody = document.querySelector('#paquetesTable tbody');
+    this.selectedCountLabel = document.getElementById('selectedCountLabel');
+    this.resumenViaje = document.getElementById('resumenViaje');
+    this.resumenPaquetes = document.getElementById('resumenPaquetes');
+
+    this.fields = {
+      codigoViaje: document.getElementById('codigoViaje'),
+      codigoBase: document.getElementById('codigoBase'),
+      nombreMotorizado: document.getElementById('nombreMotorizado'),
+      numeroWsp: document.getElementById('numeroWsp'),
+      numLlamadas: document.getElementById('numLlamadas'),
+      numYape: document.getElementById('numYape'),
+      link: document.getElementById('link'),
+      observacion: document.getElementById('observacion'),
+      fecha: document.getElementById('fecha'),
+    };
 
     this.regex = {
-      nombre: /^[A-Za-z\s.'-]{3,}$/,
-      phone: /^\+?[0-9]{6,15}$/,
-      link: /^(https?:\/\/)?[\w.-]+(\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=]*$/,
+      nombre: /^.{2,}$/,
+      link: /^(https?:\/\/|www\.)[^\s]+$/i,
+      numeros: /^[0-9+\s-]*$/,
     };
 
     this.state = {
       locale: navigator.language || 'es',
-      bases: [],
       paquetes: [],
-      selectedPaquetes: new Set(),
-      nextCodigo: '',
+      selected: new Set(),
+      bases: [],
+      viaje: {
+        fechaISO: new Date().toISOString(),
+      },
     };
 
     this.dictionary = {
       es: {
-        stepTitles: [
-          'Paso 1: Datos del Viaje',
-          'Paso 2: Paquetes Empacados',
-          'Paso 3: Confirmar y Guardar',
-        ],
+        stepTitles: ['Paso 1: Datos del Viaje', 'Paso 2: Seleccion de Paquetes', 'Paso 3: Confirmar y Guardar'],
         stepHints: [
-          'Complete los datos del motorizado y base.',
-          'Seleccione los paquetes empacados para asignar.',
-          'Revise el resumen antes de guardar.',
+          'Complete los datos principales del viaje.',
+          'Seleccione uno o mas paquetes empacados.',
+          'Revise el resumen y confirme la operacion.',
         ],
         ui: {
           wizardStatus: 'Servicio Global IaaS/PaaS',
           wizardTitle: 'Asignar Viajes',
-          wizardSubtitle: 'Gestione rutas, paquetes y monitoreo de entregas desde un solo lugar.',
+          wizardSubtitle: 'Coordine viajes y paquetes con visibilidad operacional para operaciones globales.',
           viewLogs: 'Ver Logs de SQL',
           codigoViaje: 'Codigo Viaje',
-          fecha: 'Fecha',
-          codigoBase: 'Base',
+          codigoBase: 'Base Operativa',
           nombreMotorizado: 'Nombre Motorizado',
           numeroWsp: 'Numero WSP',
-          numLlamadas: 'Numero Llamadas',
+          numLlamadas: 'Numero de Llamadas',
           numYape: 'Numero Yape',
           link: 'Link',
+          fecha: 'Fecha',
           observacion: 'Observacion',
           paquetesEmpacados: 'vPaquetesEmpacados',
           sinSeleccion: 'Ningun paquete seleccionado',
           codigoPaquete: 'Codigo Paquete',
-          estado: 'Estado',
-          fechaRegistro: 'Fecha Registro',
-          codigoCliente: 'Codigo Cliente',
           nombreCliente: 'Nombre Cliente',
-          ubigeo: 'Ubigeo',
-          regionEntrega: 'Region Entrega',
+          numCliente: 'Numero Cliente',
+          puntoEntrega: 'Punto Entrega',
+          numRecibe: 'Numero Recibe',
           confirmacion: 'Confirmo que la informacion es correcta',
-          asignar: 'Asignar Viaje',
+          guardar: 'Guardar Viaje',
           anterior: 'Anterior',
           siguiente: 'Siguiente',
           logsTitle: 'Logs de SQL',
           loading: 'Procesando...',
           loadingHint: 'Espere un momento.',
-          viajeResumen: 'Resumen del Viaje',
-          paquetesResumen: 'Paquetes Seleccionados',
-          base: 'Base',
-          motorizado: 'Motorizado',
-          wsp: 'WSP',
-          llamadas: 'Llamadas',
-          yape: 'Yape',
+          resumenViaje: 'Resumen del Viaje',
+          resumenPaquetes: 'Paquetes Seleccionados',
+          baseLabel: 'Base',
+          motorizadoLabel: 'Motorizado',
           linkLabel: 'Link',
+          wspLabel: 'WSP',
+          llamadasLabel: 'Llamadas',
+          yapeLabel: 'Yape',
           observacionLabel: 'Observacion',
           fechaLabel: 'Fecha',
-          paquetesTotal: 'Total paquetes',
-          sinDatos: 'Sin datos disponibles',
-          seleccionarBase: 'Seleccione una base',
+          paquetesLabel: 'Paquetes',
+          seleccionar: 'Seleccionar',
         },
         messages: {
           errorServer: 'Error al comunicar con el servidor',
-          completarPaso1: 'Complete los datos requeridos del viaje.',
-          nombreInvalido: 'Nombre de motorizado invalido.',
-          baseInvalida: 'Seleccione una base valida.',
-          telefonoInvalido: 'Numero telefonico invalido.',
-          linkInvalido: 'Link invalido.',
-          seleccionarPaquetes: 'Seleccione al menos un paquete.',
+          baseRequerida: 'Seleccione una base operativa.',
+          nombreRequerido: 'Ingrese el nombre del motorizado.',
+          linkInvalido: 'Ingrese un link valido (http, https o www).',
+          numerosInvalidos: 'Los numeros solo deben contener digitos.',
+          paquetesRequeridos: 'Seleccione al menos un paquete empacado.',
           confirmarOperacion: 'Debe confirmar la operacion.',
-          asignarOk: 'Viaje asignado correctamente.',
+          guardarOk: 'Viaje asignado correctamente.',
           sinLogs: 'Sin logs disponibles.',
         },
       },
       en: {
-        stepTitles: [
-          'Step 1: Trip Data',
-          'Step 2: Packed Packages',
-          'Step 3: Confirm and Save',
-        ],
+        stepTitles: ['Step 1: Trip Data', 'Step 2: Select Packages', 'Step 3: Confirm and Save'],
         stepHints: [
-          'Complete rider and base data.',
-          'Select packed packages to assign.',
-          'Review the summary before saving.',
+          'Complete the main trip information.',
+          'Select one or more packed packages.',
+          'Review the summary and confirm the operation.',
         ],
         ui: {
           wizardStatus: 'Global IaaS/PaaS Service',
           wizardTitle: 'Assign Trips',
-          wizardSubtitle: 'Manage routes, packages, and delivery monitoring in one place.',
+          wizardSubtitle: 'Coordinate trips and packages with global operational visibility.',
           viewLogs: 'View SQL Logs',
           codigoViaje: 'Trip Code',
-          fecha: 'Date',
-          codigoBase: 'Base',
+          codigoBase: 'Operational Base',
           nombreMotorizado: 'Driver Name',
-          numeroWsp: 'WhatsApp',
-          numLlamadas: 'Calls',
-          numYape: 'Yape',
+          numeroWsp: 'WhatsApp Number',
+          numLlamadas: 'Call Number',
+          numYape: 'Yape Number',
           link: 'Link',
+          fecha: 'Date',
           observacion: 'Notes',
           paquetesEmpacados: 'vPackedPackages',
-          sinSeleccion: 'No package selected',
+          sinSeleccion: 'No packages selected',
           codigoPaquete: 'Package Code',
-          estado: 'Status',
-          fechaRegistro: 'Register Date',
-          codigoCliente: 'Client Code',
           nombreCliente: 'Client Name',
-          ubigeo: 'Ubigeo',
-          regionEntrega: 'Delivery Region',
+          numCliente: 'Client Number',
+          puntoEntrega: 'Delivery Point',
+          numRecibe: 'Receiver Number',
           confirmacion: 'I confirm the information is correct',
-          asignar: 'Assign Trip',
+          guardar: 'Save Trip',
           anterior: 'Previous',
           siguiente: 'Next',
           logsTitle: 'SQL Logs',
           loading: 'Processing...',
           loadingHint: 'Please wait.',
-          viajeResumen: 'Trip Summary',
-          paquetesResumen: 'Selected Packages',
-          base: 'Base',
-          motorizado: 'Driver',
-          wsp: 'WhatsApp',
-          llamadas: 'Calls',
-          yape: 'Yape',
+          resumenViaje: 'Trip Summary',
+          resumenPaquetes: 'Selected Packages',
+          baseLabel: 'Base',
+          motorizadoLabel: 'Driver',
           linkLabel: 'Link',
+          wspLabel: 'WhatsApp',
+          llamadasLabel: 'Calls',
+          yapeLabel: 'Yape',
           observacionLabel: 'Notes',
           fechaLabel: 'Date',
-          paquetesTotal: 'Total packages',
-          sinDatos: 'No data available',
-          seleccionarBase: 'Select a base',
+          paquetesLabel: 'Packages',
+          seleccionar: 'Select',
         },
         messages: {
           errorServer: 'Failed to communicate with server',
-          completarPaso1: 'Complete required trip data.',
-          nombreInvalido: 'Invalid driver name.',
-          baseInvalida: 'Select a valid base.',
-          telefonoInvalido: 'Invalid phone number.',
-          linkInvalido: 'Invalid link.',
-          seleccionarPaquetes: 'Select at least one package.',
+          baseRequerida: 'Select an operational base.',
+          nombreRequerido: 'Enter the driver name.',
+          linkInvalido: 'Enter a valid link (http, https, or www).',
+          numerosInvalidos: 'Numbers must contain digits only.',
+          paquetesRequeridos: 'Select at least one packed package.',
           confirmarOperacion: 'You must confirm the operation.',
-          asignarOk: 'Trip assigned successfully.',
+          guardarOk: 'Trip assigned successfully.',
           sinLogs: 'No logs available.',
         },
       },
@@ -195,46 +185,41 @@ class FormWizard {
     const segments = path.split('.');
     let current = this.dictionary[lang];
     for (const segment of segments) {
-      if (!current || !(segment in current)) return path;
+      if (!current || typeof current !== 'object') return '';
       current = current[segment];
     }
-    return current;
+    return current ?? '';
+  }
+
+  init() {
+    this.applyTranslations();
+    this.setFecha();
+    this.bindEvents();
+    this.loadInitialData();
+    this.updateStep();
   }
 
   applyTranslations() {
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n');
-      const value = this.t(`ui.${key}`);
-      if (value) {
-        el.textContent = value;
+      const text = this.t(`ui.${key}`);
+      if (text) {
+        el.textContent = text;
       }
     });
   }
 
-  init() {
-    this.applyTranslations();
-    this.setFechaActual();
-    this.showStep(0);
-    this.prevBtn.addEventListener('click', () => this.goPrev());
-    this.nextBtn.addEventListener('click', () => this.goNext());
-    this.asignarBtn.addEventListener('click', () => this.handleAsignar());
-    document.getElementById('viewLogsBtn').addEventListener('click', () => this.openLogs());
-    this.paquetesTableBody.addEventListener('change', (event) => this.handleTableSelection(event));
-    this.loadInitialData();
+  setFecha() {
+    const date = new Date();
+    this.state.viaje.fechaISO = date.toISOString();
+    this.fields.fecha.value = date.toLocaleString(this.state.locale);
   }
 
-  setFechaActual() {
-    const now = new Date();
-    this.fechaViajeInput.value = now.toLocaleString(this.state.locale);
-  }
-
-  setLoading(isLoading, textKey = 'loading') {
-    if (isLoading) {
-      this.loadingText.textContent = this.t(`ui.${textKey}`) || this.t('ui.loading');
-      this.loadingOverlay.classList.add('active');
-    } else {
-      this.loadingOverlay.classList.remove('active');
-    }
+  bindEvents() {
+    this.prevBtn.addEventListener('click', () => this.goStep(this.currentStep - 1));
+    this.nextBtn.addEventListener('click', () => this.handleNext());
+    this.guardarBtn.addEventListener('click', () => this.handleSave());
+    this.viewLogsBtn.addEventListener('click', () => this.loadLogs());
   }
 
   showError(message) {
@@ -249,278 +234,239 @@ class FormWizard {
     this.errorBox.classList.add('d-none');
   }
 
-  clearMessages() {
+  clearAlerts() {
     this.errorBox.classList.add('d-none');
     this.successBox.classList.add('d-none');
   }
 
-  showStep(index) {
-    this.currentStep = index;
-    this.steps.forEach((step, idx) => {
-      step.classList.toggle('active', idx === index);
-    });
-    this.stepTitle.textContent = this.t('stepTitles')[index] || '';
-    this.stepHint.textContent = this.t('stepHints')[index] || '';
-    const progress = Math.round(((index + 1) / this.steps.length) * 100);
-    this.progressBar.style.width = `${progress}%`;
-    this.progressBar.setAttribute('aria-valuenow', `${progress}`);
-    this.prevBtn.disabled = index === 0;
-    if (index === this.steps.length - 1) {
-      this.nextBtn.classList.add('d-none');
+  setLoading(isLoading, message) {
+    if (isLoading) {
+      if (message) this.loadingText.textContent = message;
+      this.loadingOverlay.classList.remove('d-none');
     } else {
-      this.nextBtn.classList.remove('d-none');
+      this.loadingOverlay.classList.add('d-none');
     }
-    if (index === 2) {
+  }
+
+  updateStep() {
+    this.steps.forEach((step, index) => {
+      step.classList.toggle('active', index === this.currentStep);
+    });
+
+    const total = this.steps.length;
+    const progress = Math.round(((this.currentStep + 1) / total) * 100);
+    this.progressBar.style.width = `${progress}%`;
+    this.progressBar.setAttribute('aria-valuenow', String(progress));
+
+    const titles = this.t('stepTitles');
+    const hints = this.t('stepHints');
+    if (titles[this.currentStep]) this.stepTitle.textContent = titles[this.currentStep];
+    if (hints[this.currentStep]) this.stepHint.textContent = hints[this.currentStep];
+
+    this.prevBtn.disabled = this.currentStep === 0;
+    this.nextBtn.classList.toggle('d-none', this.currentStep === total - 1);
+  }
+
+  goStep(index) {
+    if (index < 0 || index >= this.steps.length) return;
+    this.currentStep = index;
+    this.updateStep();
+  }
+
+  handleNext() {
+    this.clearAlerts();
+    if (this.currentStep === 0 && !this.validateStep1()) return;
+    if (this.currentStep === 1 && !this.validateStep2()) return;
+    if (this.currentStep === 1) {
       this.renderResumen();
     }
+    this.goStep(this.currentStep + 1);
   }
 
-  goNext() {
-    this.clearMessages();
-    if (this.currentStep === 0 && !this.validatePaso1()) {
-      this.showError(this.t('messages.completarPaso1'));
-      return;
-    }
-    if (this.currentStep === 1 && this.state.selectedPaquetes.size === 0) {
-      this.showError(this.t('messages.seleccionarPaquetes'));
-      return;
-    }
-    if (this.currentStep < this.steps.length - 1) {
-      this.showStep(this.currentStep + 1);
-    }
-  }
-
-  goPrev() {
-    this.clearMessages();
-    if (this.currentStep > 0) {
-      this.showStep(this.currentStep - 1);
-    }
-  }
-
-  validatePaso1() {
-    const codigoBase = this.codigoBaseSelect.value;
-    const nombre = this.nombreMotorizadoInput.value.trim();
-    const wsp = this.numeroWspInput.value.trim();
-    const llamadas = this.numLlamadasInput.value.trim();
-    const yape = this.numYapeInput.value.trim();
-    const link = this.linkInput.value.trim();
-
-    if (!codigoBase) {
-      this.showError(this.t('messages.baseInvalida'));
+  validateStep1() {
+    if (!this.fields.codigoBase.value) {
+      this.showError(this.t('messages.baseRequerida'));
       return false;
     }
-    if (!this.regex.nombre.test(nombre)) {
-      this.showError(this.t('messages.nombreInvalido'));
+    if (!this.regex.nombre.test(this.fields.nombreMotorizado.value.trim())) {
+      this.showError(this.t('messages.nombreRequerido'));
       return false;
     }
-    if (wsp && !this.regex.phone.test(wsp)) {
-      this.showError(this.t('messages.telefonoInvalido'));
-      return false;
-    }
-    if (llamadas && !this.regex.phone.test(llamadas)) {
-      this.showError(this.t('messages.telefonoInvalido'));
-      return false;
-    }
-    if (yape && !this.regex.phone.test(yape)) {
-      this.showError(this.t('messages.telefonoInvalido'));
-      return false;
-    }
-    if (link && !this.regex.link.test(link)) {
+    if (!this.regex.link.test(this.fields.link.value.trim())) {
       this.showError(this.t('messages.linkInvalido'));
+      return false;
+    }
+    if (!this.regex.numeros.test(this.fields.numeroWsp.value.trim())) {
+      this.showError(this.t('messages.numerosInvalidos'));
+      return false;
+    }
+    if (!this.regex.numeros.test(this.fields.numLlamadas.value.trim())) {
+      this.showError(this.t('messages.numerosInvalidos'));
+      return false;
+    }
+    if (!this.regex.numeros.test(this.fields.numYape.value.trim())) {
+      this.showError(this.t('messages.numerosInvalidos'));
+      return false;
+    }
+    return true;
+  }
+
+  validateStep2() {
+    if (this.state.selected.size === 0) {
+      this.showError(this.t('messages.paquetesRequeridos'));
+      return false;
+    }
+    return true;
+  }
+
+  validateStep3() {
+    if (!this.confirmOperacion.checked) {
+      this.showError(this.t('messages.confirmarOperacion'));
       return false;
     }
     return true;
   }
 
   async loadInitialData() {
-    this.setLoading(true, 'loading');
+    this.setLoading(true, this.t('ui.loading'));
     try {
-      const [basesRes, paquetesRes, codigoRes] = await Promise.all([
-        fetch('/api/bases'),
-        fetch('/api/paquetes?estado=empacado'),
-        fetch('/api/viajes/next'),
+      const [bases, next, paquetes] = await Promise.all([
+        this.fetchJson('/api/bases'),
+        this.fetchJson('/api/viajes/next'),
+        this.fetchJson('/api/paquetes?estado=empacado'),
       ]);
-      if (!basesRes.ok || !paquetesRes.ok || !codigoRes.ok) {
-        throw new Error(this.t('messages.errorServer'));
-      }
-      this.state.bases = await basesRes.json();
-      this.state.paquetes = await paquetesRes.json();
-      const codigoData = await codigoRes.json();
-      this.state.nextCodigo = codigoData.next || '';
+      this.state.bases = bases;
+      this.state.paquetes = paquetes;
+      this.fields.codigoViaje.value = next.next;
       this.renderBases();
       this.renderPaquetes();
-      this.renderCodigoViaje();
-      this.updateSelectedCount();
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showError(this.t('messages.errorServer'));
     } finally {
       this.setLoading(false);
     }
   }
 
-  renderCodigoViaje() {
-    this.codigoViajeInput.value = this.state.nextCodigo || '';
-  }
-
   renderBases() {
-    this.codigoBaseSelect.innerHTML = '';
+    this.fields.codigoBase.innerHTML = '';
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = this.t('ui.seleccionarBase');
-    this.codigoBaseSelect.appendChild(placeholder);
+    placeholder.textContent = '--';
+    this.fields.codigoBase.appendChild(placeholder);
     this.state.bases.forEach((base) => {
       const option = document.createElement('option');
-      option.value = base.codigo_base;
-      option.textContent = `${base.codigo_base} - ${base.nombre}`;
-      this.codigoBaseSelect.appendChild(option);
+      option.value = base.codigo_base ?? base.codigo ?? base.id ?? '';
+      option.textContent = base.nombre_base ?? base.nombre ?? base.descripcion ?? option.value;
+      this.fields.codigoBase.appendChild(option);
     });
   }
 
   renderPaquetes() {
     this.paquetesTableBody.innerHTML = '';
-    if (!this.state.paquetes.length) {
+    this.state.paquetes.forEach((paquete) => {
       const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="8" class="text-center small-muted">${this.t('ui.sinDatos')}</td>`;
-      this.paquetesTableBody.appendChild(row);
-      return;
-    }
-    this.state.paquetes.forEach((item) => {
-      const codigo = String(item.codigo_paquete);
-      const isSelected = this.state.selectedPaquetes.has(codigo);
-      const row = document.createElement('tr');
-      row.classList.toggle('selected-row', isSelected);
+      const codigo = paquete.codigo_paquete;
       row.innerHTML = `
         <td>
-          <input class="form-check-input" type="checkbox" data-code="${codigo}" ${
-            isSelected ? 'checked' : ''
-          } />
+          <input class="form-check-input" type="checkbox" data-code="${codigo}" />
         </td>
-        <td>${item.codigo_paquete ?? ''}</td>
-        <td>${item.estado ?? ''}</td>
-        <td>${item.fecha_registro ?? ''}</td>
-        <td>${item.codigo_cliente ?? ''}</td>
-        <td>${item.nombre_cliente ?? ''}</td>
-        <td>${item.ubigeo ?? ''}</td>
-        <td>${item.region_entrega ?? ''}</td>
+        <td>${codigo ?? ''}</td>
+        <td>${paquete.fecha_actualizado ?? ''}</td>
+        <td>${paquete.nombre_cliente ?? ''}</td>
+        <td>${paquete.num_cliente ?? ''}</td>
+        <td>${paquete.concatenarpuntoentrega ?? ''}</td>
+        <td>${paquete.concatenarnumrecibe ?? ''}</td>
       `;
+      const checkbox = row.querySelector('input');
+      checkbox.addEventListener('change', (event) => {
+        const code = event.target.dataset.code;
+        if (event.target.checked) {
+          this.state.selected.add(code);
+          row.classList.add('selected-row');
+        } else {
+          this.state.selected.delete(code);
+          row.classList.remove('selected-row');
+        }
+        this.updateSelectedLabel();
+      });
       this.paquetesTableBody.appendChild(row);
     });
+    this.updateSelectedLabel();
   }
 
-  handleTableSelection(event) {
-    const checkbox = event.target.closest('input[data-code]');
-    if (!checkbox) return;
-    const codigo = checkbox.getAttribute('data-code');
-    if (checkbox.checked) {
-      this.state.selectedPaquetes.add(codigo);
-    } else {
-      this.state.selectedPaquetes.delete(codigo);
-    }
-    this.renderPaquetes();
-    this.updateSelectedCount();
-  }
-
-  updateSelectedCount() {
-    const total = this.state.selectedPaquetes.size;
-    if (!total) {
+  updateSelectedLabel() {
+    const count = this.state.selected.size;
+    if (count === 0) {
       this.selectedCountLabel.textContent = this.t('ui.sinSeleccion');
     } else {
-      this.selectedCountLabel.textContent = `${this.t('ui.paquetesTotal')}: ${total}`;
+      this.selectedCountLabel.textContent = `${count} ${this.t('ui.paquetesLabel')}`;
     }
   }
 
   renderResumen() {
-    const base = this.state.bases.find(
-      (item) => String(item.codigo_base) === String(this.codigoBaseSelect.value)
-    );
-    const paquetes = this.state.paquetes.filter((item) =>
-      this.state.selectedPaquetes.has(String(item.codigo_paquete))
-    );
-
-    const viajeHtml = `
-      <h4>${this.t('ui.viajeResumen')}</h4>
-      <p><strong>${this.t('ui.codigoViaje')}:</strong> ${this.codigoViajeInput.value || '-'}</p>
-      <p><strong>${this.t('ui.fechaLabel')}:</strong> ${this.fechaViajeInput.value || '-'}</p>
-      <p><strong>${this.t('ui.base')}:</strong> ${base ? base.nombre : '-'}</p>
-      <p><strong>${this.t('ui.motorizado')}:</strong> ${this.nombreMotorizadoInput.value || '-'}</p>
-      <p><strong>${this.t('ui.wsp')}:</strong> ${this.numeroWspInput.value || '-'}</p>
-      <p><strong>${this.t('ui.llamadas')}:</strong> ${this.numLlamadasInput.value || '-'}</p>
-      <p><strong>${this.t('ui.yape')}:</strong> ${this.numYapeInput.value || '-'}</p>
-      <p><strong>${this.t('ui.linkLabel')}:</strong> ${this.linkInput.value || '-'}</p>
-      <p><strong>${this.t('ui.observacionLabel')}:</strong> ${this.observacionInput.value || '-'}</p>
+    const base = this.state.bases.find((item) => String(item.codigo_base ?? item.codigo ?? item.id) === this.fields.codigoBase.value);
+    const selectedCodes = Array.from(this.state.selected);
+    const selectedRows = this.state.paquetes.filter((item) => selectedCodes.includes(String(item.codigo_paquete)));
+    const resumenViaje = `
+      <div class="summary-title">${this.t('ui.resumenViaje')}</div>
+      <ul class="summary-list">
+        <li><strong>${this.t('ui.codigoViaje')}:</strong> ${this.fields.codigoViaje.value}</li>
+        <li><strong>${this.t('ui.baseLabel')}:</strong> ${base?.nombre_base ?? base?.nombre ?? ''}</li>
+        <li><strong>${this.t('ui.motorizadoLabel')}:</strong> ${this.fields.nombreMotorizado.value}</li>
+        <li><strong>${this.t('ui.wspLabel')}:</strong> ${this.fields.numeroWsp.value || '-'}</li>
+        <li><strong>${this.t('ui.llamadasLabel')}:</strong> ${this.fields.numLlamadas.value || '-'}</li>
+        <li><strong>${this.t('ui.yapeLabel')}:</strong> ${this.fields.numYape.value || '-'}</li>
+        <li><strong>${this.t('ui.linkLabel')}:</strong> ${this.fields.link.value}</li>
+        <li><strong>${this.t('ui.observacionLabel')}:</strong> ${this.fields.observacion.value || '-'}</li>
+        <li><strong>${this.t('ui.fechaLabel')}:</strong> ${this.fields.fecha.value}</li>
+      </ul>
     `;
-    this.viajeCard.innerHTML = viajeHtml;
 
-    let paquetesHtml = `<h4>${this.t('ui.paquetesResumen')}</h4>`;
-    if (!paquetes.length) {
-      paquetesHtml += `<p>${this.t('ui.sinDatos')}</p>`;
-    } else {
-      paquetesHtml += `<p>${this.t('ui.paquetesTotal')}: ${paquetes.length}</p>`;
-      paquetes.forEach((item) => {
-        paquetesHtml += `<p>${item.codigo_paquete} - ${item.nombre_cliente || ''}</p>`;
-      });
-    }
-    this.paquetesCard.innerHTML = paquetesHtml;
+    const paqueteItems = selectedRows
+      .map(
+        (item) =>
+          `<li><strong>${item.codigo_paquete}</strong> ${item.nombre_cliente ?? ''} (${item.num_cliente ?? ''})</li>`
+      )
+      .join('');
+
+    const resumenPaquetes = `
+      <div class="summary-title">${this.t('ui.resumenPaquetes')}</div>
+      <ul class="summary-list">
+        ${paqueteItems || `<li>${this.t('ui.sinSeleccion')}</li>`}
+      </ul>
+    `;
+
+    this.resumenViaje.innerHTML = resumenViaje;
+    this.resumenPaquetes.innerHTML = resumenPaquetes;
   }
 
-  collectPayload() {
-    const clean = (value) => {
-      const trimmed = value.trim();
-      return trimmed ? trimmed : null;
+  async handleSave() {
+    this.clearAlerts();
+    if (!this.validateStep1() || !this.validateStep2() || !this.validateStep3()) return;
+
+    const payload = {
+      viaje: {
+        codigoviaje: Number(this.fields.codigoViaje.value),
+        codigo_base: this.fields.codigoBase.value,
+        nombre_motorizado: this.fields.nombreMotorizado.value.trim(),
+        numero_wsp: this.fields.numeroWsp.value.trim() || null,
+        num_llamadas: this.fields.numLlamadas.value.trim() || null,
+        num_yape: this.fields.numYape.value.trim() || null,
+        link: this.fields.link.value.trim(),
+        observacion: this.fields.observacion.value.trim() || null,
+        fecha: this.state.viaje.fechaISO,
+      },
+      paquetes: Array.from(this.state.selected).map((codigo) => ({ codigo_paquete: codigo })),
     };
-    return {
-      codigo_base: this.codigoBaseSelect.value,
-      nombre_motorizado: this.nombreMotorizadoInput.value.trim(),
-      numero_wsp: clean(this.numeroWspInput.value),
-      num_llamadas: clean(this.numLlamadasInput.value),
-      num_yape: clean(this.numYapeInput.value),
-      link: clean(this.linkInput.value),
-      observacion: clean(this.observacionInput.value),
-      paquetes: Array.from(this.state.selectedPaquetes),
-    };
-  }
 
-  resetForm() {
-    this.codigoBaseSelect.value = '';
-    this.nombreMotorizadoInput.value = '';
-    this.numeroWspInput.value = '';
-    this.numLlamadasInput.value = '';
-    this.numYapeInput.value = '';
-    this.linkInput.value = '';
-    this.observacionInput.value = '';
-    this.confirmOperacion.checked = false;
-    this.state.selectedPaquetes.clear();
-    this.updateSelectedCount();
-  }
-
-  async handleAsignar() {
-    this.clearMessages();
-    if (!this.validatePaso1()) {
-      return;
-    }
-    if (this.state.selectedPaquetes.size === 0) {
-      this.showError(this.t('messages.seleccionarPaquetes'));
-      return;
-    }
-    if (!this.confirmOperacion.checked) {
-      this.showError(this.t('messages.confirmarOperacion'));
-      return;
-    }
-
-    this.setLoading(true, 'loading');
+    this.setLoading(true, this.t('ui.loading'));
     try {
-      const res = await fetch('/api/viajes', {
+      await this.fetchJson('/api/viajes/guardar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.collectPayload()),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(this.t('messages.errorServer'));
-      const data = await res.json();
-      this.showSuccess(`${this.t('messages.asignarOk')} ${data.codigoviaje || ''}`.trim());
-      this.resetForm();
-      this.setFechaActual();
-      await this.reloadData();
-      this.showStep(0);
+      this.showSuccess(this.t('messages.guardarOk'));
+      this.confirmOperacion.checked = false;
     } catch (error) {
       this.showError(error.message || this.t('messages.errorServer'));
     } finally {
@@ -528,36 +474,27 @@ class FormWizard {
     }
   }
 
-  async reloadData() {
-    const [paquetesRes, codigoRes] = await Promise.all([
-      fetch('/api/paquetes?estado=empacado'),
-      fetch('/api/viajes/next'),
-    ]);
-    if (paquetesRes.ok) {
-      this.state.paquetes = await paquetesRes.json();
-    }
-    if (codigoRes.ok) {
-      const codigoData = await codigoRes.json();
-      this.state.nextCodigo = codigoData.next || '';
-      this.renderCodigoViaje();
-    }
-    this.renderPaquetes();
-  }
-
-  async openLogs() {
-    this.clearMessages();
+  async loadLogs() {
     try {
-      const res = await fetch('/api/logs/latest');
-      if (!res.ok) throw new Error(this.t('messages.errorServer'));
-      const data = await res.json();
+      const data = await this.fetchJson('/api/logs/latest');
       this.logsContent.textContent = data.content || this.t('messages.sinLogs');
       this.logsModal.show();
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showError(this.t('messages.errorServer'));
     }
+  }
+
+  async fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || this.t('messages.errorServer'));
+    }
+    return response.json();
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  new FormWizard();
-});
+new FormWizard();

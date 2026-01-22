@@ -1,614 +1,401 @@
+const I18N = {
+  es: {
+    title: 'Gestionar paquetes en standby',
+    subtitle: 'Control multi-paso para paquetes en espera con trazabilidad completa.',
+    logs: 'Ver logs SQL',
+    logsTitle: 'Logs SQL',
+    step1Title: 'Seleccion de paquete en standby',
+    step1Chip: 'vPaquetesStandby',
+    step2Title: 'Detalle completo del paquete',
+    step3Title: 'Confirmar y guardar',
+    codigoCol: 'Codigo',
+    fechaCol: 'Fecha actualizado',
+    clienteCol: 'Cliente',
+    numClienteCol: 'Nro cliente',
+    entregaCol: 'Punto entrega',
+    recibeCol: 'Recibe',
+    fecha: 'Fecha',
+    base: 'Base',
+    motorizado: 'Motorizado',
+    wsp: 'Numero WSP',
+    llamadas: 'Nro llamadas',
+    yape: 'Nro yape',
+    link: 'Link',
+    observacion: 'Observacion',
+    puntoEntrega: 'Punto entrega',
+    detalleMov: 'Detalle mov_contable_detalle',
+    productoCol: 'Producto',
+    cantidadCol: 'Cantidad',
+    resumen: 'Resumen del paquete',
+    viaje: 'Viaje',
+    nuevoEstado: 'Nuevo estado',
+    robado: 'robado',
+    devuelto: 'devuelto',
+    empacado: 'empacado',
+    llegado: 'llegado',
+    confirmar: 'Confirmo que deseo cambiar el estado del paquete.',
+    prev: 'Anterior',
+    next: 'Siguiente',
+    submit: 'Confirmar operacion',
+    loading: 'Cargando...',
+    empty: 'No hay paquetes en standby disponibles.',
+    selectPackage: 'Selecciona un paquete para continuar.',
+    selectState: 'Selecciona un nuevo estado.',
+    confirmCheck: 'Debes confirmar la operacion.',
+    errorFetch: 'No se pudo obtener los datos. Intenta nuevamente.',
+    saved: 'Estado actualizado correctamente.',
+  },
+  en: {
+    title: 'Manage standby packages',
+    subtitle: 'Multi-step control flow for standby packages with full traceability.',
+    logs: 'View SQL logs',
+    logsTitle: 'SQL Logs',
+    step1Title: 'Select standby package',
+    step1Chip: 'vPaquetesStandby',
+    step2Title: 'Full package detail',
+    step3Title: 'Confirm and save',
+    codigoCol: 'Code',
+    fechaCol: 'Updated date',
+    clienteCol: 'Client',
+    numClienteCol: 'Client #',
+    entregaCol: 'Delivery point',
+    recibeCol: 'Receiver',
+    fecha: 'Date',
+    base: 'Base',
+    motorizado: 'Courier',
+    wsp: 'WhatsApp #',
+    llamadas: 'Calls #',
+    yape: 'Yape #',
+    link: 'Link',
+    observacion: 'Notes',
+    puntoEntrega: 'Delivery point',
+    detalleMov: 'mov_contable_detalle detail',
+    productoCol: 'Product',
+    cantidadCol: 'Quantity',
+    resumen: 'Package summary',
+    viaje: 'Trip',
+    nuevoEstado: 'New status',
+    robado: 'stolen',
+    devuelto: 'returned',
+    empacado: 'packed',
+    llegado: 'arrived',
+    confirmar: 'I confirm I want to change the package status.',
+    prev: 'Previous',
+    next: 'Next',
+    submit: 'Confirm operation',
+    loading: 'Loading...',
+    empty: 'No standby packages available.',
+    selectPackage: 'Select a package to continue.',
+    selectState: 'Select a new status.',
+    confirmCheck: 'You must confirm the operation.',
+    errorFetch: 'Unable to fetch data. Please try again.',
+    saved: 'Status updated successfully.',
+  },
+};
+
 class FormWizard {
   constructor() {
     this.currentStep = 0;
-    this.steps = Array.from(document.querySelectorAll('.step'));
-    this.progressBar = document.getElementById('progressBar');
-    this.stepTitle = document.getElementById('stepTitle');
-    this.stepHint = document.getElementById('stepHint');
-    this.errorBox = document.getElementById('errorBox');
-    this.successBox = document.getElementById('successBox');
+    this.selectedPaquete = null;
+    this.movDetalle = [];
+    this.viajeDetalle = null;
+    this.ordinal = 1;
+    this.locale = this.detectLocale();
+
+    this.steps = Array.from(document.querySelectorAll('.wizard-step'));
+    this.progressBar = document.getElementById('wizardProgress');
+    this.alertBox = document.getElementById('alertBox');
     this.loadingOverlay = document.getElementById('loadingOverlay');
-    this.loadingText = document.getElementById('loadingText');
+
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
-    this.guardarBtn = document.getElementById('guardarBtn');
-    this.confirmOperacion = document.getElementById('confirmOperacion');
-    this.paquetesTableBody = document.querySelector('#paquetesTable tbody');
-    this.detalleTableBody = document.querySelector('#detalleTable tbody');
-    this.selectedPackageLabel = document.getElementById('selectedPackageLabel');
-    this.clienteCard = document.getElementById('clienteCard');
-    this.entregaCard = document.getElementById('entregaCard');
-    this.viajeCard = document.getElementById('viajeCard');
-    this.resumenPaqueteCard = document.getElementById('resumenPaqueteCard');
-    this.resumenViajeCard = document.getElementById('resumenViajeCard');
-    this.nuevoEstado = document.getElementById('nuevoEstado');
-    this.logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
-    this.logsContent = document.getElementById('logsContent');
+    this.submitBtn = document.getElementById('submitBtn');
 
-    this.regex = {
-      codigoPaquete: /^[0-9]+$/,
-      estado: /^(llegado|empacado)$/,
-    };
+    this.paquetesBody = document.getElementById('paquetesBody');
+    this.detalleBody = document.getElementById('detalleBody');
 
-    this.state = {
-      paquetes: [],
-      detalle: [],
-      info: null,
-      viaje: null,
-      selectedPaquete: null,
-      selectedEstado: '',
-      locale: navigator.language || 'es',
-    };
-
-    this.dictionary = {
-      es: {
-        stepTitles: [
-          'Paso 1: Paquetes en standby',
-          'Paso 2: Detalle completo del paquete',
-          'Paso 3: Confirmar y Guardar',
-        ],
-        stepHints: [
-          'Seleccione un paquete en estado standby.',
-          'Revise cliente, entrega, productos y viaje asociado.',
-          'Defina el nuevo estado antes de confirmar.',
-        ],
-        ui: {
-          wizardStatus: 'Servicio Global IaaS/PaaS',
-          wizardTitle: 'Gestion de paquetes standby',
-          wizardSubtitle: 'Controle paquetes en espera con trazabilidad de cliente, entrega y viaje.',
-          viewLogs: 'Ver Logs de SQL',
-          paquetesStandby: 'vPaquetesStandby',
-          sinSeleccion: 'Ningun paquete seleccionado',
-          codigoPaquete: 'Codigo Paquete',
-          estado: 'Estado',
-          fechaRegistro: 'Fecha Registro',
-          codigoCliente: 'Codigo Cliente',
-          nombreCliente: 'Nombre Cliente',
-          ubigeo: 'Ubigeo',
-          regionEntrega: 'Region Entrega',
-          seleccionar: 'Seleccionar',
-          detallePaquete: 'Detalle completo del paquete',
-          detalleHint: 'Informacion solo lectura del paquete y su viaje asociado.',
-          productosTitulo: 'Productos del documento',
-          nombreProducto: 'Nombre Producto',
-          cantidad: 'Cantidad',
-          viajeTitulo: 'Datos del viaje asociado',
-          nuevoEstado: 'Nuevo estado del paquete',
-          seleccionarEstado: 'Seleccione',
-          estadoLlegado: 'Llegado',
-          estadoEmpacado: 'Empacado',
-          confirmacion: 'Confirmo que la informacion es correcta',
-          guardar: 'Confirmar y Guardar',
-          anterior: 'Anterior',
-          siguiente: 'Siguiente',
-          logsTitle: 'Logs de SQL',
-          loading: 'Procesando...',
-          loadingHint: 'Espere un momento.',
-          clienteTitulo: 'Cliente',
-          entregaTitulo: 'Entrega',
-          recibeTitulo: 'Recibe',
-          paqueteTitulo: 'Resumen del paquete',
-          viajeResumen: 'Resumen del viaje',
-          direccion: 'Direccion',
-          referencia: 'Referencia',
-          destinatario: 'Destinatario',
-          dni: 'DNI',
-          agencia: 'Agencia',
-          ubigeoNombre: 'Ubigeo',
-          numeroRecibe: 'Numero',
-          nombreRecibe: 'Nombre',
-          region: 'Region',
-          numeroCliente: 'Numero Cliente',
-          link: 'Link',
-          observacion: 'Observacion',
-          fecha: 'Fecha',
-          base: 'Base',
-          motorizado: 'Motorizado',
-          wsp: 'WhatsApp',
-          llamadas: 'Llamadas',
-          yape: 'Yape',
-          sinDatos: 'Sin datos disponibles',
-          noAplica: 'No aplica para PROV',
-        },
-        messages: {
-          errorServer: 'Error al comunicar con el servidor',
-          seleccionarPaquete: 'Seleccione un paquete en standby.',
-          codigoPaqueteInvalido: 'Codigo de paquete invalido.',
-          confirmarOperacion: 'Debe confirmar la operacion.',
-          seleccionarEstado: 'Seleccione un nuevo estado.',
-          guardarOk: 'Estado actualizado correctamente.',
-          sinLogs: 'Sin logs disponibles.',
-        },
-      },
-      en: {
-        stepTitles: ['Step 1: Standby Packages', 'Step 2: Full Package Detail', 'Step 3: Confirm & Save'],
-        stepHints: [
-          'Select a package in standby status.',
-          'Review client, delivery, products, and associated trip.',
-          'Define the new status before confirming.',
-        ],
-        ui: {
-          wizardStatus: 'Global IaaS/PaaS Service',
-          wizardTitle: 'Standby Package Management',
-          wizardSubtitle: 'Track waiting packages with client, delivery, and trip traceability.',
-          viewLogs: 'View SQL Logs',
-          paquetesStandby: 'vStandbyPackages',
-          sinSeleccion: 'No package selected',
-          codigoPaquete: 'Package Code',
-          estado: 'Status',
-          fechaRegistro: 'Register Date',
-          codigoCliente: 'Client Code',
-          nombreCliente: 'Client Name',
-          ubigeo: 'Ubigeo',
-          regionEntrega: 'Delivery Region',
-          seleccionar: 'Select',
-          detallePaquete: 'Full package detail',
-          detalleHint: 'Read-only information for the package and its associated trip.',
-          productosTitulo: 'Document products',
-          nombreProducto: 'Product Name',
-          cantidad: 'Quantity',
-          viajeTitulo: 'Associated trip data',
-          nuevoEstado: 'New package status',
-          seleccionarEstado: 'Select',
-          estadoLlegado: 'Arrived',
-          estadoEmpacado: 'Packed',
-          confirmacion: 'I confirm the information is correct',
-          guardar: 'Confirm & Save',
-          anterior: 'Previous',
-          siguiente: 'Next',
-          logsTitle: 'SQL Logs',
-          loading: 'Processing...',
-          loadingHint: 'Please wait.',
-          clienteTitulo: 'Client',
-          entregaTitulo: 'Delivery',
-          recibeTitulo: 'Receiver',
-          paqueteTitulo: 'Package summary',
-          viajeResumen: 'Trip summary',
-          direccion: 'Address',
-          referencia: 'Reference',
-          destinatario: 'Recipient',
-          dni: 'ID',
-          agencia: 'Agency',
-          ubigeoNombre: 'Ubigeo',
-          numeroRecibe: 'Number',
-          nombreRecibe: 'Name',
-          region: 'Region',
-          numeroCliente: 'Client Number',
-          link: 'Link',
-          observacion: 'Notes',
-          fecha: 'Date',
-          base: 'Base',
-          motorizado: 'Driver',
-          wsp: 'WhatsApp',
-          llamadas: 'Calls',
-          yape: 'Yape',
-          sinDatos: 'No data available',
-          noAplica: 'Not applicable for PROV',
-        },
-        messages: {
-          errorServer: 'Failed to communicate with server',
-          seleccionarPaquete: 'Select a standby package.',
-          codigoPaqueteInvalido: 'Invalid package code.',
-          confirmarOperacion: 'You must confirm the operation.',
-          seleccionarEstado: 'Select a new status.',
-          guardarOk: 'Status updated successfully.',
-          sinLogs: 'No logs available.',
-        },
-      },
-    };
-
-    this.init();
-  }
-
-  getLang() {
-    const lang = this.state.locale.toLowerCase();
-    return lang.startsWith('en') ? 'en' : 'es';
-  }
-
-  t(path) {
-    const lang = this.getLang();
-    const segments = path.split('.');
-    let current = this.dictionary[lang];
-    for (const segment of segments) {
-      if (!current || !(segment in current)) return path;
-      current = current[segment];
-    }
-    return current;
-  }
-
-  applyTranslations() {
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      const value = this.t(`ui.${key}`);
-      if (value) {
-        el.textContent = value;
-      }
-    });
-  }
-
-  init() {
+    this.bindEvents();
     this.applyTranslations();
-    this.showStep(0);
-    this.prevBtn.addEventListener('click', () => this.goPrev());
-    this.nextBtn.addEventListener('click', () => this.goNext());
-    this.guardarBtn.addEventListener('click', () => this.handleGuardar());
-    document.getElementById('viewLogsBtn').addEventListener('click', () => this.openLogs());
-    this.paquetesTableBody.addEventListener('click', (event) => this.handleTableClick(event));
-    this.nuevoEstado.addEventListener('change', () => this.handleEstadoChange());
     this.loadPaquetes();
   }
 
-  updateSelectionLabel() {
-    if (this.state.selectedPaquete) {
-      this.selectedPackageLabel.textContent = `${this.t('ui.codigoPaquete')}: ${this.state.selectedPaquete}`;
-    } else {
-      this.selectedPackageLabel.textContent = this.t('ui.sinSeleccion');
-    }
+  detectLocale() {
+    const lang = (navigator.language || 'es').toLowerCase();
+    if (lang.startsWith('es')) return 'es';
+    return 'en';
   }
 
-  setLoading(isLoading, textKey = 'loading') {
-    if (isLoading) {
-      this.loadingText.textContent = this.t(`ui.${textKey}`) || this.t('ui.loading');
-      this.loadingOverlay.classList.add('active');
-    } else {
-      this.loadingOverlay.classList.remove('active');
-    }
+  t(key) {
+    return I18N[this.locale][key] || key;
   }
 
-  showError(message) {
-    this.errorBox.textContent = message;
-    this.errorBox.classList.remove('d-none');
-    this.successBox.classList.add('d-none');
-  }
-
-  showSuccess(message) {
-    this.successBox.textContent = message;
-    this.successBox.classList.remove('d-none');
-    this.errorBox.classList.add('d-none');
-  }
-
-  clearMessages() {
-    this.errorBox.classList.add('d-none');
-    this.successBox.classList.add('d-none');
-  }
-
-  showStep(index) {
-    this.currentStep = index;
-    this.steps.forEach((step, idx) => {
-      step.classList.toggle('active', idx === index);
+  applyTranslations() {
+    document.documentElement.lang = this.locale;
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.dataset.i18n;
+      el.textContent = this.t(key);
     });
-    this.stepTitle.textContent = this.t('stepTitles')[index] || '';
-    this.stepHint.textContent = this.t('stepHints')[index] || '';
-    const progress = Math.round(((index + 1) / this.steps.length) * 100);
-    this.progressBar.style.width = `${progress}%`;
-    this.progressBar.setAttribute('aria-valuenow', `${progress}`);
-    this.prevBtn.disabled = index === 0;
-    if (index === this.steps.length - 1) {
-      this.nextBtn.classList.add('d-none');
-    } else {
-      this.nextBtn.classList.remove('d-none');
-    }
   }
 
-  goNext() {
-    this.clearMessages();
-    if (this.currentStep === 0 && !this.state.selectedPaquete) {
-      this.showError(this.t('messages.seleccionarPaquete'));
-      return;
-    }
-    if (this.currentStep < this.steps.length - 1) {
-      this.showStep(this.currentStep + 1);
-    }
+  bindEvents() {
+    this.prevBtn.addEventListener('click', () => this.goPrev());
+    this.nextBtn.addEventListener('click', () => this.goNext());
+    this.submitBtn.addEventListener('click', () => this.submit());
+
+    const logsModal = document.getElementById('logsModal');
+    logsModal.addEventListener('show.bs.modal', () => this.loadLogs());
   }
 
-  goPrev() {
-    this.clearMessages();
-    if (this.currentStep > 0) {
-      this.showStep(this.currentStep - 1);
-    }
+  setLoading(isLoading) {
+    this.loadingOverlay.classList.toggle('d-none', !isLoading);
+    this.prevBtn.disabled = isLoading;
+    this.nextBtn.disabled = isLoading;
+    this.submitBtn.disabled = isLoading;
   }
 
-  handleTableClick(event) {
-    const button = event.target.closest('[data-action="select"]');
-    if (!button) return;
-    const codigo = button.getAttribute('data-code');
-    this.selectPackage(codigo);
+  showAlert(message, type = 'danger') {
+    this.alertBox.textContent = message;
+    this.alertBox.className = `alert alert-${type}`;
   }
 
-  handleEstadoChange() {
-    this.state.selectedEstado = this.nuevoEstado.value;
-    this.renderResumen();
+  clearAlert() {
+    this.alertBox.className = 'alert d-none';
+    this.alertBox.textContent = '';
+  }
+
+  setStep(stepIndex) {
+    this.currentStep = stepIndex;
+    this.steps.forEach((step, index) => {
+      step.classList.toggle('d-none', index !== stepIndex);
+    });
+    const percent = ((stepIndex + 1) / this.steps.length) * 100;
+    this.progressBar.style.width = `${percent}%`;
+    this.progressBar.parentElement.setAttribute('aria-valuenow', String(percent));
+
+    this.prevBtn.classList.toggle('d-none', stepIndex === 0);
+    this.nextBtn.classList.toggle('d-none', stepIndex === this.steps.length - 1);
+    this.submitBtn.classList.toggle('d-none', stepIndex !== this.steps.length - 1);
   }
 
   async loadPaquetes() {
-    this.setLoading(true, 'loading');
+    this.setLoading(true);
+    this.clearAlert();
     try {
       const res = await fetch('/api/paquetes?estado=standby');
-      if (!res.ok) throw new Error(this.t('messages.errorServer'));
+      if (!res.ok) throw new Error('fetch');
       const data = await res.json();
-      this.state.paquetes = data;
-      const match = this.state.paquetes.some(
-        (item) => String(item.codigo_paquete) === String(this.state.selectedPaquete)
-      );
-      if (!match) {
-        this.state.selectedPaquete = null;
-        this.state.detalle = [];
-        this.state.info = null;
-        this.state.viaje = null;
-        this.renderDetalle();
-        this.renderInfo();
-        this.renderViaje();
-      }
-      this.updateSelectionLabel();
-      this.renderPaquetes();
-      this.renderResumen();
+      this.renderPaquetes(data || []);
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showAlert(this.t('errorFetch'));
     } finally {
       this.setLoading(false);
     }
   }
 
-  renderPaquetes() {
-    this.paquetesTableBody.innerHTML = '';
-    if (!this.state.paquetes.length) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="8" class="text-center small-muted">${this.t('ui.sinDatos')}</td>`;
-      this.paquetesTableBody.appendChild(row);
+  renderPaquetes(rows) {
+    this.paquetesBody.innerHTML = '';
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="7" class="text-center text-muted">${this.t('empty')}</td>`;
+      this.paquetesBody.appendChild(tr);
       return;
     }
 
-    this.state.paquetes.forEach((item) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.codigo_paquete ?? ''}</td>
-        <td>${item.estado ?? ''}</td>
-        <td>${item.fecha_registro ?? ''}</td>
-        <td>${item.codigo_cliente ?? ''}</td>
-        <td>${item.nombre_cliente ?? ''}</td>
-        <td>${item.ubigeo ?? ''}</td>
-        <td>${item.region_entrega ?? ''}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-light" type="button" data-action="select" data-code="${item.codigo_paquete}">
-            ${this.t('ui.seleccionar')}
-          </button>
-        </td>
+    rows.forEach((row) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="radio" name="paquete" /></td>
+        <td>${row.Vcodigo_paquete ?? row.codigo_paquete ?? ''}</td>
+        <td>${row.vfecha ?? row.fecha_actualizado ?? ''}</td>
+        <td>${row.vnombre_cliente ?? row.nombre_cliente ?? ''}</td>
+        <td>${row.vnum_cliente ?? row.num_cliente ?? ''}</td>
+        <td>${row.vconcatenarpuntoentrega ?? row.concatenarpuntoentrega ?? ''}</td>
+        <td>${row.vconcatenarnumrecibe ?? row.concatenarnumrecibe ?? ''}</td>
       `;
-      if (String(item.codigo_paquete) === String(this.state.selectedPaquete)) {
-        row.classList.add('active-row');
-      }
-      this.paquetesTableBody.appendChild(row);
+      tr.addEventListener('click', () => {
+        const input = tr.querySelector('input');
+        input.checked = true;
+        this.selectPaquete({
+          codigo: row.Vcodigo_paquete ?? row.codigo_paquete,
+          fecha: row.vfecha ?? row.fecha_actualizado,
+          cliente: row.vnombre_cliente ?? row.nombre_cliente,
+          numCliente: row.vnum_cliente ?? row.num_cliente,
+          entrega: row.vconcatenarpuntoentrega ?? row.concatenarpuntoentrega,
+          recibe: row.vconcatenarnumrecibe ?? row.concatenarnumrecibe,
+        });
+      });
+      this.paquetesBody.appendChild(tr);
     });
   }
 
-  async selectPackage(codigo) {
-    this.clearMessages();
-    if (!this.regex.codigoPaquete.test(String(codigo))) {
-      this.showError(this.t('messages.codigoPaqueteInvalido'));
-      return;
-    }
-    this.state.selectedPaquete = codigo;
-    this.updateSelectionLabel();
-    this.renderPaquetes();
-    await this.loadDetalleYInfo();
+  async selectPaquete(paquete) {
+    this.selectedPaquete = paquete;
+    await this.loadPaqueteDetalle();
   }
 
-  async loadDetalleYInfo() {
-    if (!this.state.selectedPaquete) return;
-    this.setLoading(true, 'loading');
+  async loadPaqueteDetalle() {
+    if (!this.selectedPaquete?.codigo) return;
+    this.setLoading(true);
+    this.clearAlert();
     try {
-      const [detalleRes, infoRes, viajeRes] = await Promise.all([
-        fetch(`/api/paquetes/detalle?codigo=${encodeURIComponent(this.state.selectedPaquete)}`),
-        fetch(`/api/paquetes/info?codigo=${encodeURIComponent(this.state.selectedPaquete)}`),
-        fetch(`/api/paquetes/viaje?codigo=${encodeURIComponent(this.state.selectedPaquete)}`),
+      const [detalleRes, viajeRes] = await Promise.all([
+        fetch(`/api/paquetes/${this.selectedPaquete.codigo}/detalle`),
+        fetch(`/api/paquetes/${this.selectedPaquete.codigo}/viaje`),
       ]);
-      if (!detalleRes.ok || !infoRes.ok || !viajeRes.ok) {
-        throw new Error(this.t('messages.errorServer'));
-      }
-      this.state.detalle = await detalleRes.json();
-      this.state.info = await infoRes.json();
-      this.state.viaje = await viajeRes.json();
+      if (!detalleRes.ok || !viajeRes.ok) throw new Error('fetch');
+      const detalleData = await detalleRes.json();
+      const viajeData = await viajeRes.json();
+      this.movDetalle = detalleData.movDetalle || [];
+      this.ordinal = detalleData.ordinal || 1;
+      this.viajeDetalle = viajeData || null;
       this.renderDetalle();
-      this.renderInfo();
-      this.renderViaje();
-      this.renderResumen();
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showAlert(this.t('errorFetch'));
     } finally {
       this.setLoading(false);
     }
   }
 
   renderDetalle() {
-    this.detalleTableBody.innerHTML = '';
-    if (!this.state.detalle.length) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="2" class="text-center small-muted">${this.t('ui.sinDatos')}</td>`;
-      this.detalleTableBody.appendChild(row);
-      return;
-    }
-    this.state.detalle.forEach((item) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.nombre_producto ?? ''}</td>
-        <td>${item.cantidad ?? ''}</td>
-      `;
-      this.detalleTableBody.appendChild(row);
-    });
-  }
+    const viaje = this.viajeDetalle || {};
+    const linkValue = viaje.link || '';
+    document.getElementById('viajeFecha').value = viaje.fecha || '';
+    document.getElementById('viajeBase').value = viaje.nombrebase || viaje.nombre_base || '';
+    document.getElementById('viajeMotorizado').value = viaje.nombre_motorizado || '';
+    document.getElementById('viajeWsp').value = viaje.numero_wsp || '';
+    document.getElementById('viajeLlamadas').value = viaje.num_llamadas || '';
+    document.getElementById('viajeYape').value = viaje.num_yape || '';
+    document.getElementById('viajeLink').value = linkValue;
+    document.getElementById('viajeLinkOpen').href = linkValue || '#';
+    document.getElementById('viajeObservacion').value = viaje.observacion || '';
+    document.getElementById('paqueteEntrega').value = this.selectedPaquete?.entrega || '';
+    document.getElementById('paqueteRecibe').value = this.selectedPaquete?.recibe || '';
 
-  renderInfo() {
-    const info = this.state.info || {};
-    const cliente = info.cliente || {};
-    const entrega = info.entrega || {};
-    const recibe = info.recibe || {};
-    const ubigeo = info.ubigeo || {};
-
-    const ubigeoLabel = ubigeo.nombre
-      ? `${ubigeo.nombre} (${ubigeo.codigo || ''})`
-      : ubigeo.codigo || '';
-
-    let clienteHtml = `<h4>${this.t('ui.clienteTitulo')}</h4>`;
-    if (!cliente.codigo_cliente) {
-      clienteHtml += `<p>${this.t('ui.sinDatos')}</p>`;
+    this.detalleBody.innerHTML = '';
+    if (!this.movDetalle.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="2" class="text-center text-muted">--</td>`;
+      this.detalleBody.appendChild(tr);
     } else {
-      clienteHtml += `
-        <p><strong>${this.t('ui.codigoCliente')}:</strong> ${cliente.codigo_cliente}</p>
-        <p><strong>${this.t('ui.nombreCliente')}:</strong> ${cliente.nombre || '-'}</p>
-        <p><strong>${this.t('ui.numeroCliente')}:</strong> ${cliente.numero || '-'}</p>
-      `;
-    }
-    this.clienteCard.innerHTML = clienteHtml;
-
-    let entregaHtml = `<h4>${this.t('ui.entregaTitulo')}</h4>`;
-    if (!entrega.region_entrega) {
-      entregaHtml += `<p>${this.t('ui.sinDatos')}</p>`;
-    } else if (entrega.region_entrega === 'LIMA') {
-      entregaHtml += `
-        <p><strong>${this.t('ui.region')}:</strong> ${entrega.region_entrega}</p>
-        <p><strong>${this.t('ui.direccion')}:</strong> ${entrega.direccion_linea || '-'}</p>
-        <p><strong>${this.t('ui.referencia')}:</strong> ${entrega.referencia || '-'}</p>
-        <p><strong>${this.t('ui.destinatario')}:</strong> ${entrega.destinatario_nombre || '-'} </p>
-        <p><strong>${this.t('ui.dni')}:</strong> ${entrega.destinatario_dni || '-'}</p>
-        <p><strong>${this.t('ui.ubigeoNombre')}:</strong> ${ubigeoLabel || '-'}</p>
-      `;
-    } else {
-      entregaHtml += `
-        <p><strong>${this.t('ui.region')}:</strong> ${entrega.region_entrega}</p>
-        <p><strong>${this.t('ui.agencia')}:</strong> ${entrega.agencia || '-'}</p>
-        <p><strong>${this.t('ui.ubigeoNombre')}:</strong> ${ubigeoLabel || '-'}</p>
-      `;
-    }
-    this.entregaCard.innerHTML = entregaHtml;
-
-    if (entrega.region_entrega === 'LIMA') {
-      let recibeHtml = `<h4>${this.t('ui.recibeTitulo')}</h4>`;
-      if (!recibe.numero) {
-        recibeHtml += `<p>${this.t('ui.sinDatos')}</p>`;
-      } else {
-        recibeHtml += `
-          <p><strong>${this.t('ui.numeroRecibe')}:</strong> ${recibe.numero}</p>
-          <p><strong>${this.t('ui.nombreRecibe')}:</strong> ${recibe.nombre || '-'}</p>
+      this.movDetalle.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.Vnombre_producto ?? row.nombre_producto ?? ''}</td>
+          <td class="text-end">${row.vcantidad ?? row.cantidad ?? ''}</td>
         `;
+        this.detalleBody.appendChild(tr);
+      });
+    }
+
+    this.updateSummary();
+  }
+
+  updateSummary() {
+    const viaje = this.viajeDetalle || {};
+    const linkValue = viaje.link || '--';
+    document.getElementById('summaryCodigo').textContent = this.selectedPaquete?.codigo || '--';
+    document.getElementById('summaryCliente').textContent = this.selectedPaquete?.cliente || '--';
+    document.getElementById('summaryEntrega').textContent = this.selectedPaquete?.entrega || '--';
+    document.getElementById('summaryRecibe').textContent = this.selectedPaquete?.recibe || '--';
+    document.getElementById('summaryViaje').textContent = viaje.nombre_motorizado || '--';
+    document.getElementById('summaryLink').textContent = linkValue;
+  }
+
+  validateStep() {
+    if (this.currentStep === 0) {
+      if (!this.selectedPaquete?.codigo) {
+        this.showAlert(this.t('selectPackage'));
+        return false;
       }
-      this.entregaCard.innerHTML += `<div class="mt-3">${recibeHtml}</div>`;
+      const codeOk = /^\d+$/.test(String(this.selectedPaquete.codigo));
+      if (!codeOk) {
+        this.showAlert(this.t('selectPackage'));
+        return false;
+      }
+      return true;
     }
+
+    if (this.currentStep === 1) {
+      return true;
+    }
+
+    if (this.currentStep === 2) {
+      const estado = this.getEstado();
+      if (!estado) {
+        this.showAlert(this.t('selectState'));
+        return false;
+      }
+      if (!document.getElementById('confirmCheck').checked) {
+        this.showAlert(this.t('confirmCheck'));
+        return false;
+      }
+      return true;
+    }
+
+    return true;
   }
 
-  renderViaje() {
-    const viaje = this.state.viaje || {};
-    let viajeHtml = `<h4>${this.t('ui.viajeTitulo')}</h4>`;
-    if (!viaje.codigoviaje) {
-      viajeHtml += `<p>${this.t('ui.sinDatos')}</p>`;
-    } else {
-      viajeHtml += `
-        <p><strong>${this.t('ui.codigoPaquete')}:</strong> ${this.state.selectedPaquete || '-'}</p>
-        <p><strong>${this.t('ui.base')}:</strong> ${viaje.codigo_base || '-'}</p>
-        <p><strong>${this.t('ui.motorizado')}:</strong> ${viaje.nombre_motorizado || '-'}</p>
-        <p><strong>${this.t('ui.wsp')}:</strong> ${viaje.numero_wsp || '-'}</p>
-        <p><strong>${this.t('ui.llamadas')}:</strong> ${viaje.num_llamadas || '-'}</p>
-        <p><strong>${this.t('ui.yape')}:</strong> ${viaje.num_yape || '-'}</p>
-        <p><strong>${this.t('ui.link')}:</strong> ${viaje.link || '-'}</p>
-        <p><strong>${this.t('ui.observacion')}:</strong> ${viaje.observacion || '-'}</p>
-        <p><strong>${this.t('ui.fecha')}:</strong> ${viaje.fecha || '-'}</p>
-      `;
-    }
-    this.viajeCard.innerHTML = viajeHtml;
+  getEstado() {
+    const checked = document.querySelector('input[name="estado"]:checked');
+    if (!checked) return null;
+    return checked.value;
   }
 
-  renderResumen() {
-    const paquete = this.state.paquetes.find(
-      (item) => String(item.codigo_paquete) === String(this.state.selectedPaquete)
-    );
-    let resumenPaquete = `<h4>${this.t('ui.paqueteTitulo')}</h4>`;
-    if (!paquete) {
-      resumenPaquete += `<p>${this.t('ui.sinDatos')}</p>`;
-    } else {
-      const estadoNuevo = this.state.selectedEstado
-        ? `<span class="status-pill">${this.state.selectedEstado}</span>`
-        : '';
-      resumenPaquete += `
-        <p><strong>${this.t('ui.codigoPaquete')}:</strong> ${paquete.codigo_paquete}</p>
-        <p><strong>${this.t('ui.estado')}:</strong> ${paquete.estado}</p>
-        <p><strong>${this.t('ui.nombreCliente')}:</strong> ${paquete.nombre_cliente || '-'}</p>
-        <p><strong>${this.t('ui.regionEntrega')}:</strong> ${paquete.region_entrega || '-'}</p>
-        <p>${estadoNuevo}</p>
-      `;
-    }
-    this.resumenPaqueteCard.innerHTML = resumenPaquete;
-
-    const viaje = this.state.viaje || {};
-    let resumenViaje = `<h4>${this.t('ui.viajeResumen')}</h4>`;
-    if (!viaje.codigoviaje) {
-      resumenViaje += `<p>${this.t('ui.sinDatos')}</p>`;
-    } else {
-      resumenViaje += `
-        <p><strong>${this.t('ui.base')}:</strong> ${viaje.codigo_base || '-'}</p>
-        <p><strong>${this.t('ui.motorizado')}:</strong> ${viaje.nombre_motorizado || '-'}</p>
-        <p><strong>${this.t('ui.link')}:</strong> ${viaje.link || '-'}</p>
-        <p><strong>${this.t('ui.fecha')}:</strong> ${viaje.fecha || '-'}</p>
-      `;
-    }
-    this.resumenViajeCard.innerHTML = resumenViaje;
+  goNext() {
+    this.clearAlert();
+    if (!this.validateStep()) return;
+    const nextStep = Math.min(this.currentStep + 1, this.steps.length - 1);
+    this.setStep(nextStep);
   }
 
-  async handleGuardar() {
-    this.clearMessages();
-    const codigo = this.state.selectedPaquete;
-    const estado = this.state.selectedEstado;
-    if (!codigo) {
-      this.showError(this.t('messages.seleccionarPaquete'));
-      return;
-    }
-    if (!this.regex.codigoPaquete.test(String(codigo))) {
-      this.showError(this.t('messages.codigoPaqueteInvalido'));
-      return;
-    }
-    if (!this.regex.estado.test(String(estado))) {
-      this.showError(this.t('messages.seleccionarEstado'));
-      return;
-    }
-    if (!this.confirmOperacion.checked) {
-      this.showError(this.t('messages.confirmarOperacion'));
-      return;
-    }
+  goPrev() {
+    this.clearAlert();
+    const prevStep = Math.max(this.currentStep - 1, 0);
+    this.setStep(prevStep);
+  }
 
-    this.setLoading(true, 'loading');
+  async submit() {
+    this.clearAlert();
+    if (!this.validateStep()) return;
+    const estado = this.getEstado();
+
+    const payload = {
+      codigo_paquete: String(this.selectedPaquete.codigo),
+      estado,
+      ordinal: this.ordinal,
+    };
+
+    this.setLoading(true);
     try {
-      const res = await fetch('/api/paquetes/estado', {
+      const res = await fetch('/api/paquetes/confirmar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo_paquete: codigo, estado }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(this.t('messages.errorServer'));
-      const data = await res.json();
-      this.showSuccess(`${this.t('messages.guardarOk')} ${data.codigo_paquete || ''}`.trim());
-      this.confirmOperacion.checked = false;
-      this.nuevoEstado.value = '';
-      this.state.selectedEstado = '';
-      await this.loadPaquetes();
-      this.showStep(0);
+      if (!res.ok) throw new Error('save');
+      this.showAlert(this.t('saved'), 'success');
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showAlert(this.t('errorFetch'));
     } finally {
       this.setLoading(false);
     }
   }
 
-  async openLogs() {
-    this.clearMessages();
+  async loadLogs() {
+    const output = document.getElementById('logsContent');
+    output.textContent = this.t('loading');
     try {
-      const res = await fetch('/api/logs/latest');
-      if (!res.ok) throw new Error(this.t('messages.errorServer'));
+      const res = await fetch('/api/logs/latest?limit=200');
+      if (!res.ok) throw new Error('logs');
       const data = await res.json();
-      this.logsContent.textContent = data.content || this.t('messages.sinLogs');
-      this.logsModal.show();
+      output.textContent = (data.lines || []).join('\n') || '--';
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      output.textContent = this.t('errorFetch');
     }
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  new FormWizard();
+  const wizard = new FormWizard();
+  wizard.setStep(0);
 });

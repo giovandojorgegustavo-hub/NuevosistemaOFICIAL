@@ -41,12 +41,12 @@ HTML5, JavaScript ES6+, Bootstrap 5.3, MySQL
 - Landing page con Modulos y Apps disponibles para el usuario.
 - Componentes Bootstrap (progress bar, alerts, etc.)
 - Responsive design para móviles
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre node.js
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre node.js
 **User Experience (UX)
 Incluir manejo de errores y mejores prácticas de UX.”
 
 **Funcionalidades requeridas:
-- Login. Captura y validación de credenciales de usuario.}
+- Login. Captura y validación de credenciales de usuario.
 - Logout. Cierra la sesión del usuario y sale de la aplicación.
 - Logueo de trazas de navegación.
 - Logueo de intentos fallidos de login.

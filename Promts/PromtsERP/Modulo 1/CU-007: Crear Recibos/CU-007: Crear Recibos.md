@@ -20,7 +20,7 @@ El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/C
 
 - Responsive design para moviles
 
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 
@@ -63,13 +63,21 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 
 # **Pasos del formulario-multipaso.
 
-1. Registrar Recibo.
+1. Listar clientes con saldo pendiente.
+2. Registrar pago (datos del recibo).
+3. Confirmar y registrar recibo.
 
 # **Descripcion de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
-Paso 1  Crear Recibo.
+Paso 1  Listar clientes con saldo pendiente.
+
+- Obtener clientes desde el procedimiento `get_clientes_saldo_pendiente` (saldo_final > 0).
+- Mostrar lista con: codigo_cliente, nombre, saldo_final.
+- Seleccionar un cliente para continuar al paso 2.
+
+Paso 2  Registrar pago.
 
 vFecha_emision = Inicializar con la fecha del sistema.
 
@@ -77,13 +85,17 @@ vTipo_documento = "RC".
 
 vNumero_documento = correlativo numerico (12 digitos) no editable. Se debe generar con `MAX(numero_documento) + 1` filtrando por `tipo_documento = 'RC'` en `mov_contable`.
 
-vCodigo_cliente = Seleccionar de la lista de Clientes devuelta por el GET /api/clients (SP get_clientes).
+vCodigo_cliente = Cliente seleccionado en el paso 1 (no editable).
 
 vCodigo_cuentabancaria = Seleccionar de la lista de Cuentas bancarias devuelta por el SP get_cuentasbancarias.
 
 vMonto = campo numerico para escribir el monto del recibo (mayor que 0).
 
-Al terminar la captura del formulario, el usuario debera tener disponible la posibilidad de “Registrar Recibo” como cierre del proceso.
+Paso 3  Confirmar y registrar recibo.
+
+- Mostrar resumen de cliente y pago.
+- Requerir confirmacion explicita.
+- Al confirmar, ejecutar el registro del recibo.
 
 Al dar click al boton “Registrar Recibo” el formulario debera realizar las siguientes transacciones sobre la DB:
 

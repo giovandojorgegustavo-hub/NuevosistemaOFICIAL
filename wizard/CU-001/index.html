@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CU-001 Pedidos - Wizard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CU-001 Pedidos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,298 +11,298 @@
       rel="stylesheet"
     />
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main>
-      <section class="hero">
-        <span class="badge-status" id="wizardStatus" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 id="wizardTitle" data-i18n="wizardTitle">Pedidos y Facturacion</h1>
-        <p id="wizardSubtitle" data-i18n="wizardSubtitle">
-          Registre pedidos con facturacion automatizada y entrega trazable.
-        </p>
+      <section class="header-card mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <span class="step-pill" data-i18n="wizard_label">Wizard</span>
+            <h1 class="mt-3" data-i18n="title">Pedidos y Facturacion</h1>
+            <p data-i18n="subtitle">
+              Flujo guiado para pedidos, facturacion y entrega en un entorno IaaS/PaaS global.
+            </p>
+          </div>
+          <div class="text-end">
+            <div class="badge-soft" id="stepIndicator">1/5</div>
+            <div class="inline-meta mt-2" id="systemTime">--</div>
+          </div>
+        </div>
       </section>
 
-      <section class="card-shell">
-        <div class="mb-4">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div>
-              <h2 class="section-title" id="stepTitle">Paso 1: Crear Pedido</h2>
-              <p class="small-muted" id="stepHint">Complete los datos del pedido y productos.</p>
-            </div>
-            <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
-              Ver Logs de SQL
-            </button>
+      <section class="panel mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div>
+            <h2 class="section-title mb-1" data-i18n="progress_title">Progreso del flujo</h2>
+            <div class="inline-meta" data-i18n="progress_hint">Completa los pasos para emitir la factura.</div>
           </div>
-          <div class="progress mt-3">
-            <div
-              class="progress-bar"
-              id="progressBar"
-              role="progressbar"
-              style="width: 20%"
-              aria-valuenow="20"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></div>
+          <span class="badge-soft" id="stepName">Paso 1</span>
+        </div>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" id="progressBar" style="width: 20%"></div>
+        </div>
+      </section>
+
+      <div id="alertContainer"></div>
+
+      <section class="panel step active" data-step="1">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="section-title" data-i18n="step1_title">Crear Pedido</h3>
+          <span class="badge-soft" data-i18n="step1_badge">Datos base</span>
+        </div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="fecha_pedido">Fecha Pedido</label>
+            <input type="date" id="fechaPedido" class="form-control" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="hora_pedido">Hora Pedido</label>
+            <input type="time" id="horaPedido" class="form-control" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="cliente">Cliente</label>
+            <select id="clienteSelect" class="form-select" required></select>
           </div>
         </div>
 
-        <div class="alert alert-danger d-none" id="errorBox"></div>
-        <div class="alert alert-success d-none" id="successBox"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="section-title" data-i18n="productos_pedido">Productos del Pedido</h4>
+          <button class="btn btn-outline-light" id="addPedidoRow" type="button" data-i18n="add_row">
+            Agregar linea
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-borderless align-middle" id="pedidoTable">
+            <thead>
+              <tr>
+                <th data-i18n="producto">Producto</th>
+                <th data-i18n="cantidad">Cantidad</th>
+                <th data-i18n="precio_total">Precio Total</th>
+                <th data-i18n="acciones">Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
 
-        <form id="wizardForm" novalidate>
-          <div class="step active" data-step="1">
-            <div class="row g-3">
-              <div class="col-lg-4">
-                <label class="form-label" for="fechaPedido" data-i18n="fechaPedido">Fecha Pedido</label>
-                <input class="form-control" type="date" id="fechaPedido" />
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="horaPedido" data-i18n="horaPedido">Hora Pedido</label>
-                <input class="form-control" type="time" id="horaPedido" />
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="clienteSelect" data-i18n="cliente">Cliente</label>
-                <select class="form-select" id="clienteSelect"></select>
-              </div>
-            </div>
+      <section class="panel step" data-step="2">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="section-title" data-i18n="step2_title">Crear Factura</h3>
+          <span class="badge-soft" data-i18n="step2_badge">Detalle de facturacion</span>
+        </div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <label class="form-label" data-i18n="fecha_emision">Fecha Emision</label>
+            <input type="date" id="fechaEmision" class="form-control" readonly />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" data-i18n="hora_emision">Hora Emision</label>
+            <input type="time" id="horaEmision" class="form-control" readonly />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" data-i18n="base">Base</label>
+            <select id="baseSelect" class="form-select" required></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" data-i18n="tipo_documento">Tipo Documento</label>
+            <input type="text" id="tipoDocumento" class="form-control" value="FAC" readonly />
+          </div>
+        </div>
+        <div class="table-responsive mb-3">
+          <table class="table table-borderless align-middle" id="facturaTable">
+            <thead>
+              <tr>
+                <th data-i18n="producto">Producto</th>
+                <th data-i18n="cantidad">Cantidad</th>
+                <th data-i18n="precio_total">Precio Total</th>
+                <th data-i18n="acciones">Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-end">
+          <div class="badge-soft" id="facturaTotal">Total: 0</div>
+        </div>
+      </section>
 
-            <div class="grid-toolbar mt-4">
-              <h3 class="section-title mb-0" data-i18n="pedidoDetalle">vProdPedidos</h3>
-              <button class="btn btn-outline-light btn-sm" type="button" id="addPedidoRow" data-i18n="agregarLinea">
-                Agregar linea
-              </button>
+      <section class="panel step" data-step="3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="section-title" data-i18n="step3_title">Datos Entrega</h3>
+          <span class="badge-soft" data-i18n="step3_badge">Ubicacion</span>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-i18n="punto_entrega">Punto de entrega</label>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="entregaMode" id="entregaExiste" value="existe" />
+              <label class="form-check-label" for="entregaExiste" data-i18n="existente">Existe</label>
             </div>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered align-middle" id="pedidoTable">
-                <thead>
-                  <tr>
-                    <th data-i18n="codigoProducto">Codigo Producto</th>
-                    <th data-i18n="descripcion">Descripcion</th>
-                    <th data-i18n="cantidad">Cantidad</th>
-                    <th data-i18n="precioTotal">Precio Total</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="entregaMode" id="entregaNuevo" value="nuevo" />
+              <label class="form-check-label" for="entregaNuevo" data-i18n="nuevo">Nuevo</label>
             </div>
           </div>
-
-          <div class="step" data-step="2">
-            <div class="row g-3">
-              <div class="col-lg-4">
-                <label class="form-label" for="fechaEmision" data-i18n="fechaEmision">Fecha Emision</label>
-                <input class="form-control" type="date" id="fechaEmision" />
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="codigoBase" data-i18n="codigoBase">Base</label>
-                <select class="form-select" id="codigoBase"></select>
-              </div>
-              <div class="col-lg-4 d-flex align-items-end">
-                <div class="stat-pill" id="facturaTotalLabel">Total: 0.00</div>
-              </div>
+        </div>
+        <div id="entregaExistenteWrap" class="mb-4">
+          <label class="form-label" data-i18n="seleccionar_punto">Seleccionar punto</label>
+          <select id="puntoEntregaSelect" class="form-select"></select>
+        </div>
+        <div id="entregaNuevoWrap">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="departamento">Departamento</label>
+              <select id="depSelect" class="form-select"></select>
             </div>
-
-            <div class="grid-toolbar mt-4">
-              <h3 class="section-title mb-0" data-i18n="facturaDetalle">vProdFactura</h3>
-              <button class="btn btn-outline-light btn-sm" type="button" id="addFacturaRow" data-i18n="agregarLinea">
-                Agregar linea
-              </button>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="provincia">Provincia</label>
+              <select id="provSelect" class="form-select"></select>
             </div>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered align-middle" id="facturaTable">
-                <thead>
-                  <tr>
-                    <th data-i18n="codigoProducto">Codigo Producto</th>
-                    <th data-i18n="descripcion">Descripcion</th>
-                    <th data-i18n="cantidad">Cantidad</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="distrito">Distrito</label>
+              <select id="distSelect" class="form-select"></select>
             </div>
           </div>
-
-          <div class="step" data-step="3">
-            <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="datosEntrega">Datos Entrega</h3>
-              <span class="small-muted" data-i18n="tipoDocumento">Tipo Documento: F</span>
+          <div class="row g-3 mt-1" id="entregaLimaFields">
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="direccion">Direccion</label>
+              <input type="text" id="direccionLinea" class="form-control" />
             </div>
-
-            <div class="row g-3">
-              <div class="col-lg-5">
-                <label class="form-label" for="puntoEntregaSelect" data-i18n="puntoEntrega">Punto Entrega</label>
-                <select class="form-select" id="puntoEntregaSelect"></select>
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="modoEntrega" data-i18n="modoEntrega">Modo</label>
-                <select class="form-select" id="modoEntrega">
-                  <option value="existente" data-i18n="modoExistente">Usar existente</option>
-                  <option value="nuevo" data-i18n="modoNuevo">Agregar nuevo</option>
-                </select>
-              </div>
-              <div class="col-lg-3">
-                <label class="form-label" for="regionEntrega" data-i18n="regionEntrega">Region Entrega</label>
-                <select class="form-select" id="regionEntrega">
-                  <option value="" data-i18n="seleccione">Seleccione</option>
-                  <option value="LIMA">LIMA</option>
-                  <option value="PROV">PROV</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="row g-3 mt-2" id="ubigeoRow">
-              <div class="col-lg-4">
-                <label class="form-label" for="codDep" data-i18n="departamento">Departamento</label>
-                <select class="form-select" id="codDep"></select>
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="codProv" data-i18n="provincia">Provincia</label>
-                <select class="form-select" id="codProv"></select>
-              </div>
-              <div class="col-lg-4">
-                <label class="form-label" for="codDist" data-i18n="distrito">Distrito</label>
-                <select class="form-select" id="codDist"></select>
-              </div>
-            </div>
-
-            <div class="row g-3 mt-2" id="direccionRow">
-              <div class="col-lg-6">
-                <label class="form-label" for="direccionLinea" data-i18n="direccion">Direccion</label>
-                <input class="form-control" type="text" id="direccionLinea" />
-              </div>
-              <div class="col-lg-6">
-                <label class="form-label" for="referencia" data-i18n="referencia">Referencia</label>
-                <input class="form-control" type="text" id="referencia" />
-              </div>
-              <div class="col-lg-6" id="destinatarioNombreRow">
-                <label class="form-label" for="destinatarioNombre" data-i18n="destinatario">Destinatario</label>
-                <input class="form-control" type="text" id="destinatarioNombre" />
-              </div>
-              <div class="col-lg-6" id="destinatarioDniRow">
-                <label class="form-label" for="destinatarioDni" data-i18n="dni">DNI</label>
-                <input class="form-control" type="text" id="destinatarioDni" />
-              </div>
-              <div class="col-lg-6" id="agenciaRow">
-                <label class="form-label" for="agencia" data-i18n="agencia">Agencia</label>
-                <input class="form-control" type="text" id="agencia" />
-              </div>
-            </div>
-
-            <div class="summary-card mt-3" id="entregaPreview"></div>
-          </div>
-
-          <div class="step" data-step="4">
-            <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="datosRecibe">Datos Recibe</h3>
-              <span class="small-muted" data-i18n="soloLima">Solo para region LIMA</span>
-            </div>
-
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <label class="form-label" for="numRecibeSelect" data-i18n="codigoRecibe">Codigo NumRecibe</label>
-                <select class="form-select" id="numRecibeSelect"></select>
-              </div>
-              <div class="col-lg-3">
-                <label class="form-label" for="numeroRecibe" data-i18n="numeroRecibe">Numero</label>
-                <input class="form-control" type="text" id="numeroRecibe" readonly />
-              </div>
-              <div class="col-lg-3">
-                <label class="form-label" for="nombreRecibe" data-i18n="nombreRecibe">Nombre</label>
-                <input class="form-control" type="text" id="nombreRecibe" readonly />
-              </div>
-            </div>
-
-            <div class="summary-card mt-3">
-              <h4 data-i18n="agregarRecibe">Agregar nuevo numrecibe</h4>
-              <div class="row g-3">
-                <div class="col-lg-5">
-                  <label class="form-label" for="nuevoNumeroRecibe" data-i18n="numeroRecibe">Numero</label>
-                  <input class="form-control" type="text" id="nuevoNumeroRecibe" />
-                </div>
-                <div class="col-lg-5">
-                  <label class="form-label" for="nuevoNombreRecibe" data-i18n="nombreRecibe">Nombre</label>
-                  <input class="form-control" type="text" id="nuevoNombreRecibe" />
-                </div>
-                <div class="col-lg-2 d-flex align-items-end">
-                  <button class="btn btn-outline-light w-100" type="button" id="addRecibeBtn" data-i18n="registrar">
-                    Registrar
-                  </button>
-                </div>
-              </div>
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="referencia">Referencia</label>
+              <input type="text" id="referencia" class="form-control" />
             </div>
           </div>
-
-          <div class="step" data-step="5">
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <div class="summary-card" id="pedidoSummary"></div>
-              </div>
-              <div class="col-lg-6">
-                <div class="summary-card" id="facturaSummary"></div>
-              </div>
-              <div class="col-lg-6">
-                <div class="summary-card" id="entregaSummary"></div>
-              </div>
-              <div class="col-lg-6">
-                <div class="summary-card" id="recibeSummary"></div>
-              </div>
+          <div class="row g-3 mt-1" id="entregaProvFields">
+            <div class="col-md-3">
+              <label class="form-label" data-i18n="region_entrega">Region</label>
+              <input type="text" id="regionEntrega" class="form-control" readonly />
             </div>
-            <div class="form-check mt-3">
-              <input class="form-check-input" type="checkbox" id="confirmOperacion" />
-              <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
-                Confirmo que la informacion es correcta
-              </label>
+            <div class="col-md-3">
+              <label class="form-label" data-i18n="nombre">Nombre</label>
+              <input type="text" id="destNombre" class="form-control" />
             </div>
-            <button class="btn btn-primary mt-3" type="button" id="emitirBtn" data-i18n="emitirFactura">
-              Emitir Factura
-            </button>
+            <div class="col-md-3">
+              <label class="form-label" data-i18n="dni">DNI</label>
+              <input type="text" id="destDni" class="form-control" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" data-i18n="agencia">Agencia</label>
+              <input type="text" id="destAgencia" class="form-control" />
+            </div>
+            <div class="col-md-12">
+              <label class="form-label" data-i18n="observaciones">Observaciones</label>
+              <input type="text" id="destObservaciones" class="form-control" />
+            </div>
           </div>
+        </div>
+        <div class="mt-3 inline-meta" id="entregaPreview"></div>
+      </section>
 
-          <div class="step-actions">
-            <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="anterior">
-              Anterior
-            </button>
-            <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="siguiente">
-              Siguiente
-            </button>
+      <section class="panel step" data-step="4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="section-title" data-i18n="step4_title">Datos Recibe</h3>
+          <span class="badge-soft" data-i18n="step4_badge">Solo Lima</span>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-i18n="numrecibe">Numrecibe</label>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="recibeMode" id="recibeExiste" value="existe" />
+              <label class="form-check-label" for="recibeExiste" data-i18n="existente">Existe</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="recibeMode" id="recibeNuevo" value="nuevo" />
+              <label class="form-check-label" for="recibeNuevo" data-i18n="nuevo">Nuevo</label>
+            </div>
           </div>
-        </form>
+        </div>
+        <div id="recibeExistenteWrap" class="mb-4">
+          <label class="form-label" data-i18n="seleccionar_numrecibe">Seleccionar numrecibe</label>
+          <select id="numrecibeSelect" class="form-select"></select>
+        </div>
+        <div id="recibeNuevoWrap" class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" data-i18n="numero">Numero</label>
+            <input type="text" id="recibeNumero" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" data-i18n="nombre">Nombre</label>
+            <input type="text" id="recibeNombre" class="form-control" />
+          </div>
+        </div>
+        <div class="mt-3 inline-meta" id="recibePreview"></div>
+      </section>
+
+      <section class="panel step" data-step="5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="section-title" data-i18n="step5_title">Resumen y Emitir Factura</h3>
+          <span class="badge-soft" data-i18n="step5_badge">Confirmacion</span>
+        </div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <div class="summary-card" id="summaryPedido"></div>
+          </div>
+          <div class="col-md-4">
+            <div class="summary-card" id="summaryFactura"></div>
+          </div>
+          <div class="col-md-4">
+            <div class="summary-card" id="summaryEntrega"></div>
+          </div>
+        </div>
+        <div class="summary-card mb-4" id="summaryRecibe"></div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-warning" id="confirmBtn" type="button" data-i18n="confirmar">
+            Confirmar Operacion
+          </button>
+          <button class="btn btn-primary" id="emitirBtn" type="button" data-i18n="emitir">
+            Emitir Factura
+          </button>
+        </div>
+      </section>
+
+      <section class="d-flex justify-content-between mt-4 flex-wrap gap-2">
+        <button class="btn btn-outline-light" id="prevBtn" type="button" data-i18n="anterior">
+          Anterior
+        </button>
+        <button class="btn btn-primary" id="nextBtn" type="button" data-i18n="siguiente">
+          Siguiente
+        </button>
       </section>
     </main>
 
-    <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background: var(--surface); color: var(--white);">
+    <div class="overlay" id="overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" data-i18n="logsTitle">Logs de SQL</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title" data-i18n="confirm_title">Confirmar Operacion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body">
-            <pre id="logsContent" class="small-muted"></pre>
+          <div class="modal-body" data-i18n="confirm_body">
+            Confirma la emision de la factura con los datos actuales.
           </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="loading-overlay" id="loadingOverlay">
-      <div class="loading-card">
-        <div class="d-flex align-items-center gap-3">
-          <div class="spinner-border text-light" role="status"></div>
-          <div>
-            <div class="fw-semibold" id="loadingText" data-i18n="loading">Procesando...</div>
-            <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal" data-i18n="cancelar">
+              Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" id="confirmEmit" data-i18n="emitir">
+              Emitir Factura
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

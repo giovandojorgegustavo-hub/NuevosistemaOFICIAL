@@ -82,7 +82,7 @@ const pool = mysql.createPool({
   database: dbConfig.database,
   port: dbConfig.port,
   waitForConnections: true,
-  connectionLimit: 5,
+  connectionLimit: 6,
   decimalNumbers: true,
 });
 
@@ -108,7 +108,6 @@ function serveStatic(res, filePath) {
     '.html': 'text/html',
     '.css': 'text/css',
     '.js': 'application/javascript',
-    '.json': 'application/json',
   };
   res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
   fs.createReadStream(filePath).pipe(res);
@@ -148,11 +147,23 @@ async function handleApi(req, res) {
     if (pathname === '/api/paquetes') {
       const estado = query.estado || 'pendiente empacar';
       const [rows] = await execQuery(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
-      sendJson(res, 200, rows[0]);
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
-    if (pathname === '/api/paquetes/detalle') {
+    if (pathname === '/api/mov-contable-detalle') {
+      const tipo = query.tipo || 'FAC';
+      const numero = query.numero;
+      if (!numero) {
+        sendJson(res, 400, { error: 'Numero requerido' });
+        return;
+      }
+      const [rows] = await execQuery(pool, 'CALL get_mov_contable_detalle(?, ?)', [tipo, numero]);
+      sendJson(res, 200, rows[0] || rows);
+      return;
+    }
+
+    if (pathname === '/api/paquete/next-ordinal') {
       const codigo = query.codigo;
       if (!codigo) {
         sendJson(res, 400, { error: 'Codigo requerido' });
@@ -160,165 +171,62 @@ async function handleApi(req, res) {
       }
       const [rows] = await execQuery(
         pool,
-        `SELECT p.nombre AS nombre_producto, mcd.cantidad
-         FROM mov_contable_detalle mcd
-         JOIN productos p ON p.codigo_producto = mcd.codigo_producto
-         WHERE mcd.tipo_documento = 'F'
-           AND mcd.numero_documento = ?
-         ORDER BY mcd.ordinal`,
+        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
         [codigo]
       );
-      sendJson(res, 200, rows);
-      return;
-    }
-
-    if (pathname === '/api/paquetes/info') {
-      const codigo = query.codigo;
-      if (!codigo) {
-        sendJson(res, 400, { error: 'Codigo requerido' });
-        return;
-      }
-      const [rows] = await execQuery(
-        pool,
-        `SELECT mc.codigo_cliente,
-                mc.codigo_cliente_numrecibe,
-                mc.ordinal_numrecibe,
-                mc.ubigeo,
-                mc.codigo_puntoentrega,
-                pe.region_entrega,
-                pe.direccion_linea,
-                pe.referencia,
-                pe.destinatario_nombre,
-                pe.destinatario_dni,
-                pe.agencia
-         FROM mov_contable mc
-         LEFT JOIN puntos_entrega pe
-           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
-          AND pe.ubigeo = mc.ubigeo
-         WHERE mc.tipo_documento = 'F'
-           AND mc.numero_documento = ?
-         LIMIT 1`,
-        [codigo]
-      );
-      const entrega = rows[0] || {};
-
-      let ubigeoInfo = { codigo: entrega.ubigeo || '' };
-      if (entrega.ubigeo && String(entrega.ubigeo).length >= 6) {
-        const codDep = String(entrega.ubigeo).slice(0, 2);
-        const codProv = String(entrega.ubigeo).slice(2, 4);
-        const codDist = String(entrega.ubigeo).slice(4, 6);
-        const [ubigeoRows] = await execQuery(
-          pool,
-          `SELECT departamento, provincia, distrito
-           FROM ubigeo
-           WHERE cod_dep = ? AND cod_prov = ? AND cod_dist = ?
-           LIMIT 1`,
-          [codDep, codProv, codDist]
-        );
-        if (ubigeoRows[0]) {
-          const { departamento, provincia, distrito } = ubigeoRows[0];
-          ubigeoInfo = {
-            codigo: entrega.ubigeo,
-            nombre: [departamento, provincia, distrito].filter(Boolean).join(' / '),
-          };
-        }
-      }
-
-      let recibe = {};
-      if (entrega.codigo_cliente_numrecibe && entrega.ordinal_numrecibe) {
-        const [recibeRows] = await execQuery(
-          pool,
-          `SELECT numero, nombre
-           FROM numrecibe
-           WHERE codigo_cliente_numrecibe = ?
-             AND ordinal_numrecibe = ?
-           LIMIT 1`,
-          [entrega.codigo_cliente_numrecibe, entrega.ordinal_numrecibe]
-        );
-        recibe = recibeRows[0] || {};
-      }
-
-      sendJson(res, 200, {
-        entrega,
-        recibe,
-        ubigeo: ubigeoInfo,
-      });
-      return;
-    }
-
-    if (pathname === '/api/logs/latest') {
-      const content = fs.readFileSync(LOG_FILE, 'utf8');
-      sendJson(res, 200, { file: path.basename(LOG_FILE), content });
+      sendJson(res, 200, rows[0] || rows);
       return;
     }
 
     if (pathname === '/api/empacar' && req.method === 'POST') {
       const body = await parseBody(req);
-      if (!body.codigo_paquete) {
-        sendJson(res, 400, { error: 'Codigo requerido' });
+      const codigo = body.codigo_paquete;
+      const ordinal = body.ordinal;
+      if (!codigo || !ordinal) {
+        sendJson(res, 400, { error: 'Datos incompletos' });
         return;
       }
-      const response = await registrarEmpaque(body);
-      sendJson(res, 200, response);
+
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await execQuery(
+          conn,
+          'INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, ?)',
+          [codigo, ordinal, 'empacado', 'FAC']
+        );
+        await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigo, 'empacado']);
+        await execQuery(conn, 'CALL get_actualizarsaldostock(?, ?)', ['FAC', codigo]);
+        await conn.commit();
+        sendJson(res, 200, { status: 'ok' });
+      } catch (error) {
+        await conn.rollback();
+        throw error;
+      } finally {
+        conn.release();
+      }
       return;
     }
 
-    sendJson(res, 404, { error: 'Endpoint no encontrado' });
+    sendJson(res, 404, { error: 'Not found' });
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
-    sendJson(res, 500, { error: error.message });
+    sendJson(res, 500, { error: 'Error interno del servidor' });
   }
 }
 
-async function registrarEmpaque(payload) {
-  const codigoPaquete = payload.codigo_paquete;
-  const conn = await pool.getConnection();
-  try {
-    await execQuery(conn, 'START TRANSACTION');
-    const [rows] = await execQuery(
-      conn,
-      `SELECT ordinal
-       FROM mov_contable_detalle
-       WHERE tipo_documento = 'F'
-         AND numero_documento = ?
-       ORDER BY ordinal`,
-      [codigoPaquete]
-    );
-
-    for (const item of rows) {
-      await execQuery(
-        conn,
-        `INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, fecha_registro)
-         VALUES (?, ?, 'empacado', NOW())
-         ON DUPLICATE KEY UPDATE estado = VALUES(estado)`,
-        [codigoPaquete, item.ordinal]
-      );
-    }
-
-    await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'empacado']);
-
-    await execQuery(conn, 'COMMIT');
-    return { codigo_paquete: codigoPaquete, estado: 'empacado', items: rows.length };
-  } catch (error) {
-    await execQuery(conn, 'ROLLBACK');
-    logLine(`ERROR: ${error.message}`);
-    throw error;
-  } finally {
-    conn.release();
-  }
-}
-
-const server = http.createServer(async (req, res) => {
-  if (req.url.startsWith('/api/')) {
-    await handleApi(req, res);
+const server = http.createServer((req, res) => {
+  const parsedUrl = url.parse(req.url);
+  if (parsedUrl.pathname && parsedUrl.pathname.startsWith('/api/')) {
+    handleApi(req, res);
     return;
   }
 
-  const filePath = req.url === '/' ? 'index.html' : req.url.slice(1);
-  serveStatic(res, path.join(BASE_DIR, filePath));
+  const filePath = parsedUrl.pathname === '/' ? path.join(BASE_DIR, 'index.html') : path.join(BASE_DIR, parsedUrl.pathname);
+  serveStatic(res, filePath);
 });
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
-  logLine(`Servidor iniciado en http://localhost:${PORT}`);
+  logLine(`Server iniciado en puerto ${PORT}`);
 });

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CU-003 Asignar viajes - Wizard</title>
+    <title>CU-003 Asignar Viajes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,10 +19,10 @@
   <body>
     <main>
       <section class="hero">
-        <span class="badge-status" id="wizardStatus" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 id="wizardTitle" data-i18n="wizardTitle">Asignar Viajes</h1>
-        <p id="wizardSubtitle" data-i18n="wizardSubtitle">
-          Gestione rutas, paquetes y monitoreo de entregas desde un solo lugar.
+        <span class="badge-status" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
+        <h1 data-i18n="wizardTitle">Asignar Viajes</h1>
+        <p data-i18n="wizardSubtitle">
+          Coordine viajes y paquetes con visibilidad operacional para operaciones globales.
         </p>
       </section>
 
@@ -31,7 +31,7 @@
           <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
             <div>
               <h2 class="section-title" id="stepTitle">Paso 1: Datos del Viaje</h2>
-              <p class="small-muted" id="stepHint">Complete los datos del motorizado y base.</p>
+              <p class="small-muted" id="stepHint">Complete los datos principales del viaje.</p>
             </div>
             <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
               Ver Logs de SQL
@@ -56,41 +56,43 @@
         <form id="wizardForm" novalidate>
           <div class="step active" data-step="1">
             <div class="row g-3">
-              <div class="col-lg-3 col-md-6">
-                <label class="form-label" data-i18n="codigoViaje">Codigo Viaje</label>
+              <div class="col-md-4">
+                <label class="form-label" for="codigoViaje" data-i18n="codigoViaje">Codigo Viaje</label>
                 <input class="form-control" id="codigoViaje" type="text" readonly />
               </div>
-              <div class="col-lg-3 col-md-6">
-                <label class="form-label" data-i18n="fecha">Fecha</label>
-                <input class="form-control" id="fechaViaje" type="text" readonly />
-              </div>
-              <div class="col-lg-6">
-                <label class="form-label" for="codigoBase" data-i18n="codigoBase">Base</label>
+              <div class="col-md-8">
+                <label class="form-label" for="codigoBase" data-i18n="codigoBase">Base Operativa</label>
                 <select class="form-select" id="codigoBase" required></select>
               </div>
-              <div class="col-lg-6">
-                <label class="form-label" for="nombreMotorizado" data-i18n="nombreMotorizado">Nombre Motorizado</label>
+              <div class="col-md-6">
+                <label class="form-label" for="nombreMotorizado" data-i18n="nombreMotorizado">
+                  Nombre Motorizado
+                </label>
                 <input class="form-control" id="nombreMotorizado" type="text" required />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label" for="numeroWsp" data-i18n="numeroWsp">Numero WSP</label>
-                <input class="form-control" id="numeroWsp" type="text" placeholder="+51999999999" />
+                <input class="form-control" id="numeroWsp" type="text" placeholder="+51 999 999 999" />
               </div>
-              <div class="col-md-4">
-                <label class="form-label" for="numLlamadas" data-i18n="numLlamadas">Numero Llamadas</label>
-                <input class="form-control" id="numLlamadas" type="text" placeholder="999999999" />
+              <div class="col-md-6">
+                <label class="form-label" for="numLlamadas" data-i18n="numLlamadas">Numero de Llamadas</label>
+                <input class="form-control" id="numLlamadas" type="text" placeholder="999999" />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label" for="numYape" data-i18n="numYape">Numero Yape</label>
-                <input class="form-control" id="numYape" type="text" placeholder="999999999" />
+                <input class="form-control" id="numYape" type="text" placeholder="999999" />
               </div>
-              <div class="col-lg-6">
+              <div class="col-md-8">
                 <label class="form-label" for="link" data-i18n="link">Link</label>
-                <input class="form-control" id="link" type="text" placeholder="https://" />
+                <input class="form-control" id="link" type="text" placeholder="https://" required />
               </div>
-              <div class="col-lg-6">
+              <div class="col-md-4">
+                <label class="form-label" for="fecha" data-i18n="fecha">Fecha</label>
+                <input class="form-control" id="fecha" type="text" readonly />
+              </div>
+              <div class="col-12">
                 <label class="form-label" for="observacion" data-i18n="observacion">Observacion</label>
-                <textarea class="form-control" id="observacion" rows="2"></textarea>
+                <textarea class="form-control" id="observacion" rows="3"></textarea>
               </div>
             </div>
           </div>
@@ -108,12 +110,11 @@
                   <tr>
                     <th></th>
                     <th data-i18n="codigoPaquete">Codigo Paquete</th>
-                    <th data-i18n="estado">Estado</th>
-                    <th data-i18n="fechaRegistro">Fecha Registro</th>
-                    <th data-i18n="codigoCliente">Codigo Cliente</th>
+                    <th data-i18n="fecha">Fecha</th>
                     <th data-i18n="nombreCliente">Nombre Cliente</th>
-                    <th data-i18n="ubigeo">Ubigeo</th>
-                    <th data-i18n="regionEntrega">Region Entrega</th>
+                    <th data-i18n="numCliente">Numero Cliente</th>
+                    <th data-i18n="puntoEntrega">Punto Entrega</th>
+                    <th data-i18n="numRecibe">Numero Recibe</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -124,10 +125,10 @@
           <div class="step" data-step="3">
             <div class="row g-3">
               <div class="col-lg-6">
-                <div class="summary-card" id="viajeCard"></div>
+                <div class="summary-card" id="resumenViaje"></div>
               </div>
               <div class="col-lg-6">
-                <div class="summary-card" id="paquetesCard"></div>
+                <div class="summary-card" id="resumenPaquetes"></div>
               </div>
             </div>
             <div class="form-check mt-3">
@@ -136,8 +137,8 @@
                 Confirmo que la informacion es correcta
               </label>
             </div>
-            <button class="btn btn-primary mt-3" type="button" id="asignarBtn" data-i18n="asignar">
-              Asignar Viaje
+            <button class="btn btn-primary mt-3" type="button" id="guardarBtn" data-i18n="guardar">
+              Guardar Viaje
             </button>
           </div>
 
@@ -167,15 +168,11 @@
       </div>
     </div>
 
-    <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-overlay d-none" id="loadingOverlay">
       <div class="loading-card">
-        <div class="d-flex align-items-center gap-3">
-          <div class="spinner-border text-light" role="status"></div>
-          <div>
-            <div class="fw-semibold" id="loadingText" data-i18n="loading">Procesando...</div>
-            <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
-          </div>
-        </div>
+        <div class="spinner-border text-info" role="status"></div>
+        <div class="loading-text" id="loadingText" data-i18n="loading">Procesando...</div>
+        <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
       </div>
     </div>
 

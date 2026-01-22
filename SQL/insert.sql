@@ -1920,14 +1920,24 @@ INSERT INTO `packing` (`nombre`, `codigo_packing`, `created_at`) VALUES
   ('FRÁGIL', 2, '2026-01-10 16:58:30'),
   ('REFRIGERADO', 3, '2026-01-10 16:58:30');
 
-INSERT INTO puntos_entrega
-(codigo_puntoentrega, codigo_cliente, ubigeo, region_entrega, direccion_linea, referencia, destinatario_nombre, destinatario_dni, agencia, estado, created_at)
-VALUES
-(1, 1, '150131', 'LIMA', 'AV. JAVIER PRADO ESTE 1234 OF 501', NULL, NULL, NULL, NULL, 'activo', '2026-01-10 16:43:24'),
-(2, 1, '150122', 'LIMA', 'CALLE SCHELL 456 DEP 302', NULL, NULL, NULL, NULL, 'activo', '2026-01-10 16:43:24'),
-(3, 2, '080108', 'PROV', NULL, NULL, 'Maria Gomez', '87654321', 'CUSCO - WANCHAQ', 'activo', '2026-01-10 16:43:24'),
-(4, 3, '040126', 'PROV', NULL, NULL, 'Comercial San Martin', '20123456789', 'AREQUIPA - YANAHUARA', 'activo', '2026-01-10 16:43:24');
-
+INSERT INTO puntos_entrega (
+  codigo_puntoentrega,
+  codigo_cliente_puntoentrega,
+  ubigeo,
+  region_entrega,
+  direccion_linea,
+  referencia,
+  nombre,
+  dni,
+  agencia,
+  concatenarpuntoentrega,
+  estado,
+  created_at
+) VALUES
+  (1, 1, '150131', 'LIMA', 'AV. JAVIER PRADO ESTE 1234 OF 501', NULL, NULL, NULL, NULL, 'AV. JAVIER PRADO ESTE 1234 OF 501 | SAN ISIDRO', 'activo', '2026-01-10 16:43:24'),
+  (2, 1, '150122', 'LIMA', 'CALLE SCHELL 456 DEP 302', NULL, NULL, NULL, NULL, 'CALLE SCHELL 456 DEP 302 | MIRAFLORES', 'activo', '2026-01-10 16:43:24'),
+  (3, 2, '080108', 'PROV', NULL, NULL, 'Maria Gomez', '87654321', 'CUSCO - WANCHAQ', 'Maria Gomez | 87654321 | CUSCO - WANCHAQ', 'activo', '2026-01-10 16:43:24'),
+  (4, 3, '040126', 'PROV', NULL, NULL, 'Comercial San Martin', '20123456789', 'AREQUIPA - YANAHUARA', 'Comercial San Martin | 20123456789 | AREQUIPA - YANAHUARA', 'activo', '2026-01-10 16:43:24');
 
 
 INSERT INTO `numrecibe` (
@@ -1935,12 +1945,13 @@ INSERT INTO `numrecibe` (
   `nombre`,
   `ordinal_numrecibe`,
   `codigo_cliente_numrecibe`,
+  `concatenarnumrecibe`,
   `created_at`
 ) VALUES
-  ('+51911111111', 'Juan Perez', 1, 1, '2026-01-10 16:43:24'),
-  ('+51922222222', 'Maria Gomez', 1, 2, '2026-01-10 16:43:24'),
-  ('+51933333333', 'Recepción', 2, 2, '2026-01-10 16:43:24'),
-  ('+51944444444', 'Almacén', 1, 3, '2026-01-10 16:43:24');
+  ('+51911111111', 'Juan Perez', 1, 1, '+51911111111 | Juan Perez', '2026-01-10 16:43:24'),
+  ('+51922222222', 'Maria Gomez', 1, 2, '+51922222222 | Maria Gomez', '2026-01-10 16:43:24'),
+  ('+51933333333', 'Recepción', 2, 2, '+51933333333 | Recepción', '2026-01-10 16:43:24'),
+  ('+51944444444', 'Almacén', 1, 3, '+51944444444 | Almacén', '2026-01-10 16:43:24');
 
 INSERT INTO `productos` (`nombre`, `codigo_producto`, `created_at`) VALUES
   ('Producto 1', 1, '2026-01-12 22:30:22'),
@@ -1975,48 +1986,3 @@ INSERT INTO `provedores` (`codigo_provedor`, `nombre`, `created_at`) VALUES
   (2001, 'Proveedor Andino', NOW()),
   (2002, 'Proveedor Pacifico', NOW()),
   (2003, 'Proveedor Continental', NOW());
-
-INSERT INTO perfiles (codigo_perfil, descripcion) VALUES
-  ('Despachador', 'Despachador'),
-  ('Envasador', 'Envasador'),
-  ('Comprador', 'Comprador'),
-  ('Administracion', 'Administracion');
-
-INSERT INTO usuarios (codigo_usuario, nombre, numero, password) VALUES
-  ('1', 'Ana Rivera', 555111222, '1111');
-
-INSERT INTO usuarios_perfiles (codigo_usuario, codigo_perfil) VALUES
-  ('1', 'Despachador'),
-  ('1', 'Envasador'),
-  ('1', 'Comprador'),
-  ('1', 'Administracion');
-
-INSERT INTO usecases (codigo_usecase, linktolaunch) VALUES
-  ('UC_AJUSTES', 'ajustes.html'),
-  ('UC_COMPRAS', 'compras.html'),
-  ('UC_FABRICACION', 'fabricacion.html'),
-  ('UC_GESTION_PEDIDOS', 'gestion-pedidos.html'),
-  ('UC_NOTA_CREDITO', 'nota-credito.html'),
-  ('UC_PAGOS', 'pagos.html'),
-  ('UC_PEDIDO', 'pedido.html'),
-  ('UC_REMITO', 'remito.html'),
-  ('UC_TRANSFERENCIAS', 'transferencias.html');
-
-INSERT INTO perfiles_ucases (codigo_perfil, codigo_usecase) VALUES
-  ('Despachador', 'UC_PEDIDO'),
-  ('Despachador', 'UC_REMITO'),
-  ('Despachador', 'UC_TRANSFERENCIAS'),
-  ('Envasador', 'UC_FABRICACION'),
-  ('Envasador', 'UC_AJUSTES'),
-  ('Comprador', 'UC_COMPRAS'),
-  ('Comprador', 'UC_PAGOS'),
-  ('Comprador', 'UC_NOTA_CREDITO'),
-  ('Administracion', 'UC_AJUSTES'),
-  ('Administracion', 'UC_COMPRAS'),
-  ('Administracion', 'UC_FABRICACION'),
-  ('Administracion', 'UC_GESTION_PEDIDOS'),
-  ('Administracion', 'UC_NOTA_CREDITO'),
-  ('Administracion', 'UC_PAGOS'),
-  ('Administracion', 'UC_PEDIDO'),
-  ('Administracion', 'UC_REMITO'),
-  ('Administracion', 'UC_TRANSFERENCIAS');

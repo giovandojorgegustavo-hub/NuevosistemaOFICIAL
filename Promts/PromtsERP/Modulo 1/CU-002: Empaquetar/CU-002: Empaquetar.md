@@ -16,7 +16,7 @@ El código generado debe guardarse en una sola carpeta por caso de uso: `wizard/
 - Validaciones con expresiones regulares
 - Componentes Bootstrap (progress bar, alerts, etc.)
 - Responsive design para móviles
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 
@@ -102,26 +102,19 @@ Mostrar resumen del paquete seleccionado y un botón “Empacar”.
 
 Al dar click en “Empacar” el sistema deberá realizar las siguientes transacciones sobre la DB:
 
-1) Registrar en `paquetedetalle` (por cada item de `mov_contable_detalle` del documento):
+1) Registrar en `paquetedetalle` por cada codigo_paquete.
    - `codigo_paquete` = paquete seleccionado.
    - `ordinal` = correlativo del detalle de factura.
    - `estado` = "empacado".
-   - Si la fila ya existe, actualizar solo el `estado`.
 
-2) Llamar a un procedimiento almacenado para cambiar el estado del paquete:
-   - `cambiar_estado_paquete(p_codigo_paquete, p_estado)` con `p_estado = "empacado"`.
-   - El procedimiento debe actualizar `paquete.estado` y `paquete.fecha_actualizado`.
-   - (Opcional) Actualizar `paquetedetalle.estado` para mantener consistencia.
 
-# **Procedimientos necesarios (revisar SQL/procedimientos.sql)
+2) Llamar a un procedimiento get_paquetes_por_estado(p_estado)
 
-Si no existen, crear los siguientes SP:
+3) Ejecutar `salidasinventario(p_tipo_documento, p_numero_documento)` para descontar stock en `saldo_stock`.
+   - `p_tipo_documento` = "F" (solo guardar en DB, no mostrar en UI).
+   - `p_numero_documento` = codigo_paquete seleccionado.
 
-- `get_paquetes_por_estado(p_estado)`
-  - Debe listar paquetes por estado y devolver datos del cliente/entrega usando join con `mov_contable`, `clientes` y `puntos_entrega`.
 
-- `cambiar_estado_paquete(p_codigo_paquete, p_estado)`
-  - Debe actualizar `paquete.estado` y `paquete.fecha_actualizado`.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

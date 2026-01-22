@@ -17,39 +17,34 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main>
+    <main class="page">
       <section class="hero">
-        <span class="badge-status" id="wizardStatus" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 id="wizardTitle" data-i18n="wizardTitle">Empaquetar Paquetes</h1>
-        <p id="wizardSubtitle" data-i18n="wizardSubtitle">
-          Confirme entrega y recepcion con trazabilidad lista para despacho.
+        <span class="badge-status" data-i18n="wizardStatus">Global IaaS/PaaS</span>
+        <h1 data-i18n="wizardTitle">Empaquetar</h1>
+        <p data-i18n="wizardSubtitle">
+          Gestiona paquetes pendientes con visibilidad global y trazabilidad en tiempo real.
         </p>
       </section>
 
       <section class="card-shell">
-        <div class="mb-4">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div>
-              <h2 class="section-title" id="stepTitle">Paso 1: Paquetes Pendientes</h2>
-              <p class="small-muted" id="stepHint">
-                Seleccione un paquete en estado pendiente empacar.
-              </p>
-            </div>
-            <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
-              Ver Logs de SQL
-            </button>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+          <div>
+            <h2 class="section-title" id="stepTitle">Paso 1: Seleccionar Paquete</h2>
+            <p class="small-muted" id="stepHint">Selecciona un paquete pendiente para empacar.</p>
           </div>
-          <div class="progress mt-3">
-            <div
-              class="progress-bar"
-              id="progressBar"
-              role="progressbar"
-              style="width: 33%"
-              aria-valuenow="33"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></div>
-          </div>
+          <div class="status-chip" id="selectedChip" data-i18n="noSelection">Sin seleccion</div>
+        </div>
+
+        <div class="progress mb-4">
+          <div
+            class="progress-bar"
+            id="progressBar"
+            role="progressbar"
+            style="width: 33%"
+            aria-valuenow="33"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          ></div>
         </div>
 
         <div class="alert alert-danger d-none" id="errorBox"></div>
@@ -58,23 +53,19 @@
         <form id="wizardForm" novalidate>
           <div class="step active" data-step="1">
             <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="paquetesPendientes">vPaquetesPendientes</h3>
-              <span class="small-muted" id="selectedPackageLabel" data-i18n="sinSeleccion">
-                Ningun paquete seleccionado
-              </span>
+              <h3 class="section-title mb-0" data-i18n="gridPendientes">vPaquetesPendientes</h3>
+              <span class="small-muted" data-i18n="gridPendientesHint">Seleccione un paquete pendiente.</span>
             </div>
             <div class="table-responsive">
               <table class="table table-dark table-bordered align-middle" id="paquetesTable">
                 <thead>
                   <tr>
-                    <th data-i18n="codigoPaquete">Codigo Paquete</th>
-                    <th data-i18n="estado">Estado</th>
-                    <th data-i18n="fechaRegistro">Fecha Registro</th>
-                    <th data-i18n="codigoCliente">Codigo Cliente</th>
-                    <th data-i18n="nombreCliente">Nombre Cliente</th>
-                    <th data-i18n="ubigeo">Ubigeo</th>
-                    <th data-i18n="regionEntrega">Region Entrega</th>
-                    <th></th>
+                    <th data-i18n="codigoPaquete">Codigo</th>
+                    <th data-i18n="fechaActualizado">Fecha</th>
+                    <th data-i18n="nombreCliente">Cliente</th>
+                    <th data-i18n="numCliente">Num Cliente</th>
+                    <th data-i18n="puntoEntrega">Punto Entrega</th>
+                    <th data-i18n="numRecibe">Num Recibe</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -83,17 +74,26 @@
           </div>
 
           <div class="step" data-step="2">
-            <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="detalleDocumento">Detalle del Documento</h3>
-              <span class="small-muted" id="detalleHint" data-i18n="detalleHint">
-                Informacion solo lectura del documento seleccionado.
-              </span>
+            <div class="row g-3">
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="puntoEntrega">Punto Entrega</label>
+                <input class="form-control" id="puntoEntregaInput" type="text" readonly />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="numRecibe">Num Recibe</label>
+                <input class="form-control" id="numRecibeInput" type="text" readonly />
+              </div>
+            </div>
+
+            <div class="grid-toolbar mt-4">
+              <h3 class="section-title mb-0" data-i18n="gridDetalle">Detalle Documento</h3>
+              <span class="small-muted" data-i18n="gridDetalleHint">Solo lectura.</span>
             </div>
             <div class="table-responsive">
               <table class="table table-dark table-bordered align-middle" id="detalleTable">
                 <thead>
                   <tr>
-                    <th data-i18n="nombreProducto">Nombre Producto</th>
+                    <th data-i18n="producto">Producto</th>
                     <th data-i18n="cantidad">Cantidad</th>
                   </tr>
                 </thead>
@@ -103,65 +103,73 @@
           </div>
 
           <div class="step" data-step="3">
-            <div class="row g-3">
-              <div class="col-lg-7">
-                <div class="summary-card" id="entregaCard"></div>
+            <div class="summary-card">
+              <div>
+                <h3 class="section-title" data-i18n="resumen">Resumen</h3>
+                <p class="small-muted" data-i18n="resumenHint">
+                  Confirma los datos antes de registrar el empaque.
+                </p>
               </div>
-              <div class="col-lg-5">
-                <div class="summary-card" id="recibeCard"></div>
-                <div class="summary-card mt-3" id="paqueteCard"></div>
+              <div class="summary-grid">
+                <div>
+                  <span class="label" data-i18n="codigoPaquete">Codigo</span>
+                  <div class="value" id="summaryCodigo">-</div>
+                </div>
+                <div>
+                  <span class="label" data-i18n="puntoEntrega">Punto Entrega</span>
+                  <div class="value" id="summaryEntrega">-</div>
+                </div>
+                <div>
+                  <span class="label" data-i18n="numRecibe">Num Recibe</span>
+                  <div class="value" id="summaryRecibe">-</div>
+                </div>
+                <div>
+                  <span class="label" data-i18n="ordinal">Ordinal</span>
+                  <div class="value" id="summaryOrdinal">-</div>
+                </div>
               </div>
             </div>
+
             <div class="form-check mt-3">
               <input class="form-check-input" type="checkbox" id="confirmOperacion" />
               <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
                 Confirmo que la informacion es correcta
               </label>
             </div>
-            <button class="btn btn-primary mt-3" type="button" id="empacarBtn" data-i18n="empacar">
-              Empacar
-            </button>
-          </div>
 
-          <div class="step-actions">
-            <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="anterior">
-              Anterior
-            </button>
-            <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="siguiente">
-              Siguiente
-            </button>
+            <div class="mt-4 d-flex gap-3 flex-wrap">
+              <button class="btn btn-primary" type="button" id="empacarBtn">
+                <span class="spinner-border spinner-border-sm me-2 d-none" id="empacarSpinner"></span>
+                <span data-i18n="empacar">Empacar</span>
+              </button>
+              <div class="small-muted" id="empacarHint" data-i18n="empacarHint">
+                Se registrara el empaque y se actualizara el stock.
+              </div>
+            </div>
           </div>
         </form>
+
+        <div class="wizard-actions">
+          <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="anterior">
+            Anterior
+          </button>
+          <button class="btn btn-light" type="button" id="nextBtn" data-i18n="siguiente">
+            Siguiente
+          </button>
+        </div>
       </section>
     </main>
 
-    <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background: var(--surface); color: var(--white);">
-          <div class="modal-header">
-            <h5 class="modal-title" data-i18n="logsTitle">Logs de SQL</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <pre id="logsContent" class="small-muted"></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-overlay d-none" id="loadingOverlay">
       <div class="loading-card">
-        <div class="d-flex align-items-center gap-3">
-          <div class="spinner-border text-light" role="status"></div>
-          <div>
-            <div class="fw-semibold" id="loadingText" data-i18n="loading">Procesando...</div>
-            <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
-          </div>
+        <div class="spinner-border text-info" role="status"></div>
+        <div>
+          <h4 id="loadingText" data-i18n="loading">Procesando...</h4>
+          <p class="small-muted" data-i18n="loadingHint">Espere un momento.</p>
         </div>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

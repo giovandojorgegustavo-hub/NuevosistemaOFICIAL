@@ -18,7 +18,7 @@ Como desarrollador de aplicaciones web, ayúdame a crear un formulario de regist
 
 - Responsive design para móviles
 
-- El Backend, guarda en MariaDB 10.6.22, con endpoints js corriendo sobre [node.js](http://node.js)
+- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 
