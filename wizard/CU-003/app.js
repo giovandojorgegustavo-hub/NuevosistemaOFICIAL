@@ -1,500 +1,445 @@
 class FormWizard {
   constructor() {
-    this.currentStep = 0;
     this.steps = Array.from(document.querySelectorAll('.step'));
+    this.currentStep = 0;
     this.progressBar = document.getElementById('progressBar');
-    this.stepTitle = document.getElementById('stepTitle');
-    this.stepHint = document.getElementById('stepHint');
-    this.errorBox = document.getElementById('errorBox');
-    this.successBox = document.getElementById('successBox');
-    this.loadingOverlay = document.getElementById('loadingOverlay');
-    this.loadingText = document.getElementById('loadingText');
-    this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
-    this.guardarBtn = document.getElementById('guardarBtn');
-    this.confirmOperacion = document.getElementById('confirmOperacion');
-    this.viewLogsBtn = document.getElementById('viewLogsBtn');
-    this.logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
-    this.logsContent = document.getElementById('logsContent');
-    this.paquetesTableBody = document.querySelector('#paquetesTable tbody');
-    this.selectedCountLabel = document.getElementById('selectedCountLabel');
-    this.resumenViaje = document.getElementById('resumenViaje');
-    this.resumenPaquetes = document.getElementById('resumenPaquetes');
-
-    this.fields = {
-      codigoViaje: document.getElementById('codigoViaje'),
-      codigoBase: document.getElementById('codigoBase'),
-      nombreMotorizado: document.getElementById('nombreMotorizado'),
-      numeroWsp: document.getElementById('numeroWsp'),
-      numLlamadas: document.getElementById('numLlamadas'),
-      numYape: document.getElementById('numYape'),
-      link: document.getElementById('link'),
-      observacion: document.getElementById('observacion'),
-      fecha: document.getElementById('fecha'),
-    };
-
-    this.regex = {
-      nombre: /^.{2,}$/,
-      link: /^(https?:\/\/|www\.)[^\s]+$/i,
-      numeros: /^[0-9+\s-]*$/,
-    };
-
-    this.state = {
-      locale: navigator.language || 'es',
-      paquetes: [],
-      selected: new Set(),
-      bases: [],
-      viaje: {
-        fechaISO: new Date().toISOString(),
-      },
-    };
-
-    this.dictionary = {
-      es: {
-        stepTitles: ['Paso 1: Datos del Viaje', 'Paso 2: Seleccion de Paquetes', 'Paso 3: Confirmar y Guardar'],
-        stepHints: [
-          'Complete los datos principales del viaje.',
-          'Seleccione uno o mas paquetes empacados.',
-          'Revise el resumen y confirme la operacion.',
-        ],
-        ui: {
-          wizardStatus: 'Servicio Global IaaS/PaaS',
-          wizardTitle: 'Asignar Viajes',
-          wizardSubtitle: 'Coordine viajes y paquetes con visibilidad operacional para operaciones globales.',
-          viewLogs: 'Ver Logs de SQL',
-          codigoViaje: 'Codigo Viaje',
-          codigoBase: 'Base Operativa',
-          nombreMotorizado: 'Nombre Motorizado',
-          numeroWsp: 'Numero WSP',
-          numLlamadas: 'Numero de Llamadas',
-          numYape: 'Numero Yape',
-          link: 'Link',
-          fecha: 'Fecha',
-          observacion: 'Observacion',
-          paquetesEmpacados: 'vPaquetesEmpacados',
-          sinSeleccion: 'Ningun paquete seleccionado',
-          codigoPaquete: 'Codigo Paquete',
-          nombreCliente: 'Nombre Cliente',
-          numCliente: 'Numero Cliente',
-          puntoEntrega: 'Punto Entrega',
-          numRecibe: 'Numero Recibe',
-          confirmacion: 'Confirmo que la informacion es correcta',
-          guardar: 'Guardar Viaje',
-          anterior: 'Anterior',
-          siguiente: 'Siguiente',
-          logsTitle: 'Logs de SQL',
-          loading: 'Procesando...',
-          loadingHint: 'Espere un momento.',
-          resumenViaje: 'Resumen del Viaje',
-          resumenPaquetes: 'Paquetes Seleccionados',
-          baseLabel: 'Base',
-          motorizadoLabel: 'Motorizado',
-          linkLabel: 'Link',
-          wspLabel: 'WSP',
-          llamadasLabel: 'Llamadas',
-          yapeLabel: 'Yape',
-          observacionLabel: 'Observacion',
-          fechaLabel: 'Fecha',
-          paquetesLabel: 'Paquetes',
-          seleccionar: 'Seleccionar',
-        },
-        messages: {
-          errorServer: 'Error al comunicar con el servidor',
-          baseRequerida: 'Seleccione una base operativa.',
-          nombreRequerido: 'Ingrese el nombre del motorizado.',
-          linkInvalido: 'Ingrese un link valido (http, https o www).',
-          numerosInvalidos: 'Los numeros solo deben contener digitos.',
-          paquetesRequeridos: 'Seleccione al menos un paquete empacado.',
-          confirmarOperacion: 'Debe confirmar la operacion.',
-          guardarOk: 'Viaje asignado correctamente.',
-          sinLogs: 'Sin logs disponibles.',
-        },
-      },
-      en: {
-        stepTitles: ['Step 1: Trip Data', 'Step 2: Select Packages', 'Step 3: Confirm and Save'],
-        stepHints: [
-          'Complete the main trip information.',
-          'Select one or more packed packages.',
-          'Review the summary and confirm the operation.',
-        ],
-        ui: {
-          wizardStatus: 'Global IaaS/PaaS Service',
-          wizardTitle: 'Assign Trips',
-          wizardSubtitle: 'Coordinate trips and packages with global operational visibility.',
-          viewLogs: 'View SQL Logs',
-          codigoViaje: 'Trip Code',
-          codigoBase: 'Operational Base',
-          nombreMotorizado: 'Driver Name',
-          numeroWsp: 'WhatsApp Number',
-          numLlamadas: 'Call Number',
-          numYape: 'Yape Number',
-          link: 'Link',
-          fecha: 'Date',
-          observacion: 'Notes',
-          paquetesEmpacados: 'vPackedPackages',
-          sinSeleccion: 'No packages selected',
-          codigoPaquete: 'Package Code',
-          nombreCliente: 'Client Name',
-          numCliente: 'Client Number',
-          puntoEntrega: 'Delivery Point',
-          numRecibe: 'Receiver Number',
-          confirmacion: 'I confirm the information is correct',
-          guardar: 'Save Trip',
-          anterior: 'Previous',
-          siguiente: 'Next',
-          logsTitle: 'SQL Logs',
-          loading: 'Processing...',
-          loadingHint: 'Please wait.',
-          resumenViaje: 'Trip Summary',
-          resumenPaquetes: 'Selected Packages',
-          baseLabel: 'Base',
-          motorizadoLabel: 'Driver',
-          linkLabel: 'Link',
-          wspLabel: 'WhatsApp',
-          llamadasLabel: 'Calls',
-          yapeLabel: 'Yape',
-          observacionLabel: 'Notes',
-          fechaLabel: 'Date',
-          paquetesLabel: 'Packages',
-          seleccionar: 'Select',
-        },
-        messages: {
-          errorServer: 'Failed to communicate with server',
-          baseRequerida: 'Select an operational base.',
-          nombreRequerido: 'Enter the driver name.',
-          linkInvalido: 'Enter a valid link (http, https, or www).',
-          numerosInvalidos: 'Numbers must contain digits only.',
-          paquetesRequeridos: 'Select at least one packed package.',
-          confirmarOperacion: 'You must confirm the operation.',
-          guardarOk: 'Trip assigned successfully.',
-          sinLogs: 'No logs available.',
-        },
-      },
-    };
+    this.prevBtn = document.getElementById('prevBtn');
+    this.loadingState = document.getElementById('loadingState');
+    this.alertArea = document.getElementById('alertArea');
+    this.paquetesBody = document.getElementById('paquetesBody');
+    this.summaryCard = document.getElementById('summaryCard');
+    this.selectedPaquetes = [];
+    this.bases = [];
 
     this.init();
   }
 
-  getLang() {
-    const lang = this.state.locale.toLowerCase();
-    return lang.startsWith('en') ? 'en' : 'es';
-  }
-
-  t(path) {
-    const lang = this.getLang();
-    const segments = path.split('.');
-    let current = this.dictionary[lang];
-    for (const segment of segments) {
-      if (!current || typeof current !== 'object') return '';
-      current = current[segment];
-    }
-    return current ?? '';
-  }
-
   init() {
-    this.applyTranslations();
-    this.setFecha();
-    this.bindEvents();
-    this.loadInitialData();
-    this.updateStep();
+    this.setLanguage();
+    this.updateButtons();
+    this.attachEvents();
+    this.loadBases();
+    this.loadPaquetes();
+    this.loadLogs();
+    this.applyLanguage();
   }
 
-  applyTranslations() {
+  attachEvents() {
+    this.nextBtn.addEventListener('click', () => this.handleNext());
+    this.prevBtn.addEventListener('click', () => this.handlePrev());
+    document.getElementById('refreshPaquetes').addEventListener('click', () => this.loadPaquetes());
+    document.getElementById('loadLog').addEventListener('click', () => this.fetchLog());
+  }
+
+  setLanguage() {
+    const lang = (navigator.language || 'es').toLowerCase();
+    this.langKey = lang.startsWith('es') ? 'es' : 'en';
+    this.dict = translations[this.langKey];
+  }
+
+  applyLanguage() {
+    const dict = this.dict;
+    document.documentElement.lang = this.langKey;
     document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      const text = this.t(`ui.${key}`);
-      if (text) {
-        el.textContent = text;
+      const textKey = el.getAttribute('data-i18n');
+      if (dict[textKey]) {
+        el.textContent = dict[textKey];
       }
     });
   }
 
-  setFecha() {
-    const date = new Date();
-    this.state.viaje.fechaISO = date.toISOString();
-    this.fields.fecha.value = date.toLocaleString(this.state.locale);
-  }
-
-  bindEvents() {
-    this.prevBtn.addEventListener('click', () => this.goStep(this.currentStep - 1));
-    this.nextBtn.addEventListener('click', () => this.handleNext());
-    this.guardarBtn.addEventListener('click', () => this.handleSave());
-    this.viewLogsBtn.addEventListener('click', () => this.loadLogs());
-  }
-
-  showError(message) {
-    this.errorBox.textContent = message;
-    this.errorBox.classList.remove('d-none');
-    this.successBox.classList.add('d-none');
-  }
-
-  showSuccess(message) {
-    this.successBox.textContent = message;
-    this.successBox.classList.remove('d-none');
-    this.errorBox.classList.add('d-none');
-  }
-
-  clearAlerts() {
-    this.errorBox.classList.add('d-none');
-    this.successBox.classList.add('d-none');
-  }
-
-  setLoading(isLoading, message) {
-    if (isLoading) {
-      if (message) this.loadingText.textContent = message;
-      this.loadingOverlay.classList.remove('d-none');
-    } else {
-      this.loadingOverlay.classList.add('d-none');
+  setLoading(message) {
+    if (!message) {
+      this.loadingState.innerHTML = '';
+      return;
     }
+    this.loadingState.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span>${message}`;
   }
 
-  updateStep() {
-    this.steps.forEach((step, index) => {
-      step.classList.toggle('active', index === this.currentStep);
-    });
+  showAlert(type, message) {
+    this.alertArea.innerHTML = `
+      <div class="alert alert-${type} d-flex justify-content-between align-items-center" role="alert">
+        <div>${message}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>`;
+  }
 
-    const total = this.steps.length;
-    const progress = Math.round(((this.currentStep + 1) / total) * 100);
-    this.progressBar.style.width = `${progress}%`;
-    this.progressBar.setAttribute('aria-valuenow', String(progress));
-
-    const titles = this.t('stepTitles');
-    const hints = this.t('stepHints');
-    if (titles[this.currentStep]) this.stepTitle.textContent = titles[this.currentStep];
-    if (hints[this.currentStep]) this.stepHint.textContent = hints[this.currentStep];
-
+  updateButtons() {
     this.prevBtn.disabled = this.currentStep === 0;
-    this.nextBtn.classList.toggle('d-none', this.currentStep === total - 1);
+    this.nextBtn.textContent = this.currentStep === this.steps.length - 1 ? this.dict.save : this.dict.next;
+    const progress = ((this.currentStep + 1) / this.steps.length) * 100;
+    this.progressBar.style.width = `${progress}%`;
   }
 
-  goStep(index) {
-    if (index < 0 || index >= this.steps.length) return;
+  goToStep(index) {
+    this.steps[this.currentStep].classList.remove('active');
     this.currentStep = index;
-    this.updateStep();
+    this.steps[this.currentStep].classList.add('active');
+    this.updateButtons();
   }
 
-  handleNext() {
-    this.clearAlerts();
-    if (this.currentStep === 0 && !this.validateStep1()) return;
-    if (this.currentStep === 1 && !this.validateStep2()) return;
+  handlePrev() {
+    if (this.currentStep > 0) {
+      this.goToStep(this.currentStep - 1);
+    }
+  }
+
+  async handleNext() {
+    const valid = await this.validateStep();
+    if (!valid) return;
+
+    if (this.currentStep === this.steps.length - 1) {
+      await this.saveViaje();
+      return;
+    }
+
+    this.goToStep(this.currentStep + 1);
+    if (this.currentStep === 2) {
+      this.renderSummary();
+      this.loadLogs();
+    }
+  }
+
+  async validateStep() {
+    this.clearAlert();
+    if (this.currentStep === 0) {
+      const base = document.getElementById('baseSelect').value;
+      const nombre = document.getElementById('nombreMotorizado').value.trim();
+      const link = document.getElementById('link').value.trim();
+      const wsp = document.getElementById('numeroWsp').value.trim();
+      const llamadas = document.getElementById('numLlamadas').value.trim();
+      const yape = document.getElementById('numYape').value.trim();
+
+      const linkRegex = /^(https?:\/\/|www\.)[^\s]+\.[^\s]{2,}$/i;
+      const numericOptional = /^[0-9]{0,20}$/;
+
+      if (!base) {
+        this.showAlert('warning', this.dict.errors.base);
+        return false;
+      }
+      if (!nombre) {
+        this.showAlert('warning', this.dict.errors.nombre);
+        return false;
+      }
+      if (!linkRegex.test(link)) {
+        this.showAlert('warning', this.dict.errors.link);
+        return false;
+      }
+      if (!numericOptional.test(wsp) || !numericOptional.test(llamadas) || !numericOptional.test(yape)) {
+        this.showAlert('warning', this.dict.errors.numbers);
+        return false;
+      }
+      return true;
+    }
+
     if (this.currentStep === 1) {
-      this.renderResumen();
+      if (this.selectedPaquetes.length === 0) {
+        this.showAlert('warning', this.dict.errors.paquetes);
+        return false;
+      }
+      return true;
     }
-    this.goStep(this.currentStep + 1);
-  }
 
-  validateStep1() {
-    if (!this.fields.codigoBase.value) {
-      this.showError(this.t('messages.baseRequerida'));
-      return false;
+    if (this.currentStep === 2) {
+      const confirm = document.getElementById('confirmCheck').checked;
+      if (!confirm) {
+        this.showAlert('warning', this.dict.errors.confirm);
+        return false;
+      }
+      return true;
     }
-    if (!this.regex.nombre.test(this.fields.nombreMotorizado.value.trim())) {
-      this.showError(this.t('messages.nombreRequerido'));
-      return false;
-    }
-    if (!this.regex.link.test(this.fields.link.value.trim())) {
-      this.showError(this.t('messages.linkInvalido'));
-      return false;
-    }
-    if (!this.regex.numeros.test(this.fields.numeroWsp.value.trim())) {
-      this.showError(this.t('messages.numerosInvalidos'));
-      return false;
-    }
-    if (!this.regex.numeros.test(this.fields.numLlamadas.value.trim())) {
-      this.showError(this.t('messages.numerosInvalidos'));
-      return false;
-    }
-    if (!this.regex.numeros.test(this.fields.numYape.value.trim())) {
-      this.showError(this.t('messages.numerosInvalidos'));
-      return false;
-    }
+
     return true;
   }
 
-  validateStep2() {
-    if (this.state.selected.size === 0) {
-      this.showError(this.t('messages.paquetesRequeridos'));
-      return false;
-    }
-    return true;
+  clearAlert() {
+    this.alertArea.innerHTML = '';
   }
 
-  validateStep3() {
-    if (!this.confirmOperacion.checked) {
-      this.showError(this.t('messages.confirmarOperacion'));
-      return false;
-    }
-    return true;
-  }
-
-  async loadInitialData() {
-    this.setLoading(true, this.t('ui.loading'));
+  async loadBases() {
     try {
-      const [bases, next, paquetes] = await Promise.all([
-        this.fetchJson('/api/bases'),
-        this.fetchJson('/api/viajes/next'),
-        this.fetchJson('/api/paquetes?estado=empacado'),
-      ]);
-      this.state.bases = bases;
-      this.state.paquetes = paquetes;
-      this.fields.codigoViaje.value = next.next;
-      this.renderBases();
-      this.renderPaquetes();
-    } catch (error) {
-      this.showError(this.t('messages.errorServer'));
-    } finally {
-      this.setLoading(false);
-    }
-  }
-
-  renderBases() {
-    this.fields.codigoBase.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = '--';
-    this.fields.codigoBase.appendChild(placeholder);
-    this.state.bases.forEach((base) => {
-      const option = document.createElement('option');
-      option.value = base.codigo_base ?? base.codigo ?? base.id ?? '';
-      option.textContent = base.nombre_base ?? base.nombre ?? base.descripcion ?? option.value;
-      this.fields.codigoBase.appendChild(option);
-    });
-  }
-
-  renderPaquetes() {
-    this.paquetesTableBody.innerHTML = '';
-    this.state.paquetes.forEach((paquete) => {
-      const row = document.createElement('tr');
-      const codigo = paquete.codigo_paquete;
-      row.innerHTML = `
-        <td>
-          <input class="form-check-input" type="checkbox" data-code="${codigo}" />
-        </td>
-        <td>${codigo ?? ''}</td>
-        <td>${paquete.fecha_actualizado ?? ''}</td>
-        <td>${paquete.nombre_cliente ?? ''}</td>
-        <td>${paquete.num_cliente ?? ''}</td>
-        <td>${paquete.concatenarpuntoentrega ?? ''}</td>
-        <td>${paquete.concatenarnumrecibe ?? ''}</td>
-      `;
-      const checkbox = row.querySelector('input');
-      checkbox.addEventListener('change', (event) => {
-        const code = event.target.dataset.code;
-        if (event.target.checked) {
-          this.state.selected.add(code);
-          row.classList.add('selected-row');
-        } else {
-          this.state.selected.delete(code);
-          row.classList.remove('selected-row');
-        }
-        this.updateSelectedLabel();
+      this.setLoading(this.dict.loading);
+      const response = await fetch('/api/bases');
+      const data = await response.json();
+      this.bases = data;
+      const select = document.getElementById('baseSelect');
+      select.innerHTML = '<option value="">--</option>';
+      data.forEach((base) => {
+        const option = document.createElement('option');
+        option.value = base.codigo_base || base.codigo || base.id || '';
+        option.textContent = base.nombre_base || base.nombre || base.descripcion || option.value;
+        select.appendChild(option);
       });
-      this.paquetesTableBody.appendChild(row);
-    });
-    this.updateSelectedLabel();
-  }
-
-  updateSelectedLabel() {
-    const count = this.state.selected.size;
-    if (count === 0) {
-      this.selectedCountLabel.textContent = this.t('ui.sinSeleccion');
-    } else {
-      this.selectedCountLabel.textContent = `${count} ${this.t('ui.paquetesLabel')}`;
+    } catch (error) {
+      this.showAlert('danger', this.dict.errors.bases);
+    } finally {
+      this.setLoading('');
     }
   }
 
-  renderResumen() {
-    const base = this.state.bases.find((item) => String(item.codigo_base ?? item.codigo ?? item.id) === this.fields.codigoBase.value);
-    const selectedCodes = Array.from(this.state.selected);
-    const selectedRows = this.state.paquetes.filter((item) => selectedCodes.includes(String(item.codigo_paquete)));
-    const resumenViaje = `
-      <div class="summary-title">${this.t('ui.resumenViaje')}</div>
-      <ul class="summary-list">
-        <li><strong>${this.t('ui.codigoViaje')}:</strong> ${this.fields.codigoViaje.value}</li>
-        <li><strong>${this.t('ui.baseLabel')}:</strong> ${base?.nombre_base ?? base?.nombre ?? ''}</li>
-        <li><strong>${this.t('ui.motorizadoLabel')}:</strong> ${this.fields.nombreMotorizado.value}</li>
-        <li><strong>${this.t('ui.wspLabel')}:</strong> ${this.fields.numeroWsp.value || '-'}</li>
-        <li><strong>${this.t('ui.llamadasLabel')}:</strong> ${this.fields.numLlamadas.value || '-'}</li>
-        <li><strong>${this.t('ui.yapeLabel')}:</strong> ${this.fields.numYape.value || '-'}</li>
-        <li><strong>${this.t('ui.linkLabel')}:</strong> ${this.fields.link.value}</li>
-        <li><strong>${this.t('ui.observacionLabel')}:</strong> ${this.fields.observacion.value || '-'}</li>
-        <li><strong>${this.t('ui.fechaLabel')}:</strong> ${this.fields.fecha.value}</li>
-      </ul>
-    `;
-
-    const paqueteItems = selectedRows
-      .map(
-        (item) =>
-          `<li><strong>${item.codigo_paquete}</strong> ${item.nombre_cliente ?? ''} (${item.num_cliente ?? ''})</li>`
-      )
-      .join('');
-
-    const resumenPaquetes = `
-      <div class="summary-title">${this.t('ui.resumenPaquetes')}</div>
-      <ul class="summary-list">
-        ${paqueteItems || `<li>${this.t('ui.sinSeleccion')}</li>`}
-      </ul>
-    `;
-
-    this.resumenViaje.innerHTML = resumenViaje;
-    this.resumenPaquetes.innerHTML = resumenPaquetes;
+  async loadPaquetes() {
+    try {
+      this.setLoading(this.dict.loading);
+      const response = await fetch('/api/paquetes?estado=empacado');
+      const data = await response.json();
+      this.renderPaquetes(data);
+    } catch (error) {
+      this.showAlert('danger', this.dict.errors.paquetesLoad);
+    } finally {
+      this.setLoading('');
+    }
   }
 
-  async handleSave() {
-    this.clearAlerts();
-    if (!this.validateStep1() || !this.validateStep2() || !this.validateStep3()) return;
+  renderPaquetes(paquetes) {
+    this.paquetesBody.innerHTML = '';
+    if (!Array.isArray(paquetes) || paquetes.length === 0) {
+      this.paquetesBody.innerHTML = `<tr><td colspan="7" class="text-muted">${this.dict.emptyPaquetes}</td></tr>`;
+      return;
+    }
 
-    const payload = {
-      viaje: {
-        codigoviaje: Number(this.fields.codigoViaje.value),
-        codigo_base: this.fields.codigoBase.value,
-        nombre_motorizado: this.fields.nombreMotorizado.value.trim(),
-        numero_wsp: this.fields.numeroWsp.value.trim() || null,
-        num_llamadas: this.fields.numLlamadas.value.trim() || null,
-        num_yape: this.fields.numYape.value.trim() || null,
-        link: this.fields.link.value.trim(),
-        observacion: this.fields.observacion.value.trim() || null,
-        fecha: this.state.viaje.fechaISO,
-      },
-      paquetes: Array.from(this.state.selected).map((codigo) => ({ codigo_paquete: codigo })),
-    };
+    paquetes.forEach((paquete) => {
+      const codigo = paquete.codigo_paquete || paquete.vcodigo_paquete || '';
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input type="checkbox" class="form-check-input" data-codigo="${codigo}" /></td>
+        <td>${codigo}</td>
+        <td>${paquete.fecha_actualizado || paquete.vfecha || ''}</td>
+        <td>${paquete.nombre_cliente || paquete.vnombre_cliente || ''}</td>
+        <td>${paquete.num_cliente || paquete.vnum_cliente || ''}</td>
+        <td>${paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || ''}</td>
+        <td>${paquete.concatenarnumrecibe || paquete.vconcatenarnumrecibe || ''}</td>
+      `;
+      this.paquetesBody.appendChild(row);
+    });
 
-    this.setLoading(true, this.t('ui.loading'));
+    this.paquetesBody.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => this.collectPaquetes());
+    });
+  }
+
+  collectPaquetes() {
+    const selected = [];
+    this.paquetesBody.querySelectorAll('input[type="checkbox"]:checked').forEach((checkbox) => {
+      selected.push({ codigo_paquete: checkbox.dataset.codigo });
+    });
+    this.selectedPaquetes = selected;
+  }
+
+  renderSummary() {
+    const baseId = document.getElementById('baseSelect').value;
+    const base = this.bases.find((item) => `${item.codigo_base || item.codigo || item.id}` === baseId);
+    const nombre = document.getElementById('nombreMotorizado').value.trim();
+    const link = document.getElementById('link').value.trim();
+    const wsp = document.getElementById('numeroWsp').value.trim();
+    const llamadas = document.getElementById('numLlamadas').value.trim();
+    const yape = document.getElementById('numYape').value.trim();
+    const observacion = document.getElementById('observacion').value.trim();
+
+    const paquetesList = this.selectedPaquetes.map((item) => `<li>${item.codigo_paquete}</li>`).join('');
+
+    this.summaryCard.innerHTML = `
+      <div class="row g-3">
+        <div class="col-md-6">
+          <p class="text-muted mb-1">${this.dict.base}</p>
+          <p>${base ? base.nombre_base || base.nombre || base.descripcion || baseId : baseId}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="text-muted mb-1">${this.dict.driver}</p>
+          <p>${nombre}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="text-muted mb-1">${this.dict.link}</p>
+          <p>${link}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="text-muted mb-1">${this.dict.contact}</p>
+          <p>${wsp || '-'} | ${llamadas || '-'} | ${yape || '-'}</p>
+        </div>
+        <div class="col-12">
+          <p class="text-muted mb-1">${this.dict.observacion}</p>
+          <p>${observacion || '-'}</p>
+        </div>
+        <div class="col-12">
+          <p class="text-muted mb-1">${this.dict.paquetesSeleccionados}</p>
+          <ul>${paquetesList}</ul>
+        </div>
+      </div>
+    `;
+  }
+
+  async saveViaje() {
     try {
-      await this.fetchJson('/api/viajes/guardar', {
+      this.setLoading(this.dict.saving);
+      const payload = {
+        codigo_base: document.getElementById('baseSelect').value,
+        nombre_motorizado: document.getElementById('nombreMotorizado').value.trim(),
+        numero_wsp: document.getElementById('numeroWsp').value.trim(),
+        num_llamadas: document.getElementById('numLlamadas').value.trim(),
+        num_yape: document.getElementById('numYape').value.trim(),
+        link: document.getElementById('link').value.trim(),
+        observacion: document.getElementById('observacion').value.trim(),
+        paquetes: this.selectedPaquetes,
+      };
+
+      const response = await fetch('/api/viajes', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      this.showSuccess(this.t('messages.guardarOk'));
-      this.confirmOperacion.checked = false;
+
+      const result = await response.json();
+      if (!response.ok) {
+        this.showAlert('danger', result.message || this.dict.errors.save);
+        return;
+      }
+
+      this.showAlert('success', this.dict.success.replace('{id}', result.codigoviaje));
+      this.goToStep(0);
+      document.getElementById('formStep1').reset();
+      document.getElementById('confirmCheck').checked = false;
+      this.selectedPaquetes = [];
+      this.loadPaquetes();
     } catch (error) {
-      this.showError(error.message || this.t('messages.errorServer'));
+      this.showAlert('danger', this.dict.errors.save);
     } finally {
-      this.setLoading(false);
+      this.setLoading('');
     }
   }
 
   async loadLogs() {
     try {
-      const data = await this.fetchJson('/api/logs/latest');
-      this.logsContent.textContent = data.content || this.t('messages.sinLogs');
-      this.logsModal.show();
+      const response = await fetch('/api/logs');
+      const data = await response.json();
+      const select = document.getElementById('logSelect');
+      select.innerHTML = '';
+      data.forEach((name) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
     } catch (error) {
-      this.showError(this.t('messages.errorServer'));
+      this.showAlert('warning', this.dict.errors.logs);
     }
   }
 
-  async fetchJson(url, options = {}) {
-    const response = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || this.t('messages.errorServer'));
+  async fetchLog() {
+    const file = document.getElementById('logSelect').value;
+    if (!file) return;
+    try {
+      const response = await fetch(`/api/logs/${encodeURIComponent(file)}`);
+      const data = await response.text();
+      document.getElementById('logViewer').textContent = data;
+    } catch (error) {
+      this.showAlert('warning', this.dict.errors.logs);
     }
-    return response.json();
   }
 }
 
-new FormWizard();
+const translations = {
+  es: {
+    tag: 'IaaS + PaaS Global',
+    title: 'Asignar viajes',
+    subtitle: 'Registro multi-paso para coordinar envios con trazabilidad en tiempo real.',
+    status: 'Estado del flujo',
+    step1Title: '1. Datos del viaje',
+    step2Title: '2. Detalle del viaje',
+    step2Subtitle: 'Selecciona los paquetes empacados para asignarlos al viaje.',
+    step3Title: '3. Confirmar y guardar',
+    step3Subtitle: 'Verifica los datos antes de confirmar la asignacion.',
+    step3Badge: 'Listo para guardar',
+    base: 'Base operativa',
+    driver: 'Nombre motorizado',
+    link: 'Link',
+    wsp: 'Numero WSP',
+    calls: 'Num. llamadas',
+    yape: 'Num. Yape',
+    observacion: 'Observacion',
+    paquete: 'Paquete',
+    fecha: 'Fecha',
+    cliente: 'Cliente',
+    telefono: 'Telefono',
+    entrega: 'Punto entrega',
+    recibe: 'Recibe',
+    refresh: 'Actualizar paquetes',
+    prev: 'Anterior',
+    next: 'Siguiente',
+    save: 'Guardar',
+    confirm: 'Confirmo que la informacion es correcta.',
+    logsTitle: 'Ver logs SQL',
+    loadLog: 'Cargar log',
+    contact: 'Contacto',
+    paquetesSeleccionados: 'Paquetes seleccionados',
+    emptyPaquetes: 'No hay paquetes empacados disponibles.',
+    loading: 'Cargando...',
+    saving: 'Guardando...',
+    success: 'Viaje guardado con codigo {id}.',
+    errors: {
+      base: 'Selecciona una base valida.',
+      nombre: 'El nombre del motorizado es obligatorio.',
+      link: 'Ingresa un link valido (http, https o www).',
+      numbers: 'Los campos numericos deben contener solo digitos.',
+      paquetes: 'Selecciona al menos un paquete.',
+      confirm: 'Confirma la operacion para continuar.',
+      bases: 'No se pudieron cargar las bases.',
+      paquetesLoad: 'No se pudieron cargar los paquetes.',
+      save: 'No se pudo guardar el viaje.',
+      logs: 'No se pudieron cargar los logs.',
+    },
+  },
+  en: {
+    tag: 'Global IaaS + PaaS',
+    title: 'Assign trips',
+    subtitle: 'Multi-step registration to coordinate shipments with real-time traceability.',
+    status: 'Flow status',
+    step1Title: '1. Trip details',
+    step2Title: '2. Trip detail',
+    step2Subtitle: 'Select packed packages to assign to the trip.',
+    step3Title: '3. Confirm and save',
+    step3Subtitle: 'Review the data before confirming the assignment.',
+    step3Badge: 'Ready to save',
+    base: 'Base',
+    driver: 'Driver name',
+    link: 'Link',
+    wsp: 'WSP number',
+    calls: 'Calls',
+    yape: 'Yape number',
+    observacion: 'Notes',
+    paquete: 'Package',
+    fecha: 'Date',
+    cliente: 'Client',
+    telefono: 'Phone',
+    entrega: 'Delivery point',
+    recibe: 'Receiver',
+    refresh: 'Refresh packages',
+    prev: 'Previous',
+    next: 'Next',
+    save: 'Save',
+    confirm: 'I confirm the information is correct.',
+    logsTitle: 'View SQL logs',
+    loadLog: 'Load log',
+    contact: 'Contact',
+    paquetesSeleccionados: 'Selected packages',
+    emptyPaquetes: 'No packed packages available.',
+    loading: 'Loading...',
+    saving: 'Saving...',
+    success: 'Trip saved with code {id}.',
+    errors: {
+      base: 'Select a valid base.',
+      nombre: 'Driver name is required.',
+      link: 'Enter a valid link (http, https or www).',
+      numbers: 'Numeric fields must contain digits only.',
+      paquetes: 'Select at least one package.',
+      confirm: 'Confirm the operation to continue.',
+      bases: 'Unable to load bases.',
+      paquetesLoad: 'Unable to load packages.',
+      save: 'Unable to save the trip.',
+      logs: 'Unable to load logs.',
+    },
+  },
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  new FormWizard();
+});

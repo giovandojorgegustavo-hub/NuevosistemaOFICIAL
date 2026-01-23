@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CU-003 Asignar Viajes</title>
+    <title>CU-003 Asignar viajes</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link
@@ -17,164 +17,145 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main>
-      <section class="hero">
-        <span class="badge-status" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 data-i18n="wizardTitle">Asignar Viajes</h1>
-        <p data-i18n="wizardSubtitle">
-          Coordine viajes y paquetes con visibilidad operacional para operaciones globales.
-        </p>
-      </section>
-
-      <section class="card-shell">
-        <div class="mb-4">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div>
-              <h2 class="section-title" id="stepTitle">Paso 1: Datos del Viaje</h2>
-              <p class="small-muted" id="stepHint">Complete los datos principales del viaje.</p>
+    <header class="hero">
+      <div class="container">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
+          <div>
+            <span class="badge-status" data-i18n="tag">IaaS + PaaS Global</span>
+            <h1 class="mt-3" data-i18n="title">Asignar viajes</h1>
+            <p data-i18n="subtitle">
+              Registro multi-paso para coordinar envios con trazabilidad en tiempo real.
+            </p>
+          </div>
+          <div class="text-lg-end">
+            <p class="mb-2 text-muted" data-i18n="status">Estado del flujo</p>
+            <div class="progress" role="progressbar" aria-label="wizard progress">
+              <div class="progress-bar" id="progressBar" style="width: 33%"></div>
             </div>
-            <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
-              Ver Logs de SQL
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container pb-5">
+      <div class="wizard-card">
+        <div id="alertArea"></div>
+
+        <div class="step active" data-step="1">
+          <h2 class="h4 mb-3" data-i18n="step1Title">1. Datos del viaje</h2>
+          <form id="formStep1" class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="base">Base operativa</label>
+              <select class="form-select" id="baseSelect" required></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="driver">Nombre motorizado</label>
+              <input type="text" class="form-control" id="nombreMotorizado" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="link">Link</label>
+              <input type="url" class="form-control" id="link" placeholder="https://" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="wsp">Numero WSP</label>
+              <input type="text" class="form-control" id="numeroWsp" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="calls">Num. llamadas</label>
+              <input type="text" class="form-control" id="numLlamadas" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="yape">Num. Yape</label>
+              <input type="text" class="form-control" id="numYape" />
+            </div>
+            <div class="col-12">
+              <label class="form-label" data-i18n="observacion">Observacion</label>
+              <textarea class="form-control" id="observacion" rows="2"></textarea>
+            </div>
+          </form>
+        </div>
+
+        <div class="step" data-step="2">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h2 class="h4" data-i18n="step2Title">2. Detalle del viaje</h2>
+              <p class="text-muted" data-i18n="step2Subtitle">
+                Selecciona los paquetes empacados para asignarlos al viaje.
+              </p>
+            </div>
+            <button class="btn btn-secondary" id="refreshPaquetes" type="button" data-i18n="refresh">
+              Actualizar paquetes
             </button>
           </div>
-          <div class="progress mt-3">
-            <div
-              class="progress-bar"
-              id="progressBar"
-              role="progressbar"
-              style="width: 33%"
-              aria-valuenow="33"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th data-i18n="paquete">Paquete</th>
+                  <th data-i18n="fecha">Fecha</th>
+                  <th data-i18n="cliente">Cliente</th>
+                  <th data-i18n="telefono">Telefono</th>
+                  <th data-i18n="entrega">Punto entrega</th>
+                  <th data-i18n="recibe">Recibe</th>
+                </tr>
+              </thead>
+              <tbody id="paquetesBody"></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="alert alert-danger d-none" id="errorBox"></div>
-        <div class="alert alert-success d-none" id="successBox"></div>
-
-        <form id="wizardForm" novalidate>
-          <div class="step active" data-step="1">
-            <div class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label" for="codigoViaje" data-i18n="codigoViaje">Codigo Viaje</label>
-                <input class="form-control" id="codigoViaje" type="text" readonly />
-              </div>
-              <div class="col-md-8">
-                <label class="form-label" for="codigoBase" data-i18n="codigoBase">Base Operativa</label>
-                <select class="form-select" id="codigoBase" required></select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="nombreMotorizado" data-i18n="nombreMotorizado">
-                  Nombre Motorizado
-                </label>
-                <input class="form-control" id="nombreMotorizado" type="text" required />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="numeroWsp" data-i18n="numeroWsp">Numero WSP</label>
-                <input class="form-control" id="numeroWsp" type="text" placeholder="+51 999 999 999" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="numLlamadas" data-i18n="numLlamadas">Numero de Llamadas</label>
-                <input class="form-control" id="numLlamadas" type="text" placeholder="999999" />
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="numYape" data-i18n="numYape">Numero Yape</label>
-                <input class="form-control" id="numYape" type="text" placeholder="999999" />
-              </div>
-              <div class="col-md-8">
-                <label class="form-label" for="link" data-i18n="link">Link</label>
-                <input class="form-control" id="link" type="text" placeholder="https://" required />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label" for="fecha" data-i18n="fecha">Fecha</label>
-                <input class="form-control" id="fecha" type="text" readonly />
-              </div>
-              <div class="col-12">
-                <label class="form-label" for="observacion" data-i18n="observacion">Observacion</label>
-                <textarea class="form-control" id="observacion" rows="3"></textarea>
-              </div>
+        <div class="step" data-step="3">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+            <div>
+              <h2 class="h4" data-i18n="step3Title">3. Confirmar y guardar</h2>
+              <p class="text-muted" data-i18n="step3Subtitle">
+                Verifica los datos antes de confirmar la asignacion.
+              </p>
+            </div>
+            <div class="text-md-end">
+              <span class="badge-status" data-i18n="step3Badge">Listo para guardar</span>
             </div>
           </div>
 
-          <div class="step" data-step="2">
-            <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="paquetesEmpacados">vPaquetesEmpacados</h3>
-              <span class="small-muted" id="selectedCountLabel" data-i18n="sinSeleccion">
-                Ningun paquete seleccionado
-              </span>
-            </div>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered align-middle" id="paquetesTable">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th data-i18n="codigoPaquete">Codigo Paquete</th>
-                    <th data-i18n="fecha">Fecha</th>
-                    <th data-i18n="nombreCliente">Nombre Cliente</th>
-                    <th data-i18n="numCliente">Numero Cliente</th>
-                    <th data-i18n="puntoEntrega">Punto Entrega</th>
-                    <th data-i18n="numRecibe">Numero Recibe</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="summary-card mt-3" id="summaryCard"></div>
+
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" />
+            <label class="form-check-label" for="confirmCheck" data-i18n="confirm">
+              Confirmo que la informacion es correcta.
+            </label>
           </div>
 
-          <div class="step" data-step="3">
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <div class="summary-card" id="resumenViaje"></div>
+          <div class="mt-4">
+            <h3 class="h6 text-uppercase" data-i18n="logsTitle">Ver logs SQL</h3>
+            <div class="row g-2 align-items-center">
+              <div class="col-md-6">
+                <select class="form-select" id="logSelect"></select>
               </div>
-              <div class="col-lg-6">
-                <div class="summary-card" id="resumenPaquetes"></div>
+              <div class="col-md-3">
+                <button class="btn btn-secondary w-100" id="loadLog" type="button" data-i18n="loadLog">
+                  Cargar log
+                </button>
               </div>
             </div>
-            <div class="form-check mt-3">
-              <input class="form-check-input" type="checkbox" id="confirmOperacion" />
-              <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
-                Confirmo que la informacion es correcta
-              </label>
-            </div>
-            <button class="btn btn-primary mt-3" type="button" id="guardarBtn" data-i18n="guardar">
-              Guardar Viaje
-            </button>
+            <div class="log-viewer mt-3" id="logViewer"></div>
           </div>
+        </div>
 
-          <div class="step-actions">
-            <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="anterior">
-              Anterior
-            </button>
-            <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="siguiente">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mt-4">
+          <button class="btn btn-outline-light" id="prevBtn" type="button" data-i18n="prev">
+            Anterior
+          </button>
+          <div class="d-flex align-items-center gap-2">
+            <span id="loadingState" class="loader text-muted"></span>
+            <button class="btn btn-primary" id="nextBtn" type="button" data-i18n="next">
               Siguiente
             </button>
           </div>
-        </form>
-      </section>
-    </main>
-
-    <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background: var(--surface); color: var(--white);">
-          <div class="modal-header">
-            <h5 class="modal-title" data-i18n="logsTitle">Logs de SQL</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <pre id="logsContent" class="small-muted"></pre>
-          </div>
         </div>
       </div>
-    </div>
-
-    <div class="loading-overlay d-none" id="loadingOverlay">
-      <div class="loading-card">
-        <div class="spinner-border text-info" role="status"></div>
-        <div class="loading-text" id="loadingText" data-i18n="loading">Procesando...</div>
-        <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
-      </div>
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>

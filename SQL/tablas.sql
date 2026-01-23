@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS `bases`;
 CREATE TABLE `bases` (
   `nombre` varchar(100) NOT NULL,
   `codigo_base` numeric(12,0) NOT NULL,
+  `coordenada` varchar(100) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`codigo_base`)
 ) ENGINE=InnoDB;
@@ -31,6 +32,18 @@ CREATE TABLE `saldos_clientes` (
   `saldo_final` numeric(12,2) NOT NULL DEFAULT 0,
   PRIMARY KEY (`codigo_cliente`),
   FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `saldos_provedores`;
+
+CREATE TABLE `saldos_provedores` (
+  `codigo_provedor` numeric(12,0) NOT NULL,
+  `fecha_inicio` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `saldo_inicial` numeric(12,2) NOT NULL DEFAULT 0,
+  `fecha_actualizado` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `saldo_final` numeric(12,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`codigo_provedor`),
+  FOREIGN KEY (`codigo_provedor`) REFERENCES `provedores` (`codigo_provedor`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `puntos_entrega`;
@@ -312,55 +325,59 @@ CREATE TABLE `detalleviaje` (
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-DROP TABLE IF EXISTS `mov_contable_compras`;
+DROP TABLE IF EXISTS `mov_contable_prov`;
 
-CREATE TABLE `mov_contable_compras` (
+CREATE TABLE `mov_contable_prov` (
   `tipo_documento_compra` varchar(3) NOT NULL,
   `num_documento_compra` numeric(12,0) NOT NULL,
   `codigo_provedor` numeric(12,0) NOT NULL,
+
+  
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS `detalle_mov_contable_compras`;
+DROP TABLE IF EXISTS `detalle_mov_contable_prov`;
 
-CREATE TABLE `detalle_mov_contable_compras` (
+CREATE TABLE `detalle_mov_contable_prov` (
   `tipo_documento_compra` varchar(3) NOT NULL,
   `num_documento_compra` numeric(12,0) NOT NULL,
   `codigo_provedor` numeric(12,0) NOT NULL,
   `ordinal` numeric(12,0) NOT NULL,
   `codigo_producto` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
+  `cantidad_entregada` numeric(12,3) NOT NULL ,
   `saldo` numeric(12,3) NOT NULL DEFAULT '0.000',
   `precio_compra` numeric(12,2) NOT NULL,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `ordinal`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
-  FOREIGN KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`) REFERENCES `mov_contable_compras` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
+  FOREIGN KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`) REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `remito_compra`;
 
 CREATE TABLE `movimiento_stock` (
-  `tipo_documento` varchar(3) NOT NULL,
-  `num_documento` numeric(12,0) NOT NULL,
+  `tipodocumentostock` varchar(3) NOT NULL,
+  `numdocumentostock` numeric(12,0) NOT NULL,
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `codigo_base` numeric(12,0) NOT NULL,
   `codigo_basedestino` numeric(12,0),
-  PRIMARY KEY (`tipo_documento`, `num_documento`),
+  PRIMARY KEY (`tipodocumentostock`, `numdocumentostock`),
   FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `detalle_movimiento_stock`;
 
 CREATE TABLE `detalle_movimiento_stock` (
-  `tipo_documento` varchar(3) NOT NULL,
-  `num_documento` numeric(12,0) NOT NULL,
+  `tipodocumentostock` varchar(3) NOT NULL,
+  `numdocumentostock` numeric(12,0) NOT NULL,
   `ordinal` numeric(12,0) NOT NULL,
   `codigo_producto` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
-  PRIMARY KEY (`tipo_documento`, `num_documento`, `ordinal`),
+
+  PRIMARY KEY (`tipodocumentostock`, `numdocumentostock`, `ordinal`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
-  FOREIGN KEY (`tipo_documento`, `num_documento`) REFERENCES `movimiento_stock` (`tipo_documento`, `num_documento`)
+  FOREIGN KEY (`tipodocumentostock`, `numdocumentostock`) REFERENCES `movimiento_stock` (`tipodocumentostock`, `numdocumentostock`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `provedores`;

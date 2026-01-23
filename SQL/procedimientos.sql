@@ -220,6 +220,17 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `get_bases_candidatas`;
+DELIMITER //
+CREATE PROCEDURE `get_bases_candidatas`()
+BEGIN
+  SELECT
+    b.`nombre` AS `base`,
+    b.`coordenada` AS `coordenada`
+  FROM `bases` b;
+END//
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS `get_packing`;
 DELIMITER //
 CREATE PROCEDURE `get_packing`()
@@ -348,6 +359,80 @@ BEGIN
   SELECT `codigo_provedor`, `nombre`
   FROM `provedores`;
 END//
+
+
+
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_facturascompras_pendientes`;
+DELIMITER //
+CREATE PROCEDURE `get_facturascompras_pendientes`()
+BEGIN
+  SELECT DISTINCT
+    m.tipo_documento_compra,
+    m.num_documento_compra,
+    m.codigo_provedor,
+    p.nombre AS nombre_provedor,
+    m.fecha
+  FROM mov_contable_prov m
+  JOIN detalle_mov_contable_prov d
+    ON d.tipo_documento_compra = m.tipo_documento_compra
+   AND d.num_documento_compra = m.num_documento_compra
+   AND d.codigo_provedor = m.codigo_provedor
+  JOIN provedores p
+    ON p.codigo_provedor = m.codigo_provedor
+  WHERE m.tipo_documento_compra = 'FCC'
+    AND d.cantidad_entregada < d.cantidad
+  ORDER BY m.fecha DESC, m.num_documento_compra DESC;
+END//
+DELIMITER ;
+
+
+
+DROP PROCEDURE IF EXISTS `get_detalle_compra_por_documento`;
+DELIMITER //
+CREATE PROCEDURE `get_detalle_compra_por_documento`(
+  IN p_tipo_documento_compra varchar(3),
+  IN p_num_documento_compra numeric(12,0),
+  IN p_codigo_provedor numeric(12,0)
+)
+BEGIN
+  SELECT
+    d.ordinal,
+    d.codigo_producto,
+    pr.nombre AS nombre_producto,
+    d.cantidad,
+    d.cantidad_entregada AS cantidad_entregada,
+    (d.cantidad - d.cantidad_entregada) AS saldo
+  FROM detalle_mov_contable_prov d
+  JOIN productos pr
+    ON pr.codigo_producto = d.codigo_producto
+  WHERE d.tipo_documento_compra = p_tipo_documento_compra
+    AND d.num_documento_compra = p_num_documento_compra
+    AND d.codigo_provedor = p_codigo_provedor
+  ORDER BY d.ordinal;
+END//
+DELIMITER ;
+
+
+
+DROP PROCEDURE IF EXISTS `aplicar_entrega_compra`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_entrega_compra`(
+  IN p_tipo_documento_compra varchar(3),
+  IN p_num_documento_compra numeric(12,0),
+  IN p_codigo_provedor numeric(12,0),
+  IN p_ordinal numeric(12,0),
+  IN p_cantidad_entregada numeric(12,3)
+)
+BEGIN
+  UPDATE detalle_mov_contable_prov
+  SET cantidad_entregada = LEAST(cantidad, GREATEST(0, cantidad_entregada + p_cantidad_entregada))
+  WHERE tipo_documento_compra = p_tipo_documento_compra
+    AND num_documento_compra = p_num_documento_compra
+    AND codigo_provedor = p_codigo_provedor
+    AND ordinal = p_ordinal;
+END//
 DELIMITER ;
 
 DROP PROCEDURE IF EXISTS get_paquetes_por_estado;
@@ -428,6 +513,98 @@ BEGIN
 END//
 DELIMITER ;
 
+-- STOCK: TRS - actualiza saldo_stock por movimiento_stock (traslado origen/destino)
+
+DROP PROCEDURE IF EXISTS `get_actualizarsaldosstocktrs`;
+DELIMITER //
+CREATE PROCEDURE `get_actualizarsaldosstocktrs`(
+  IN p_tipodocumentostock varchar(3),
+  IN p_numdocumentostock numeric(12,0)
+)
+BEGIN
+  INSERT INTO saldo_stock (
+    codigo_base,
+    codigo_producto,
+    saldo_actual,
+    saldo_inicial,
+    fecha_saldoinicial,
+    fecha_saldoactual
+  )
+  SELECT
+    t.codigo_base,
+    t.codigo_producto,
+    SUM(t.delta) AS saldo_actual,
+    SUM(t.delta) AS saldo_inicial,
+    NOW() AS fecha_saldoinicial,
+    NOW() AS fecha_saldoactual
+  FROM (
+    SELECT
+      ms.codigo_base AS codigo_base,
+      dms.codigo_producto,
+      -dms.cantidad AS delta
+    FROM movimiento_stock ms
+    JOIN detalle_movimiento_stock dms
+      ON dms.tipodocumentostock = ms.tipodocumentostock
+     AND dms.numdocumentostock = ms.numdocumentostock
+    WHERE ms.tipodocumentostock = p_tipodocumentostock
+      AND ms.numdocumentostock = p_numdocumentostock
+    UNION ALL
+    SELECT
+      ms.codigo_basedestino AS codigo_base,
+      dms.codigo_producto,
+      dms.cantidad AS delta
+    FROM movimiento_stock ms
+    JOIN detalle_movimiento_stock dms
+      ON dms.tipodocumentostock = ms.tipodocumentostock
+     AND dms.numdocumentostock = ms.numdocumentostock
+    WHERE ms.tipodocumentostock = p_tipodocumentostock
+      AND ms.numdocumentostock = p_numdocumentostock
+  ) t
+  GROUP BY t.codigo_base, t.codigo_producto
+  ON DUPLICATE KEY UPDATE
+    saldo_actual = saldo_actual + VALUES(saldo_actual),
+    fecha_saldoactual = NOW();
+END//
+DELIMITER ;
+
+-- STOCK: AJU - actualiza saldo_stock por movimiento_stock (ajuste)
+
+DROP PROCEDURE IF EXISTS `get_actualizarsaldosstockaju`;
+DELIMITER //
+CREATE PROCEDURE `get_actualizarsaldosstockaju`(
+  IN p_tipodocumentostock varchar(3),
+  IN p_numdocumentostock numeric(12,0)
+)
+BEGIN
+  INSERT INTO saldo_stock (
+    codigo_base,
+    codigo_producto,
+    saldo_actual,
+    saldo_inicial,
+    fecha_saldoinicial,
+    fecha_saldoactual
+  )
+  SELECT
+    ms.codigo_base,
+    dms.codigo_producto,
+    SUM(dms.cantidad) AS saldo_actual,
+    SUM(dms.cantidad) AS saldo_inicial,
+    NOW() AS fecha_saldoinicial,
+    NOW() AS fecha_saldoactual
+  FROM movimiento_stock ms
+  JOIN detalle_movimiento_stock dms
+    ON dms.tipodocumentostock = ms.tipodocumentostock
+   AND dms.numdocumentostock = ms.numdocumentostock
+  WHERE ms.tipodocumentostock = p_tipodocumentostock
+    AND ms.numdocumentostock = p_numdocumentostock
+  GROUP BY ms.codigo_base, dms.codigo_producto
+  ON DUPLICATE KEY UPDATE
+    saldo_actual = saldo_actual + VALUES(saldo_actual),
+    fecha_saldoactual = NOW();
+END//
+DELIMITER ;
+
+
 -- PEDIDO_DETALLE: descontar saldo por detalle de factura emitida (mov_contable + detalle)
 
 DROP PROCEDURE IF EXISTS `salidaspedidos`;
@@ -497,6 +674,51 @@ BEGIN
       saldo_final
     ) VALUES (
       p_codigo_cliente,
+      CURRENT_TIMESTAMP,
+      v_delta,
+      CURRENT_TIMESTAMP,
+      v_delta
+    );
+  END IF;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `actualizarsaldosprovedores`;
+DELIMITER //
+CREATE PROCEDURE `actualizarsaldosprovedores`(
+  IN p_codigo_provedor numeric(12,0),
+  IN p_tipo_documento_compra varchar(3),
+  IN p_monto numeric(12,2)
+)
+BEGIN
+  DECLARE v_delta numeric(12,2);
+
+  SET v_delta = CASE
+    WHEN p_tipo_documento_compra = 'FCC' THEN p_monto
+    WHEN p_tipo_documento_compra = 'RCC' THEN -p_monto
+    WHEN p_tipo_documento_compra = 'NDC' THEN -p_monto
+    WHEN p_tipo_documento_compra = 'NCC' THEN p_monto
+    ELSE p_monto
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM saldos_provedores
+    WHERE codigo_provedor = p_codigo_provedor
+  ) THEN
+    UPDATE saldos_provedores
+      SET saldo_final = saldo_final + v_delta,
+          fecha_actualizado = CURRENT_TIMESTAMP
+    WHERE codigo_provedor = p_codigo_provedor;
+  ELSE
+    INSERT INTO saldos_provedores (
+      codigo_provedor,
+      fecha_inicio,
+      saldo_inicial,
+      fecha_actualizado,
+      saldo_final
+    ) VALUES (
+      p_codigo_provedor,
       CURRENT_TIMESTAMP,
       v_delta,
       CURRENT_TIMESTAMP,

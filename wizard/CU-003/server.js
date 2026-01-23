@@ -1,64 +1,67 @@
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
+const express = require('express');
 const mysql = require('mysql2/promise');
 
-const BASE_DIR = __dirname;
-const ROOT_DIR = path.resolve(BASE_DIR, '..', '..');
-const ERP_CONFIG_PATH = path.join(ROOT_DIR, 'erp.yml');
-const LOG_DIR = path.join(BASE_DIR, 'logs');
+const app = express();
+const PORT = process.env.PORT || 3000;
+const ROOT_DIR = __dirname;
+const LOG_DIR = path.join(ROOT_DIR, 'logs');
+const LOG_PREFIX = 'CU-003';
 
 function timestamp() {
   return new Date().toISOString();
 }
 
-function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+function ensureLogFile() {
+  if (!fs.existsSync(LOG_DIR)) {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
   }
-}
-
-function getLogFilePath() {
-  ensureDir(LOG_DIR);
-  const now = new Date();
-  const stamp = now
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '-')
-    .replace(/\..+/, '');
-  let counter = 1;
+  const baseName = `${LOG_PREFIX}-${formatFileDate(new Date())}`;
+  let suffix = 1;
   let filePath;
   do {
-    const suffix = String(counter).padStart(3, '0');
-    filePath = path.join(LOG_DIR, `CU-003-${stamp}-${suffix}.log`);
-    counter += 1;
+    const suffixStr = String(suffix).padStart(3, '0');
+    filePath = path.join(LOG_DIR, `${baseName}-${suffixStr}.log`);
+    suffix += 1;
   } while (fs.existsSync(filePath));
+  fs.writeFileSync(filePath, '', 'utf8');
   return filePath;
 }
 
-const LOG_FILE = getLogFilePath();
+function formatFileDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+}
 
-function logLine(message) {
-  const line = `[${timestamp()}] ${message}`;
+const logFile = ensureLogFile();
+
+function logLine(level, message) {
+  const line = `[${timestamp()}] [${level}] ${message}`;
   console.log(line);
-  fs.appendFileSync(LOG_FILE, `${line}\n`);
+  fs.appendFileSync(logFile, `${line}\n`, 'utf8');
 }
 
 function parseErpConfig() {
-  const content = fs.readFileSync(ERP_CONFIG_PATH, 'utf8');
-  const dsnMatch = content.match(/dsn:\s*"([^"]+)"/);
-  const nameMatch = content.match(/name:\s*"([^"]+)"/);
-  if (!dsnMatch || !nameMatch) {
-    throw new Error('No se encontro configuracion dsn/name en erp.yml');
+  const configPath = path.join(ROOT_DIR, '..', '..', 'erp.yml');
+  const raw = fs.readFileSync(configPath, 'utf8');
+  const nameMatch = raw.match(/name:\s*"?([^"\n]+)"?/);
+  const dsnMatch = raw.match(/dsn:\s*"?([^"\n]+)"?/);
+  if (!nameMatch || !dsnMatch) {
+    throw new Error('No se encontro la configuracion en erp.yml');
   }
-  return { dsn: dsnMatch[1], name: nameMatch[1] };
+  return { name: nameMatch[1].trim(), dsn: dsnMatch[1].trim() };
 }
 
-function parseDsn(dsn) {
+function parseMysqlDsn(dsn) {
   const match = dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/(.+)$/);
   if (!match) {
-    throw new Error('DSN invalido');
+    throw new Error('Formato DSN no valido');
   }
   return {
     user: match[1],
@@ -69,207 +72,157 @@ function parseDsn(dsn) {
   };
 }
 
-const { dsn, name } = parseErpConfig();
-const dbConfig = parseDsn(dsn);
+const { name, dsn } = parseErpConfig();
+const dbConfig = parseMysqlDsn(dsn);
 if (dbConfig.database !== name) {
-  dbConfig.database = name;
+  logLine('INFO', `DB en DSN (${dbConfig.database}) ajustada a ${name} segun erp.yml`);
 }
+dbConfig.database = name;
+
+logLine('INFO', `Iniciando servidor CU-003 usando DB: ${name}`);
 
 const pool = mysql.createPool({
-  host: dbConfig.host,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-  port: dbConfig.port,
+  ...dbConfig,
   waitForConnections: true,
-  connectionLimit: 5,
-  decimalNumbers: true,
+  connectionLimit: 10,
 });
 
-async function execQuery(conn, sql, params = []) {
-  logLine(`SQL: ${sql} | params: ${JSON.stringify(params)}`);
-  return conn.query(sql, params);
+async function queryDb(connection, sql, params = []) {
+  logLine('SQL', `${sql} | params: ${JSON.stringify(params)}`);
+  return connection.query(sql, params);
 }
 
-function sendJson(res, status, data) {
-  const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(body);
-}
+app.use(express.json());
+app.use(express.static(ROOT_DIR));
 
-function serveStatic(res, filePath) {
-  if (!fs.existsSync(filePath)) {
-    res.writeHead(404);
-    res.end('Not found');
-    return;
-  }
-  const ext = path.extname(filePath);
-  const types = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.json': 'application/json',
-  };
-  res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
-  fs.createReadStream(filePath).pipe(res);
-}
-
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (chunk) => {
-      data += chunk;
-      if (data.length > 2e6) {
-        reject(new Error('Payload demasiado grande'));
-      }
-    });
-    req.on('end', () => {
-      if (!data) return resolve({});
-      try {
-        resolve(JSON.parse(data));
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
-}
-
-async function handleApi(req, res) {
-  const parsedUrl = url.parse(req.url, true);
-  const { pathname, query } = parsedUrl;
-  logLine(`Endpoint: ${req.method} ${pathname}`);
-
+app.get('/api/bases', async (req, res) => {
+  logLine('INFO', 'GET /api/bases');
   try {
-    if (pathname === '/api/health') {
-      sendJson(res, 200, { status: 'ok' });
-      return;
-    }
-
-    if (pathname === '/api/bases') {
-      const [rows] = await execQuery(pool, 'CALL get_bases()');
-      sendJson(res, 200, rows[0]);
-      return;
-    }
-
-    if (pathname === '/api/viajes/next') {
-      const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
-      sendJson(res, 200, rows[0]);
-      return;
-    }
-
-    if (pathname === '/api/paquetes') {
-      const estado = query.estado || 'empacado';
-      const [rows] = await execQuery(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
-      sendJson(res, 200, rows[0]);
-      return;
-    }
-
-    if (pathname === '/api/viajes/guardar' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const response = await guardarViaje(body);
-      sendJson(res, 200, response);
-      return;
-    }
-
-    if (pathname === '/api/logs/latest') {
-      const content = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, 'utf8') : '';
-      sendJson(res, 200, { file: path.basename(LOG_FILE), content });
-      return;
-    }
-
-    sendJson(res, 404, { error: 'Endpoint no encontrado' });
+    const [rows] = await queryDb(pool, 'CALL get_bases()');
+    res.json(rows[0] || []);
   } catch (error) {
-    logLine(`ERROR: ${error.message}`);
-    sendJson(res, 500, { error: error.message });
+    logLine('ERROR', error.message);
+    res.status(500).json({ message: 'Error al obtener bases.' });
   }
-}
+});
 
-async function guardarViaje(payload) {
-  const viaje = payload.viaje || {};
-  const paquetes = Array.isArray(payload.paquetes) ? payload.paquetes : [];
-
-  if (!viaje.codigoviaje || !viaje.codigo_base || !viaje.nombre_motorizado || !viaje.link) {
-    throw new Error('Datos incompletos para el viaje');
-  }
-  if (paquetes.length === 0) {
-    throw new Error('Debe seleccionar paquetes');
-  }
-
-  const conn = await pool.getConnection();
+app.get('/api/paquetes', async (req, res) => {
+  const estado = req.query.estado || 'empacado';
+  logLine('INFO', `GET /api/paquetes?estado=${estado}`);
   try {
-    await execQuery(conn, 'START TRANSACTION');
-    await execQuery(
-      conn,
-      `INSERT INTO viajes
+    const [rows] = await queryDb(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
+    res.json(rows[0] || []);
+  } catch (error) {
+    logLine('ERROR', error.message);
+    res.status(500).json({ message: 'Error al obtener paquetes.' });
+  }
+});
+
+app.get('/api/logs', (req, res) => {
+  logLine('INFO', 'GET /api/logs');
+  try {
+    const files = fs
+      .readdirSync(LOG_DIR)
+      .filter((file) => file.startsWith(LOG_PREFIX) && file.endsWith('.log'))
+      .sort()
+      .reverse();
+    res.json(files);
+  } catch (error) {
+    logLine('ERROR', error.message);
+    res.status(500).json([]);
+  }
+});
+
+app.get('/api/logs/:file', (req, res) => {
+  const file = req.params.file;
+  logLine('INFO', `GET /api/logs/${file}`);
+  if (!file.startsWith(LOG_PREFIX) || !file.endsWith('.log')) {
+    return res.status(400).send('Archivo no valido.');
+  }
+  const filePath = path.join(LOG_DIR, file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('No encontrado.');
+  }
+  const content = fs.readFileSync(filePath, 'utf8');
+  res.type('text/plain').send(content);
+});
+
+app.post('/api/viajes', async (req, res) => {
+  logLine('INFO', 'POST /api/viajes');
+  const {
+    codigo_base,
+    nombre_motorizado,
+    numero_wsp,
+    num_llamadas,
+    num_yape,
+    link,
+    observacion,
+    paquetes,
+  } = req.body || {};
+
+  if (!codigo_base || !nombre_motorizado || !link || !Array.isArray(paquetes) || paquetes.length === 0) {
+    return res.status(400).json({ message: 'Datos incompletos.' });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [nextRows] = await queryDb(connection, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
+    const codigoviaje = nextRows[0]?.next || 1;
+
+    const insertViajeSql = `
+      INSERT INTO viajes
         (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ,
-      [
-        viaje.codigoviaje,
-        viaje.codigo_base,
-        viaje.nombre_motorizado,
-        viaje.numero_wsp,
-        viaje.num_llamadas,
-        viaje.num_yape,
-        viaje.link,
-        viaje.observacion,
-        viaje.fecha || new Date(),
-      ]
-    );
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+
+    await queryDb(connection, insertViajeSql, [
+      codigoviaje,
+      codigo_base,
+      nombre_motorizado,
+      numero_wsp || null,
+      num_llamadas || null,
+      num_yape || null,
+      link,
+      observacion || null,
+    ]);
 
     for (const paquete of paquetes) {
       const codigoPaquete = paquete.codigo_paquete;
-      await execQuery(
-        conn,
-        `INSERT INTO detalleviaje
-          (codigoviaje, numero_documento, tipo_documento, fecha_inicio)
-         VALUES (?, ?, 'FAC', NOW())`,
-        [viaje.codigoviaje, codigoPaquete]
-      );
-
-      const [ordinalRows] = await execQuery(
-        conn,
-        `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next
-         FROM paquetedetalle
-         WHERE codigo_paquete = ?
-           AND tipo_documento = 'FAC'`,
+      const [ordinalRows] = await queryDb(
+        connection,
+        `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'`,
         [codigoPaquete]
       );
       const ordinal = ordinalRows[0]?.next || 1;
 
-      await execQuery(
-        conn,
-        `INSERT INTO paquetedetalle
-          (codigo_paquete, ordinal, estado, tipo_documento)
-         VALUES (?, ?, 'en camino', 'FAC')`,
+      await queryDb(
+        connection,
+        `INSERT INTO detalleviaje (codigoviaje, numero_documento, tipo_documento, fecha_inicio) VALUES (?, ?, 'FAC', NOW())`,
+        [codigoviaje, codigoPaquete]
+      );
+
+      await queryDb(
+        connection,
+        `INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, 'en camino', 'FAC')`,
         [codigoPaquete, ordinal]
       );
 
-      await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'empacado']);
+      await queryDb(connection, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'empacado']);
     }
 
-    await execQuery(conn, 'COMMIT');
-    return { codigoviaje: viaje.codigoviaje, paquetes: paquetes.length };
+    await connection.commit();
+    res.json({ codigoviaje, paquetes: paquetes.length });
   } catch (error) {
-    await execQuery(conn, 'ROLLBACK');
-    logLine(`ERROR: ${error.message}`);
-    throw error;
+    await connection.rollback();
+    logLine('ERROR', error.stack || error.message);
+    res.status(500).json({ message: 'Error al guardar el viaje.' });
   } finally {
-    conn.release();
+    connection.release();
   }
-}
-
-const server = http.createServer(async (req, res) => {
-  if (req.url.startsWith('/api/')) {
-    await handleApi(req, res);
-    return;
-  }
-
-  const filePath = req.url === '/' ? 'index.html' : req.url.slice(1);
-  serveStatic(res, path.join(BASE_DIR, filePath));
 });
 
-const PORT = Number(process.env.PORT || 3003);
-server.listen(PORT, () => {
-  logLine(`Servidor iniciado en http://localhost:${PORT}`);
+app.listen(PORT, () => {
+  logLine('INFO', `Servidor escuchando en puerto ${PORT}`);
 });

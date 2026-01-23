@@ -1907,13 +1907,13 @@ INSERT INTO `clientes` (`nombre`, `numero`, `codigo_cliente`, `created_at`) VALU
   ('Maria Gomez', 2, 2, '2026-01-12 22:07:43'),
   ('Comercial San Martin', 3, 3, '2026-01-12 22:07:43');
 
-INSERT INTO `bases` (`nombre`, `codigo_base`, `created_at`) VALUES
-  ('CUSCO', 1, '2026-01-10 16:58:30'),
-  ('LEVIATAN', 2, '2026-01-10 16:58:30');
+INSERT INTO `bases` (`nombre`, `codigo_base`, `coordenada`, `created_at`) VALUES
+  ('CUSCO', 1, NULL, '2026-01-10 16:58:30'),
+  ('LEVIATAN', 2, NULL, '2026-01-10 16:58:30');
 
-INSERT INTO `bases` (`nombre`, `codigo_base`, `created_at`) VALUES
-  ('LIMA', 3, '2026-01-10 16:58:30'),
-  ('AREQUIPA', 4, '2026-01-10 16:58:30');
+INSERT INTO `bases` (`nombre`, `codigo_base`, `coordenada`, `created_at`) VALUES
+  ('LIMA', 3, NULL, '2026-01-10 16:58:30'),
+  ('AREQUIPA', 4, NULL, '2026-01-10 16:58:30');
 
 INSERT INTO `packing` (`nombre`, `codigo_packing`, `created_at`) VALUES
   ('CAJA ESTÁNDAR', 1, '2026-01-10 16:58:30'),

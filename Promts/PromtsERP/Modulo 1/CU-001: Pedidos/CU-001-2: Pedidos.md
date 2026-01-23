@@ -92,7 +92,7 @@ Presentar un Grid llamado "vProdPedidos"
 vProducto = Inicializar con el SP get_productos.
 vCantidadProducto = editable 
 vPrecioTotal = editable
-vOrdinalPedDetalle = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM pedido_detalle WHERE codigo_pedido = vcodigo_pedido` (si no hay filas, usar 1).
+vOrdinalPedDetalle = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM pedido_detalle WHERE codigo_pedido = vcodigo_pedido` (si no hay filas, usar 1). no visible
 
 vPrecioUnitario=vPrecioTotal/vCantidadProducto no visible
 
@@ -104,7 +104,7 @@ Con estos requerimientos:
 
 vFechaemision= vFechaPedido no editable
 vHoraemision = vHoraPedido no editable
-vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento get_bases. 
+vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento get_bases. campo editable.
 
 
 vTipo_documento="FAC"
@@ -232,13 +232,12 @@ ordinal=vOrdinalPedDetalle
 codigo_producto=vProducto
 cantidad=vCantidadProducto
 precio_total=vPrecioTotal
-saldopedidodetalle=vCantidadProducto
+saldo=vCantidadProducto
 precio_unitario=vPrecioUnitario
 
 
-## Grabar el Punto_entrega si hubiera. Tomar los datos capturados en el paso 3:
-
-- registrarlos en la tabla puntos_entrega
+Grabar el Punto_entrega si hubiera. Tomar los datos capturados en el paso 3:
+## registrarlos en la tabla puntos_entrega
 ubigeo=Vubigeo
 codigo_puntoentrega=Vcodigo_puntoentrega
 codigo_cliente=Vcodigo_cliente
@@ -248,16 +247,12 @@ nombre=Vnombre
 dni=Vdni
 agencia=Vagencia
 observaciones=Vobservaciones
-registrarlos en la tabla puntos_entrega 
 region_entrega=vRegion_Entrega
-Grabar en la tabla 
 concatenarpuntoentrega = Vconcatenarpuntoentrega
-region_entrega es "PROV": `nombre | dni | agencia | observaciones` (omite campos vacios).
-
-## Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 4:
 
 
-- registrarlos en la tabla numrecibe
+Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 4:
+## registrarlos en la tabla numrecibe
 ordinal_numrecibe=Vordinal_numrecibe
 numero=Vnumero
 nombre=Vnombre
@@ -267,9 +262,6 @@ concatenarnumrecibe = Vconcatenarnumrecibe
 
 
 - Grabar Factura. Tomar los datos capturados en el paso 2:
-
-
-
 ## Guardar en la tabla "mov_contable". 
 codigo_pedido=vcodigo_pedido
 fecha_emision=vFechaP
@@ -310,7 +302,7 @@ estado= "pendiente empacar".
 ## Guardar en la tabla "paquetedetalle". 
 codigo_paquete=vNumero_documento
 tipo_documento="FAC"
-ordinal_paquetedetalle=vOrdinal_paquetedetalle
+ordinal=vOrdinal_paquetedetalle
 estado= "pendiente empacar"
 
 

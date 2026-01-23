@@ -1,9 +1,9 @@
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html lang="">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CU-004 Gestionar Paquetes en Camino</title>
+    <title>CU-004 | Gestionar paquetes en camino</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -11,171 +11,165 @@
       rel="stylesheet"
     />
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main>
+    <main class="page-shell">
       <section class="hero">
-        <span class="badge-status" data-i18n="wizardStatus">Servicio Global IaaS/PaaS</span>
-        <h1 data-i18n="wizardTitle">Gestionar Paquetes en Camino</h1>
-        <p data-i18n="wizardSubtitle">
-          Controle estados de paquetes en ruta con visibilidad operativa para servicios globales.
-        </p>
+        <div class="hero-content">
+          <p class="eyebrow" data-i18n="eyebrow">Global IaaS / PaaS Operations</p>
+          <h1 data-i18n="title">Gestionar paquetes en camino</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Flujo seguro y trazable para actualizar el estado de paquetes en tránsito.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-outline-light" id="btnLogs" data-i18n="viewLogs">Ver logs SQL</button>
+        </div>
       </section>
 
-      <section class="card-shell">
-        <div class="mb-4">
-          <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
-            <div>
-              <h2 class="section-title" id="stepTitle">Paso 1: Seleccion de Paquete</h2>
-              <p class="small-muted" id="stepHint">Seleccione un paquete en camino.</p>
-            </div>
-            <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">
-              Ver Logs de sentencias SQL
-            </button>
+      <section class="wizard-card">
+        <div class="progress-wrapper">
+          <div class="progress" role="progressbar" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" id="wizardProgress"></div>
           </div>
-          <div class="progress mt-3">
-            <div
-              class="progress-bar"
-              id="progressBar"
-              role="progressbar"
-              style="width: 33%"
-              aria-valuenow="33"
-              aria-valuemin="0"
-              aria-valuemax="100"
-            ></div>
+          <div class="step-indicators">
+            <span class="step-pill active" data-step="1">1</span>
+            <span class="step-pill" data-step="2">2</span>
+            <span class="step-pill" data-step="3">3</span>
           </div>
         </div>
 
-        <div class="alert alert-danger d-none" id="errorBox"></div>
-        <div class="alert alert-success d-none" id="successBox"></div>
+        <div id="alertArea"></div>
 
-        <form id="wizardForm" novalidate>
-          <div class="step active" data-step="1">
-            <div class="grid-toolbar">
-              <h3 class="section-title mb-0" data-i18n="paquetesEnCamino">vPaquetesEnCamino</h3>
-              <span class="small-muted" id="selectedLabel" data-i18n="sinSeleccion">
-                Ningun paquete seleccionado
-              </span>
-            </div>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered align-middle" id="paquetesTable">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <th data-i18n="codigoPaquete">Codigo Paquete</th>
-                    <th data-i18n="fecha">Fecha</th>
-                    <th data-i18n="nombreCliente">Nombre Cliente</th>
-                    <th data-i18n="numCliente">Numero Cliente</th>
-                    <th data-i18n="puntoEntrega">Punto Entrega</th>
-                    <th data-i18n="numRecibe">Numero Recibe</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+        <div class="wizard-step" data-step="1">
+          <div class="step-header">
+            <h2 data-i18n="step1Title">Seleccion de paquete en camino</h2>
+            <p data-i18n="step1Desc">Selecciona un paquete para revisar sus datos y estado.</p>
+            <span class="badge text-bg-primary">vPaquetesEnCamino</span>
           </div>
-
-          <div class="step" data-step="2">
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <div class="summary-card">
-                  <div class="summary-title" data-i18n="detallePaquete">Detalle del Paquete</div>
-                  <ul class="summary-list" id="paqueteDetalle"></ul>
-                </div>
-              </div>
-              <div class="col-lg-6">
-                <div class="summary-card">
-                  <div class="summary-title" data-i18n="detalleViaje">Datos del Viaje</div>
-                  <ul class="summary-list" id="viajeDetalle"></ul>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid-toolbar mt-4">
-              <h3 class="section-title mb-0" data-i18n="movContableDetalle">mov_contable_detalle</h3>
-              <span class="small-muted" data-i18n="detalleSoloLectura">Solo lectura</span>
-            </div>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered align-middle" id="detalleTable">
-                <thead>
-                  <tr>
-                    <th data-i18n="nombreProducto">Producto</th>
-                    <th data-i18n="cantidad">Cantidad</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" id="paquetesTable">
+              <thead>
+                <tr>
+                  <th data-i18n="thCodigo">Codigo</th>
+                  <th data-i18n="thFecha">Fecha</th>
+                  <th data-i18n="thCliente">Cliente</th>
+                  <th data-i18n="thNumCliente">Num. cliente</th>
+                  <th data-i18n="thEntrega">Punto entrega</th>
+                  <th data-i18n="thRecibe">Num. recibe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </div>
-
-          <div class="step" data-step="3">
-            <div class="row g-3">
-              <div class="col-lg-6">
-                <div class="summary-card" id="resumenPaquete"></div>
-              </div>
-              <div class="col-lg-6">
-                <div class="summary-card">
-                  <div class="summary-title" data-i18n="nuevoEstado">Nuevo Estado</div>
-                  <select class="form-select" id="estadoSelect" required>
-                    <option value="" data-i18n="seleccione">Seleccione...</option>
-                    <option value="robado" data-i18n="estadoRobado">robado</option>
-                    <option value="devuelto" data-i18n="estadoDevuelto">devuelto</option>
-                    <option value="standby" data-i18n="estadoStandby">standby</option>
-                    <option value="llegado" data-i18n="estadoLlegado">llegado</option>
-                  </select>
-                  <div class="form-check mt-3">
-                    <input class="form-check-input" type="checkbox" id="confirmOperacion" />
-                    <label class="form-check-label" for="confirmOperacion" data-i18n="confirmacion">
-                      Confirmo que la informacion es correcta
-                    </label>
-                  </div>
-                  <button class="btn btn-primary mt-3" type="button" id="guardarBtn" data-i18n="guardar">
-                    Guardar Estado
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div class="step-actions">
-            <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="anterior">
-              Anterior
-            </button>
-            <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="siguiente">
-              Siguiente
-            </button>
+            <button class="btn btn-primary" id="step1Next" disabled data-i18n="next">Siguiente</button>
           </div>
-        </form>
+        </div>
+
+        <div class="wizard-step d-none" data-step="2">
+          <div class="step-header">
+            <h2 data-i18n="step2Title">Detalle del paquete</h2>
+            <p data-i18n="step2Desc">Informacion del viaje y contenido del documento.</p>
+          </div>
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="tripInfo">Datos del viaje</h3>
+                <div class="info-grid" id="tripInfo"></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="deliveryInfo">Datos de entrega</h3>
+                <div class="info-grid" id="deliveryInfo"></div>
+              </div>
+            </div>
+          </div>
+          <div class="info-card mt-4">
+            <h3 data-i18n="detailTitle">Detalle mov contable</h3>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th data-i18n="thCantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="step-actions">
+            <button class="btn btn-outline-light" id="step2Back" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="step2Next" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step d-none" data-step="3">
+          <div class="step-header">
+            <h2 data-i18n="step3Title">Confirmar y guardar</h2>
+            <p data-i18n="step3Desc">Actualiza el estado y confirma la operacion.</p>
+          </div>
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="summaryTitle">Resumen del paquete</h3>
+                <div class="info-grid" id="summaryInfo"></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="statusUpdate">Nuevo estado</h3>
+                <label class="form-label" for="estadoSelect" data-i18n="estadoLabel">Estado</label>
+                <select class="form-select" id="estadoSelect" required>
+                  <option value="" selected disabled data-i18n="estadoPlaceholder">Selecciona un estado</option>
+                  <option value="robado" data-i18n="estadoRobado">Robado</option>
+                  <option value="devuelto" data-i18n="estadoDevuelto">Devuelto</option>
+                  <option value="standby" data-i18n="estadoStandby">Standby</option>
+                  <option value="llegado" data-i18n="estadoLlegado">Llegado</option>
+                </select>
+                <div class="form-check mt-3">
+                  <input class="form-check-input" type="checkbox" id="confirmCheck" />
+                  <label class="form-check-label" for="confirmCheck" data-i18n="confirmText">
+                    Confirmo que deseo actualizar el estado del paquete.
+                  </label>
+                </div>
+                <div class="loading-state d-none" id="saveLoading">
+                  <div class="spinner-border text-light" role="status"></div>
+                  <span data-i18n="saving">Guardando...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step-actions">
+            <button class="btn btn-outline-light" id="step3Back" data-i18n="back">Anterior</button>
+            <button class="btn btn-success" id="confirmBtn" data-i18n="confirm">Confirmar operacion</button>
+          </div>
+        </div>
       </section>
     </main>
 
     <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background: var(--surface); color: var(--white);">
+        <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" data-i18n="logsTitle">Logs de SQL</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <h5 class="modal-title" data-i18n="logsTitle">Logs SQL</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <pre id="logsContent" class="small-muted"></pre>
+            <pre id="logsContent" class="log-viewer"></pre>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="loading-overlay d-none" id="loadingOverlay">
-      <div class="loading-card">
-        <div class="spinner-border text-info" role="status"></div>
-        <div class="loading-text" id="loadingText" data-i18n="loading">Procesando...</div>
-        <div class="small-muted" data-i18n="loadingHint">Espere un momento.</div>
-      </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

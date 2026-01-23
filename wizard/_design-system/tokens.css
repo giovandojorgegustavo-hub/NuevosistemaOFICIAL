@@ -33,6 +33,9 @@
   --btn-padding: 10px 22px;
   --input-radius: 12px;
   --input-padding: 10px 12px;
+  --table-row-bg: rgba(255, 255, 255, 0.03);
+  --table-input-bg: rgba(7, 14, 30, 0.6);
+  --table-input-border: rgba(255, 255, 255, 0.2);
 
   --grid-base: 8px;
   --max-width: 1120px;

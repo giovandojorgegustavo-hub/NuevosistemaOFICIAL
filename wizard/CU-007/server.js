@@ -4,14 +4,10 @@ const path = require('path');
 const url = require('url');
 const mysql = require('mysql2/promise');
 
-const BASE_DIR = __dirname;
-const ROOT_DIR = path.resolve(BASE_DIR, '..', '..');
-const ERP_CONFIG_PATH = path.join(ROOT_DIR, 'erp.yml');
-const LOG_DIR = path.join(BASE_DIR, 'logs');
-
-function timestamp() {
-  return new Date().toISOString();
-}
+const ROOT_DIR = __dirname;
+const LOG_DIR = path.join(ROOT_DIR, 'logs');
+const ERP_YML = path.join(ROOT_DIR, '..', '..', 'erp.yml');
+const PORT = process.env.PORT || 3007;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) {
@@ -19,119 +15,133 @@ function ensureDir(dir) {
   }
 }
 
-function getLogFilePath() {
-  ensureDir(LOG_DIR);
+function timestamp() {
   const now = new Date();
-  const stamp = now
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '-')
-    .replace(/\..+/, '');
-  let counter = 1;
-  let filePath;
-  do {
-    const suffix = String(counter).padStart(3, '0');
-    filePath = path.join(LOG_DIR, `CU-007-${stamp}-${suffix}.log`);
-    counter += 1;
-  } while (fs.existsSync(filePath));
+  return now.toISOString();
+}
+
+function fileTimestamp() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function nextLogFile() {
+  ensureDir(LOG_DIR);
+  const base = `CU-007-${fileTimestamp()}`;
+  let suffix = 1;
+  let filePath = '';
+  while (true) {
+    const seq = String(suffix).padStart(3, '0');
+    filePath = path.join(LOG_DIR, `${base}-${seq}.log`);
+    if (!fs.existsSync(filePath)) break;
+    suffix += 1;
+  }
   return filePath;
 }
 
-const LOG_FILE = getLogFilePath();
+const logFile = nextLogFile();
 
-function logLine(message) {
-  const line = `[${timestamp()}] ${message}`;
+function logLine(level, message, meta) {
+  const entry = {
+    ts: timestamp(),
+    level,
+    message,
+    meta: meta || null
+  };
+  const line = JSON.stringify(entry);
   console.log(line);
-  fs.appendFileSync(LOG_FILE, `${line}\n`);
-}
-
-function logError(error) {
-  const detail = error && error.stack ? error.stack : String(error);
-  logLine(`ERROR: ${detail}`);
+  fs.appendFileSync(logFile, `${line}\n`);
 }
 
 function parseErpConfig() {
-  const content = fs.readFileSync(ERP_CONFIG_PATH, 'utf8');
-  const dsnMatch = content.match(/dsn:\s*"([^"]+)"/);
-  const nameMatch = content.match(/name:\s*"([^"]+)"/);
-  if (!dsnMatch || !nameMatch) {
-    throw new Error('No se encontro configuracion dsn/name en erp.yml');
+  const raw = fs.readFileSync(ERP_YML, 'utf8');
+  const nameMatch = raw.match(/name:\s*"?([^"\n]+)"?/);
+  const dsnMatch = raw.match(/dsn:\s*"?([^"\n]+)"?/);
+  if (!dsnMatch) {
+    throw new Error('No se encontró dsn en erp.yml');
   }
-  return { dsn: dsnMatch[1], name: nameMatch[1] };
+  return {
+    name: nameMatch ? nameMatch[1].trim() : null,
+    dsn: dsnMatch[1].trim()
+  };
 }
 
-function parseDsn(dsn) {
-  const match = dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/(.+)$/);
+function parseDsn(dsn, nameOverride) {
+  const regex = /^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/(.+)$/;
+  const match = dsn.match(regex);
   if (!match) {
-    throw new Error('DSN invalido');
+    throw new Error('DSN inválido en erp.yml');
   }
+  const database = nameOverride || match[5];
   return {
     user: match[1],
     password: match[2],
     host: match[3],
     port: Number(match[4]),
-    database: match[5],
+    database
   };
 }
 
-const { dsn, name } = parseErpConfig();
-const dbConfig = parseDsn(dsn);
-if (dbConfig.database !== name) {
-  dbConfig.database = name;
-}
-
+const config = parseErpConfig();
+const dbConfig = parseDsn(config.dsn, config.name);
 const pool = mysql.createPool({
   host: dbConfig.host,
   user: dbConfig.user,
   password: dbConfig.password,
-  database: dbConfig.database,
   port: dbConfig.port,
-  waitForConnections: true,
-  connectionLimit: 5,
-  decimalNumbers: true,
+  database: dbConfig.database,
+  connectionLimit: 10
 });
 
-async function execQuery(conn, sql, params = []) {
-  logLine(`SQL: ${sql} | params: ${JSON.stringify(params)}`);
-  return conn.query(sql, params);
+async function execQuery(connOrPool, sql, params) {
+  logLine('sql', sql, { params });
+  return connOrPool.query(sql, params);
 }
 
-function sendJson(res, status, data) {
-  const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(body);
-}
-
-function serveStatic(res, filePath) {
-  if (!fs.existsSync(filePath)) {
-    res.writeHead(404);
-    res.end('Not found');
-    return;
+function normalizeRows(result) {
+  if (Array.isArray(result)) {
+    if (Array.isArray(result[0])) {
+      return result[0];
+    }
+    return result;
   }
-  const ext = path.extname(filePath);
-  const types = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.json': 'application/json',
-  };
-  res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
-  fs.createReadStream(filePath).pipe(res);
+  return [];
+}
+
+function sendJson(res, statusCode, payload) {
+  const json = JSON.stringify(payload);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json'
+  });
+  res.end(json);
+}
+
+function sendFile(res, filePath, contentType) {
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      res.end('Not found');
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(data);
+  });
 }
 
 function parseBody(req) {
   return new Promise((resolve, reject) => {
-    let data = '';
+    let body = '';
     req.on('data', (chunk) => {
-      data += chunk;
-      if (data.length > 2e6) {
+      body += chunk;
+      if (body.length > 1e6) {
         reject(new Error('Payload demasiado grande'));
+        req.socket.destroy();
       }
     });
     req.on('end', () => {
-      if (!data) return resolve({});
       try {
-        resolve(JSON.parse(data));
+        resolve(body ? JSON.parse(body) : {});
       } catch (error) {
         reject(error);
       }
@@ -139,139 +149,116 @@ function parseBody(req) {
   });
 }
 
-function normalizeRows(resultRows) {
-  if (!Array.isArray(resultRows)) return [];
-  if (Array.isArray(resultRows[0])) {
-    return resultRows[0];
-  }
-  return resultRows;
+function validateRecibo(payload) {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const amountRegex = /^\d+(\.\d{1,2})?$/;
+  const docRegex = /^\d{12}$/;
+
+  if (!payload.codigo_cliente) return 'Código de cliente requerido';
+  if (!payload.codigo_cuentabancaria) return 'Cuenta bancaria requerida';
+  if (!payload.fecha_emision || !dateRegex.test(payload.fecha_emision)) return 'Fecha inválida';
+  if (!payload.numero_documento || !docRegex.test(payload.numero_documento)) return 'Número de documento inválido';
+  if (!payload.monto || !amountRegex.test(String(payload.monto))) return 'Monto inválido';
+  const monto = Number(payload.monto);
+  if (monto <= 0) return 'Monto debe ser mayor que 0';
+  return null;
 }
 
-async function getClientesSaldoPendiente() {
-  const [rows] = await execQuery(pool, 'CALL get_clientes_saldo_pendiente()');
-  const data = normalizeRows(rows);
-  return data.filter((row) => Number(row.saldo_final || 0) > 0);
-}
-
-async function getCuentasBancarias() {
-  const [rows] = await execQuery(pool, 'CALL get_cuentasbancarias()');
-  return normalizeRows(rows);
-}
-
-async function getNextDocumento() {
-  const [rows] = await execQuery(
-    pool,
-    "SELECT LPAD(COALESCE(MAX(numero_documento), 0) + 1, 12, '0') AS next FROM mov_contable WHERE tipo_documento = 'RC'"
-  );
-  return rows && rows[0] ? rows[0].next : '000000000001';
-}
-
-function getLatestLogFile() {
-  ensureDir(LOG_DIR);
-  const files = fs
-    .readdirSync(LOG_DIR)
-    .filter((file) => file.startsWith('CU-007-') && file.endsWith('.log'))
-    .sort();
-  if (!files.length) return null;
-  return path.join(LOG_DIR, files[files.length - 1]);
-}
-
-async function handleApi(req, res) {
+const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
-  const { pathname, query } = parsedUrl;
-  logLine(`Endpoint: ${req.method} ${pathname}`);
+  const { pathname } = parsedUrl;
+  logLine('info', 'endpoint_invoked', { method: req.method, path: pathname });
 
   try {
-    if (pathname === '/api/health') {
-      sendJson(res, 200, { status: 'ok' });
-      return;
+    if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+      return sendFile(res, path.join(ROOT_DIR, 'index.html'), 'text/html');
+    }
+    if (req.method === 'GET' && pathname === '/styles.css') {
+      return sendFile(res, path.join(ROOT_DIR, 'styles.css'), 'text/css');
+    }
+    if (req.method === 'GET' && pathname === '/app.js') {
+      return sendFile(res, path.join(ROOT_DIR, 'app.js'), 'application/javascript');
     }
 
-    if (pathname === '/api/clientes') {
-      const clientes = await getClientesSaldoPendiente();
-      sendJson(res, 200, clientes);
-      return;
+    if (req.method === 'GET' && pathname === '/api/clientes-pendientes') {
+      const [result] = await execQuery(pool, 'CALL get_clientes_saldo_pendiente()', []);
+      const rows = normalizeRows(result);
+      const filtered = rows.filter((row) => Number(row.saldo_final || 0) > 0);
+      return sendJson(res, 200, { data: filtered });
     }
 
-    if (pathname === '/api/cuentasbancarias') {
-      const cuentas = await getCuentasBancarias();
-      sendJson(res, 200, cuentas);
-      return;
+    if (req.method === 'GET' && pathname === '/api/cuentas-bancarias') {
+      const [result] = await execQuery(pool, 'CALL get_cuentasbancarias()', []);
+      const rows = normalizeRows(result);
+      return sendJson(res, 200, { data: rows });
     }
 
-    if (pathname === '/api/documento/next') {
-      const next = await getNextDocumento();
-      sendJson(res, 200, { next });
-      return;
+    if (req.method === 'GET' && pathname === '/api/next-numero-documento') {
+      const [rows] = await execQuery(
+        pool,
+        "SELECT LPAD(COALESCE(MAX(numero_documento), 0) + 1, 12, '0') AS next FROM mov_contable WHERE tipo_documento = 'REC'",
+        []
+      );
+      const next = rows && rows[0] ? rows[0].next : '000000000001';
+      return sendJson(res, 200, { data: { next } });
     }
 
-    if (pathname === '/api/logs/latest') {
-      const limit = Math.min(Number(query.limit || 200), 1000);
-      const filePath = getLatestLogFile();
-      if (!filePath) {
-        sendJson(res, 200, { lines: [] });
-        return;
+    if (req.method === 'POST' && pathname === '/api/recibos') {
+      const payload = await parseBody(req);
+      const error = validateRecibo(payload);
+      if (error) {
+        return sendJson(res, 400, { message: error });
       }
-      const content = fs.readFileSync(filePath, 'utf8');
-      const lines = content.trim().split(/\r?\n/).slice(-limit);
-      sendJson(res, 200, { lines });
-      return;
-    }
 
-    if (pathname === '/api/recibos' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const required = [
-        'fecha_emision',
-        'tipo_documento',
-        'numero_documento',
-        'codigo_cliente',
-        'codigo_cuentabancaria',
-        'saldo',
-      ];
-      for (const key of required) {
-        if (!body[key]) {
-          sendJson(res, 400, { error: `Falta ${key}` });
-          return;
-        }
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        const insertSql = `
+          INSERT INTO mov_contable (
+            fecha_emision,
+            fecha_valor,
+            fecha_vencimiento,
+            tipo_documento,
+            numero_documento,
+            codigo_cliente,
+            codigo_cuentabancaria,
+            saldo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const values = [
+          payload.fecha_emision,
+          payload.fecha_emision,
+          payload.fecha_emision,
+          payload.tipo_documento,
+          payload.numero_documento,
+          payload.codigo_cliente,
+          payload.codigo_cuentabancaria,
+          payload.monto
+        ];
+        await execQuery(connection, insertSql, values);
+
+        const spSql = 'CALL actualizarsaldosclientes(?, ?, ?)';
+        await execQuery(connection, spSql, [payload.codigo_cliente, payload.tipo_documento, payload.monto]);
+
+        await connection.commit();
+        return sendJson(res, 200, { message: 'Recibo registrado' });
+      } catch (err) {
+        await connection.rollback();
+        logLine('error', 'recibo_error', { error: err.message });
+        return sendJson(res, 500, { message: 'Error al registrar el recibo' });
+      } finally {
+        connection.release();
       }
-      const insertSql =
-        'INSERT INTO mov_contable (fecha_emision, tipo_documento, numero_documento, codigo_cliente, codigo_cuentabancaria, saldo) VALUES (?, ?, ?, ?, ?, ?)';
-      await execQuery(pool, insertSql, [
-        body.fecha_emision,
-        body.tipo_documento,
-        body.numero_documento,
-        body.codigo_cliente,
-        body.codigo_cuentabancaria,
-        body.saldo,
-      ]);
-      sendJson(res, 200, { ok: true });
-      return;
     }
 
     res.writeHead(404);
-    res.end('Not found');
+    res.end('Not Found');
   } catch (error) {
-    logError(error);
-    sendJson(res, 500, { error: 'Error interno del servidor' });
+    logLine('error', 'server_error', { error: error.message });
+    sendJson(res, 500, { message: 'Error interno del servidor' });
   }
-}
-
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
-  if (parsedUrl.pathname.startsWith('/api/')) {
-    handleApi(req, res);
-    return;
-  }
-
-  const safePath = parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname;
-  const filePath = path.join(BASE_DIR, safePath);
-  serveStatic(res, filePath);
 });
 
-const PORT = Number(process.env.PORT) || 3007;
-server.on('error', (error) => {
-  logError(error);
-});
 server.listen(PORT, () => {
-  logLine(`Servidor iniciado en http://localhost:${PORT}`);
+  logLine('info', 'server_started', { port: PORT, database: dbConfig.database });
 });

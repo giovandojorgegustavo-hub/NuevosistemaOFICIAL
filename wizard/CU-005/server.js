@@ -1,70 +1,74 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-const mysql = require('mysql2/promise');
+const fs = require("fs");
+const path = require("path");
+const express = require("express");
+const mysql = require("mysql2/promise");
 
-const BASE_DIR = __dirname;
-const ROOT_DIR = path.resolve(BASE_DIR, '..', '..');
-const ERP_CONFIG_PATH = path.join(ROOT_DIR, 'erp.yml');
-const LOG_DIR = path.join(BASE_DIR, 'logs');
-
-function timestamp() {
-  return new Date().toISOString();
-}
+const ROOT_DIR = path.resolve(__dirname);
+const LOG_DIR = path.join(ROOT_DIR, "logs");
+const ERP_CONFIG = path.resolve(ROOT_DIR, "..", "..", "erp.yml");
 
 function ensureDir(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function formatStamp(date = new Date()) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+}
+
+function humanStamp(date = new Date()) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
 function getLogFilePath() {
   ensureDir(LOG_DIR);
-  const now = new Date();
-  const stamp = now
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace('T', '-')
-    .replace(/\..+/, '');
-  let counter = 1;
-  let filePath;
-  do {
-    const suffix = String(counter).padStart(3, '0');
-    filePath = path.join(LOG_DIR, `CU-005-${stamp}-${suffix}.log`);
-    counter += 1;
-  } while (fs.existsSync(filePath));
-  return filePath;
+  const base = `CU-005-${formatStamp()}`;
+  let suffix = 1;
+  while (suffix < 1000) {
+    const name = `${base}-${String(suffix).padStart(3, "0")}.log`;
+    const full = path.join(LOG_DIR, name);
+    if (!fs.existsSync(full)) return full;
+    suffix += 1;
+  }
+  return path.join(LOG_DIR, `${base}-999.log`);
 }
 
-const LOG_FILE = getLogFilePath();
+const logFile = getLogFilePath();
+const logBuffer = [];
 
-function logLine(message) {
-  const line = `[${timestamp()}] ${message}`;
+function logLine(level, message) {
+  const ts = humanStamp();
+  const line = `[${ts}] [${level}] ${message}`;
   console.log(line);
-  fs.appendFileSync(LOG_FILE, `${line}\n`);
-}
-
-function logError(error) {
-  const detail = error && error.stack ? error.stack : String(error);
-  logLine(`ERROR: ${detail}`);
+  fs.appendFileSync(logFile, `${line}\n`);
+  logBuffer.push({ ts, level, message });
+  if (logBuffer.length > 500) logBuffer.shift();
 }
 
 function parseErpConfig() {
-  const content = fs.readFileSync(ERP_CONFIG_PATH, 'utf8');
-  const dsnMatch = content.match(/dsn:\s*"([^"]+)"/);
-  const nameMatch = content.match(/name:\s*"([^"]+)"/);
-  if (!dsnMatch || !nameMatch) {
-    throw new Error('No se encontro configuracion dsn/name en erp.yml');
+  const content = fs.readFileSync(ERP_CONFIG, "utf8");
+  const nameMatch = content.match(/name:\s*"?([^"\n]+)"?/i);
+  const dsnMatch = content.match(/dsn:\s*"?([^"\n]+)"?/i);
+  if (!nameMatch || !dsnMatch) {
+    throw new Error("No se pudo leer erp.yml");
   }
-  return { dsn: dsnMatch[1], name: nameMatch[1] };
+  return { name: nameMatch[1].trim(), dsn: dsnMatch[1].trim() };
 }
 
-function parseDsn(dsn) {
-  const match = dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/(.+)$/);
-  if (!match) {
-    throw new Error('DSN invalido');
-  }
+function parseMysqlDsn(dsn) {
+  const match = dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/(.+)$/i);
+  if (!match) throw new Error("DSN invalido");
   return {
     user: match[1],
     password: match[2],
@@ -74,236 +78,130 @@ function parseDsn(dsn) {
   };
 }
 
-const { dsn, name } = parseErpConfig();
-const dbConfig = parseDsn(dsn);
-if (dbConfig.database !== name) {
-  dbConfig.database = name;
-}
-
+const { name: dbName, dsn } = parseErpConfig();
+const dsnParsed = parseMysqlDsn(dsn);
 const pool = mysql.createPool({
-  host: dbConfig.host,
-  user: dbConfig.user,
-  password: dbConfig.password,
-  database: dbConfig.database,
-  port: dbConfig.port,
+  host: dsnParsed.host,
+  port: dsnParsed.port,
+  user: dsnParsed.user,
+  password: dsnParsed.password,
+  database: dbName,
   waitForConnections: true,
-  connectionLimit: 5,
-  decimalNumbers: true,
+  connectionLimit: 10,
 });
 
-async function execQuery(conn, sql, params = []) {
-  logLine(`SQL: ${sql} | params: ${JSON.stringify(params)}`);
+async function execQuery(sql, params = []) {
+  logLine("SQL", `SQL: ${sql} | params: ${JSON.stringify(params)}`);
+  return pool.query(sql, params);
+}
+
+async function execConn(conn, sql, params = []) {
+  logLine("SQL", `SQL: ${sql} | params: ${JSON.stringify(params)}`);
   return conn.query(sql, params);
 }
 
-function sendJson(res, status, data) {
-  const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(body);
+function unwrapRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  if (Array.isArray(rows[0])) return rows[0];
+  return rows;
 }
 
-function serveStatic(res, filePath) {
-  if (!fs.existsSync(filePath)) {
-    res.writeHead(404);
-    res.end('Not found');
-    return;
+const app = express();
+app.use(express.json());
+app.use((req, res, next) => {
+  logLine("INFO", `Endpoint ${req.method} ${req.originalUrl}`);
+  next();
+});
+app.use(express.static(ROOT_DIR));
+
+app.get("/api/db-status", async (req, res) => {
+  try {
+    await execQuery("SELECT 1");
+    res.json({ ok: true, database: dbName });
+  } catch (err) {
+    logLine("ERROR", err.stack || err.message);
+    res.status(500).json({ ok: false, error: "db_error" });
   }
-  const ext = path.extname(filePath);
-  const types = {
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.js': 'application/javascript',
-    '.json': 'application/json',
-  };
-  res.writeHead(200, { 'Content-Type': types[ext] || 'text/plain' });
-  fs.createReadStream(filePath).pipe(res);
-}
+});
 
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', (chunk) => {
-      data += chunk;
-      if (data.length > 2e6) {
-        reject(new Error('Payload demasiado grande'));
-      }
-    });
-    req.on('end', () => {
-      if (!data) return resolve({});
-      try {
-        resolve(JSON.parse(data));
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
-}
-
-function normalizeRows(resultRows) {
-  if (!Array.isArray(resultRows)) return [];
-  if (Array.isArray(resultRows[0])) {
-    return resultRows[0];
+app.get("/api/paquetes/standby", async (req, res) => {
+  try {
+    const [rows] = await execQuery("CALL get_paquetes_por_estado(?)", ["standby"]);
+    res.json(unwrapRows(rows));
+  } catch (err) {
+    logLine("ERROR", err.stack || err.message);
+    res.status(500).json({ error: "error_paquetes" });
   }
-  return resultRows;
-}
+});
 
-async function getPaquetesStandby() {
-  const [rows] = await execQuery(pool, 'CALL get_paquetes_por_estado(?)', ['standby']);
-  return normalizeRows(rows);
-}
+app.get("/api/paquetes/:codigo/detalle", async (req, res) => {
+  const codigo = req.params.codigo;
+  try {
+    const [detalleRows] = await execQuery("CALL get_mov_contable_detalle(?, ?)", ["FAC", codigo]);
+    const [viajeRows] = await execQuery("CALL get_viaje_por_documento(?)", [codigo]);
+    const [ordinalRows] = await execQuery(
+      "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+      [codigo]
+    );
+    const ordinal = unwrapRows(ordinalRows)[0]?.next ?? 1;
+    res.json({
+      detalle: unwrapRows(detalleRows),
+      viaje: unwrapRows(viajeRows)[0] ?? {},
+      ordinal,
+    });
+  } catch (err) {
+    logLine("ERROR", err.stack || err.message);
+    res.status(500).json({ error: "error_detalle" });
+  }
+});
 
-async function getMovDetalle(codigoPaquete) {
-  const [rows] = await execQuery(pool, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigoPaquete]);
-  return normalizeRows(rows);
-}
+app.post("/api/paquetes/:codigo/confirmar", async (req, res) => {
+  const codigo = req.params.codigo;
+  const estado = String(req.body?.estado || "");
+  if (!/^(robado|devuelto|empacado|llegado)$/.test(estado)) {
+    return res.status(400).json({ ok: false, error: "estado_invalido" });
+  }
 
-async function getViajeDetalle(codigoPaquete) {
-  const [rows] = await execQuery(pool, 'CALL get_viaje_por_documento(?)', [codigoPaquete]);
-  const data = normalizeRows(rows);
-  return data[0] || {};
-}
-
-async function getOrdinal(codigoPaquete) {
-  const [rows] = await execQuery(
-    pool,
-    `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next
-     FROM paquetedetalle
-     WHERE codigo_paquete = ?
-       AND tipo_documento = 'FAC'`,
-    [codigoPaquete]
-  );
-  return rows && rows[0] ? rows[0].next : 1;
-}
-
-function getLatestLogFile() {
-  ensureDir(LOG_DIR);
-  const files = fs
-    .readdirSync(LOG_DIR)
-    .filter((file) => file.startsWith('CU-005-') && file.endsWith('.log'))
-    .sort();
-  if (!files.length) return null;
-  return path.join(LOG_DIR, files[files.length - 1]);
-}
-
-async function confirmarEstado({ codigoPaquete, estado, ordinal }) {
   const conn = await pool.getConnection();
   try {
-    await execQuery(conn, 'START TRANSACTION');
-    await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, estado]);
-    await execQuery(
+    await conn.beginTransaction();
+    await execConn(conn, "CALL cambiar_estado_paquete(?, ?)", [codigo, estado]);
+
+    const [ordinalRows] = await execConn(
       conn,
-      `INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento)
-       VALUES (?, ?, ?, 'FAC')`,
-      [codigoPaquete, ordinal, estado]
+      "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+      [codigo]
     );
-    await execQuery(
+    const ordinal = unwrapRows(ordinalRows)[0]?.next ?? 1;
+
+    await execConn(
       conn,
-      `UPDATE detalleviaje
-       SET fecha_fin = NOW()
-       WHERE tipo_documento = 'FAC'
-         AND numero_documento = ?`,
-      [codigoPaquete]
+      "INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, 'FAC')",
+      [codigo, ordinal, estado]
     );
-    await execQuery(conn, 'COMMIT');
-  } catch (error) {
-    await execQuery(conn, 'ROLLBACK');
-    throw error;
+
+    await execConn(conn, "INSERT INTO detalleviaje (codigo_paquete, fecha_fin) VALUES (?, NOW())", [codigo]);
+
+    await conn.commit();
+    res.json({ ok: true, ordinal });
+  } catch (err) {
+    await conn.rollback();
+    logLine("ERROR", err.stack || err.message);
+    res.status(500).json({ ok: false, error: "error_guardar" });
   } finally {
     conn.release();
   }
-}
-
-async function handleApi(req, res) {
-  const parsedUrl = url.parse(req.url, true);
-  const { pathname, query } = parsedUrl;
-  logLine(`Endpoint: ${req.method} ${pathname}`);
-
-  try {
-    if (pathname === '/api/health') {
-      sendJson(res, 200, { status: 'ok' });
-      return;
-    }
-
-    if (pathname === '/api/paquetes' && req.method === 'GET') {
-      const estado = String(query.estado || '').toLowerCase();
-      if (estado !== 'standby') {
-        sendJson(res, 400, { error: 'Estado invalido' });
-        return;
-      }
-      const paquetes = await getPaquetesStandby();
-      sendJson(res, 200, paquetes);
-      return;
-    }
-
-    const detalleMatch = pathname.match(/^\/api\/paquetes\/(\d+)\/detalle$/);
-    if (detalleMatch && req.method === 'GET') {
-      const codigoPaquete = detalleMatch[1];
-      const [movDetalle, ordinal] = await Promise.all([
-        getMovDetalle(codigoPaquete),
-        getOrdinal(codigoPaquete),
-      ]);
-      sendJson(res, 200, { movDetalle, ordinal });
-      return;
-    }
-
-    const viajeMatch = pathname.match(/^\/api\/paquetes\/(\d+)\/viaje$/);
-    if (viajeMatch && req.method === 'GET') {
-      const codigoPaquete = viajeMatch[1];
-      const viaje = await getViajeDetalle(codigoPaquete);
-      sendJson(res, 200, viaje);
-      return;
-    }
-
-    if (pathname === '/api/paquetes/confirmar' && req.method === 'POST') {
-      const body = await parseBody(req);
-      const codigoPaquete = String(body.codigo_paquete || '');
-      const estado = String(body.estado || '').toLowerCase();
-      const ordinal = Number(body.ordinal || 0);
-      const estadoValido = ['robado', 'devuelto', 'empacado', 'llegado'].includes(estado);
-
-      if (!/^\d+$/.test(codigoPaquete) || !estadoValido || !Number.isInteger(ordinal)) {
-        sendJson(res, 400, { error: 'Datos invalidos' });
-        return;
-      }
-
-      await confirmarEstado({ codigoPaquete, estado, ordinal });
-      sendJson(res, 200, { ok: true });
-      return;
-    }
-
-    if (pathname === '/api/logs/latest') {
-      const limit = Math.min(Number(query.limit || 200), 1000);
-      const filePath = getLatestLogFile();
-      if (!filePath) {
-        sendJson(res, 200, { lines: [] });
-        return;
-      }
-      const content = fs.readFileSync(filePath, 'utf8');
-      const lines = content.trim().split(/\r?\n/).slice(-limit);
-      sendJson(res, 200, { lines });
-      return;
-    }
-
-    res.writeHead(404);
-    res.end('Not found');
-  } catch (error) {
-    logError(error);
-    sendJson(res, 500, { error: 'Error interno del servidor' });
-  }
-}
-
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
-  if (parsedUrl.pathname && parsedUrl.pathname.startsWith('/api/')) {
-    handleApi(req, res);
-    return;
-  }
-
-  const safePath = parsedUrl.pathname === '/' ? '/index.html' : parsedUrl.pathname;
-  const filePath = path.join(BASE_DIR, safePath);
-  serveStatic(res, filePath);
 });
 
-server.listen(3005, () => {
-  logLine('Servidor CU-005 iniciado en puerto 3005');
+app.get("/api/sql-logs", (req, res) => {
+  res.json(logBuffer.slice(-200));
+});
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, "index.html"));
+});
+
+const PORT = process.env.PORT || 3005;
+app.listen(PORT, () => {
+  logLine("INFO", `Servidor CU-005 iniciado en puerto ${PORT}`);
 });

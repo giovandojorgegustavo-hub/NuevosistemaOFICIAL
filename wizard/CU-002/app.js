@@ -2,406 +2,374 @@ class FormWizard {
   constructor() {
     this.currentStep = 0;
     this.totalSteps = 3;
-    this.steps = Array.from(document.querySelectorAll('.step'));
-    this.progressBar = document.getElementById('progressBar');
-    this.stepTitle = document.getElementById('stepTitle');
-    this.stepHint = document.getElementById('stepHint');
-    this.errorBox = document.getElementById('errorBox');
-    this.successBox = document.getElementById('successBox');
-    this.loadingOverlay = document.getElementById('loadingOverlay');
-    this.loadingText = document.getElementById('loadingText');
+    this.selectedPaquete = null;
+    this.ordinal = null;
+
+    this.progressEl = document.getElementById('wizardProgress');
+    this.stepEls = document.querySelectorAll('.wizard-step');
+    this.stepBadges = document.querySelectorAll('.step-badge');
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
-    this.empacarBtn = document.getElementById('empacarBtn');
-    this.empacarSpinner = document.getElementById('empacarSpinner');
-    this.confirmOperacion = document.getElementById('confirmOperacion');
-    this.selectedChip = document.getElementById('selectedChip');
-
+    this.submitBtn = document.getElementById('submitBtn');
+    this.errorAlert = document.getElementById('errorAlert');
+    this.successAlert = document.getElementById('successAlert');
     this.paquetesTableBody = document.querySelector('#paquetesTable tbody');
     this.detalleTableBody = document.querySelector('#detalleTable tbody');
-    this.puntoEntregaInput = document.getElementById('puntoEntregaInput');
-    this.numRecibeInput = document.getElementById('numRecibeInput');
 
+    this.puntoEntrega = document.getElementById('puntoEntrega');
+    this.numRecibe = document.getElementById('numRecibe');
     this.summaryCodigo = document.getElementById('summaryCodigo');
-    this.summaryEntrega = document.getElementById('summaryEntrega');
-    this.summaryRecibe = document.getElementById('summaryRecibe');
     this.summaryOrdinal = document.getElementById('summaryOrdinal');
+    this.toggleEntrega = document.getElementById('toggleEntrega');
+    this.entregaGroup = document.getElementById('entregaGroup');
+    this.entregaNombre = document.getElementById('entregaNombre');
+    this.recibeId = document.getElementById('recibeId');
+    this.confirmCheck = document.getElementById('confirmCheck');
 
-    this.regex = {
-      codigo: /^[A-Za-z0-9_-]+$/,
-    };
-
-    this.state = {
-      locale: this.getLocale(),
-      paquetes: [],
-      detalle: [],
-      selectedPackage: null,
-      ordinal: null,
-    };
-
-    this.dictionary = {
-      es: {
-        stepTitles: [
-          'Paso 1: Seleccionar Paquete',
-          'Paso 2: Detalle del Documento',
-          'Paso 3: Confirmar Empaque',
-        ],
-        stepHints: [
-          'Selecciona un paquete pendiente para empacar.',
-          'Revisa el detalle del documento (solo lectura).',
-          'Confirma la operacion y registra el empaque.',
-        ],
-        ui: {
-          wizardStatus: 'Servicio Global IaaS/PaaS',
-          wizardTitle: 'Empaquetar',
-          wizardSubtitle: 'Gestiona paquetes pendientes con visibilidad global y trazabilidad en tiempo real.',
-          gridPendientes: 'vPaquetesPendientes',
-          gridPendientesHint: 'Seleccione un paquete pendiente.',
-          codigoPaquete: 'Codigo',
-          fechaActualizado: 'Fecha',
-          nombreCliente: 'Cliente',
-          numCliente: 'Num Cliente',
-          puntoEntrega: 'Punto Entrega',
-          numRecibe: 'Num Recibe',
-          gridDetalle: 'Detalle Documento',
-          gridDetalleHint: 'Solo lectura.',
-          producto: 'Producto',
-          cantidad: 'Cantidad',
-          resumen: 'Resumen',
-          resumenHint: 'Confirma los datos antes de registrar el empaque.',
-          ordinal: 'Ordinal',
-          confirmacion: 'Confirmo que la informacion es correcta',
-          empacar: 'Empacar',
-          empacarHint: 'Se registrara el empaque y se actualizara el stock.',
-          anterior: 'Anterior',
-          siguiente: 'Siguiente',
-          loading: 'Procesando...',
-          loadingHint: 'Espere un momento.',
-          noSelection: 'Sin seleccion',
-        },
-        messages: {
-          errorServer: 'Error al comunicar con el servidor.',
-          required: 'Debe seleccionar un paquete valido.',
-          confirmacion: 'Debe confirmar la operacion.',
-          detalleVacio: 'No hay detalle disponible.',
-          sinPaquetes: 'No hay paquetes pendientes.',
-          empacarOk: 'Empaque registrado correctamente.',
-        },
-      },
-      en: {
-        stepTitles: [
-          'Step 1: Select Package',
-          'Step 2: Document Detail',
-          'Step 3: Confirm Packaging',
-        ],
-        stepHints: [
-          'Select a pending package to pack.',
-          'Review document detail (read-only).',
-          'Confirm the operation and register the package.',
-        ],
-        ui: {
-          wizardStatus: 'Global IaaS/PaaS Service',
-          wizardTitle: 'Package',
-          wizardSubtitle: 'Manage pending packages with global visibility and real-time traceability.',
-          gridPendientes: 'vPendingPackages',
-          gridPendientesHint: 'Select a pending package.',
-          codigoPaquete: 'Code',
-          fechaActualizado: 'Date',
-          nombreCliente: 'Client',
-          numCliente: 'Client No.',
-          puntoEntrega: 'Delivery Point',
-          numRecibe: 'Receiver No.',
-          gridDetalle: 'Document Detail',
-          gridDetalleHint: 'Read-only.',
-          producto: 'Product',
-          cantidad: 'Quantity',
-          resumen: 'Summary',
-          resumenHint: 'Confirm the data before packaging.',
-          ordinal: 'Ordinal',
-          confirmacion: 'I confirm the information is correct',
-          empacar: 'Pack',
-          empacarHint: 'Packaging will be registered and stock updated.',
-          anterior: 'Back',
-          siguiente: 'Next',
-          loading: 'Processing...',
-          loadingHint: 'Please wait.',
-          noSelection: 'No selection',
-        },
-        messages: {
-          errorServer: 'Unable to reach the server.',
-          required: 'Please select a valid package.',
-          confirmacion: 'Please confirm the operation.',
-          detalleVacio: 'No detail available.',
-          sinPaquetes: 'No pending packages.',
-          empacarOk: 'Packaging registered successfully.',
-        },
-      },
-    };
+    this.init();
   }
 
-  getLocale() {
-    const lang = navigator.language || 'es';
-    return lang.toLowerCase().startsWith('es') ? 'es' : 'en';
-  }
-
-  t(path) {
-    const [section, key] = path.split('.');
-    const dict = this.dictionary[this.state.locale] || this.dictionary.es;
-    return dict[section]?.[key] || '';
-  }
-
-  applyTranslations() {
-    const dict = this.dictionary[this.state.locale] || this.dictionary.es;
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.dataset.i18n;
-      if (dict.ui && dict.ui[key]) {
-        el.textContent = dict.ui[key];
-      }
-    });
-    this.updateStepHeader();
-  }
-
-  updateStepHeader() {
-    const dict = this.dictionary[this.state.locale] || this.dictionary.es;
-    this.stepTitle.textContent = dict.stepTitles[this.currentStep];
-    this.stepHint.textContent = dict.stepHints[this.currentStep];
-  }
-
-  setLoading(isLoading, message) {
-    if (message) this.loadingText.textContent = message;
-    this.loadingOverlay.classList.toggle('d-none', !isLoading);
-  }
-
-  setError(message) {
-    this.errorBox.textContent = message;
-    this.errorBox.classList.remove('d-none');
-  }
-
-  clearError() {
-    this.errorBox.classList.add('d-none');
-    this.errorBox.textContent = '';
-  }
-
-  setSuccess(message) {
-    this.successBox.textContent = message;
-    this.successBox.classList.remove('d-none');
-  }
-
-  clearSuccess() {
-    this.successBox.classList.add('d-none');
-    this.successBox.textContent = '';
-  }
-
-  updateProgress() {
-    const progress = Math.round(((this.currentStep + 1) / this.totalSteps) * 100);
-    this.progressBar.style.width = `${progress}%`;
-    this.progressBar.setAttribute('aria-valuenow', String(progress));
-    this.updateStepHeader();
-    this.prevBtn.disabled = this.currentStep === 0;
-    this.nextBtn.disabled = this.currentStep === this.totalSteps - 1;
-  }
-
-  showStep(index) {
-    this.steps.forEach((step, idx) => step.classList.toggle('active', idx === index));
-    this.currentStep = index;
-    this.updateProgress();
-  }
-
-  async fetchJson(url, options) {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || this.dictionary[this.state.locale].messages.errorServer);
-    }
-    return response.json();
-  }
-
-  async loadPaquetes() {
-    this.setLoading(true, this.dictionary[this.state.locale].ui.loading);
-    this.clearError();
-    try {
-      const data = await this.fetchJson('/api/paquetes?estado=pendiente%20empacar');
-      this.state.paquetes = Array.isArray(data) ? data : [];
-      this.renderPaquetes();
-    } catch (error) {
-      this.setError(error.message);
-    } finally {
-      this.setLoading(false);
-    }
-  }
-
-  renderPaquetes() {
-    this.paquetesTableBody.innerHTML = '';
-    if (!this.state.paquetes.length) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="6" class="text-center">${this.dictionary[this.state.locale].messages.sinPaquetes}</td>`;
-      this.paquetesTableBody.appendChild(row);
-      return;
-    }
-
-    this.state.paquetes.forEach((item) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.codigo_paquete ?? ''}</td>
-        <td>${item.fecha_actualizado ?? ''}</td>
-        <td>${item.nombre_cliente ?? ''}</td>
-        <td>${item.num_cliente ?? ''}</td>
-        <td>${item.concatenarpuntoentrega ?? ''}</td>
-        <td>${item.concatenarnumrecibe ?? ''}</td>
-      `;
-      row.addEventListener('click', () => this.selectPaquete(item, row));
-      this.paquetesTableBody.appendChild(row);
-    });
-  }
-
-  async selectPaquete(item, row) {
-    this.clearError();
-    this.clearSuccess();
-    if (!item || !item.codigo_paquete) {
-      this.setError(this.dictionary[this.state.locale].messages.required);
-      return;
-    }
-    if (!this.regex.codigo.test(String(item.codigo_paquete))) {
-      this.setError(this.dictionary[this.state.locale].messages.required);
-      return;
-    }
-
-    Array.from(this.paquetesTableBody.querySelectorAll('tr')).forEach((tr) => tr.classList.remove('active'));
-    row.classList.add('active');
-
-    this.state.selectedPackage = item;
-    this.selectedChip.textContent = `${item.codigo_paquete}`;
-
-    this.setLoading(true, this.dictionary[this.state.locale].ui.loading);
-    try {
-      const [detalle, ordinal] = await Promise.all([
-        this.fetchJson(`/api/mov-contable-detalle?tipo=FAC&numero=${encodeURIComponent(item.codigo_paquete)}`),
-        this.fetchJson(`/api/paquete/next-ordinal?codigo=${encodeURIComponent(item.codigo_paquete)}`),
-      ]);
-      this.state.detalle = Array.isArray(detalle) ? detalle : [];
-      this.state.ordinal = ordinal?.next ?? null;
-      this.puntoEntregaInput.value = item.concatenarpuntoentrega ?? '';
-      this.numRecibeInput.value = item.concatenarnumrecibe ?? '';
-      this.renderDetalle();
-      this.updateSummary();
-    } catch (error) {
-      this.setError(error.message);
-    } finally {
-      this.setLoading(false);
-    }
-  }
-
-  renderDetalle() {
-    this.detalleTableBody.innerHTML = '';
-    if (!this.state.detalle.length) {
-      const row = document.createElement('tr');
-      row.innerHTML = `<td colspan="2" class="text-center">${this.dictionary[this.state.locale].messages.detalleVacio}</td>`;
-      this.detalleTableBody.appendChild(row);
-      return;
-    }
-    this.state.detalle.forEach((item) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.nombre_producto ?? ''}</td>
-        <td>${item.cantidad ?? ''}</td>
-      `;
-      this.detalleTableBody.appendChild(row);
-    });
-  }
-
-  updateSummary() {
-    const item = this.state.selectedPackage || {};
-    this.summaryCodigo.textContent = item.codigo_paquete ?? '-';
-    this.summaryEntrega.textContent = item.concatenarpuntoentrega ?? '-';
-    this.summaryRecibe.textContent = item.concatenarnumrecibe ?? '-';
-    this.summaryOrdinal.textContent = this.state.ordinal ?? '-';
-  }
-
-  validateStep(index) {
-    if (index === 0) {
-      if (!this.state.selectedPackage || !this.regex.codigo.test(String(this.state.selectedPackage.codigo_paquete || ''))) {
-        this.setError(this.dictionary[this.state.locale].messages.required);
-        return false;
-      }
-      return true;
-    }
-    if (index === 2) {
-      if (!this.state.selectedPackage || !this.state.ordinal) {
-        this.setError(this.dictionary[this.state.locale].messages.required);
-        return false;
-      }
-      if (!this.confirmOperacion.checked) {
-        this.setError(this.dictionary[this.state.locale].messages.confirmacion);
-        return false;
-      }
-      return true;
-    }
-    return true;
-  }
-
-  async empacar() {
-    if (!this.validateStep(2)) return;
-    this.clearError();
-    this.clearSuccess();
-    this.empacarSpinner.classList.remove('d-none');
-    this.empacarBtn.disabled = true;
-    try {
-      const payload = {
-        codigo_paquete: this.state.selectedPackage.codigo_paquete,
-        ordinal: this.state.ordinal,
-      };
-      await this.fetchJson('/api/empacar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      this.setSuccess(this.dictionary[this.state.locale].messages.empacarOk);
-      this.confirmOperacion.checked = false;
-      this.state.selectedPackage = null;
-      this.state.ordinal = null;
-      this.state.detalle = [];
-      this.selectedChip.textContent = this.dictionary[this.state.locale].ui.noSelection;
-      this.puntoEntregaInput.value = '';
-      this.numRecibeInput.value = '';
-      this.renderDetalle();
-      this.updateSummary();
-      await this.loadPaquetes();
-      this.showStep(0);
-    } catch (error) {
-      this.setError(error.message);
-    } finally {
-      this.empacarSpinner.classList.add('d-none');
-      this.empacarBtn.disabled = false;
-    }
+  init() {
+    this.applyTranslations();
+    this.updateStep();
+    this.bindEvents();
+    this.loadPaquetes();
   }
 
   bindEvents() {
-    this.prevBtn.addEventListener('click', () => {
-      this.clearError();
-      this.clearSuccess();
-      if (this.currentStep > 0) this.showStep(this.currentStep - 1);
+    this.prevBtn.addEventListener('click', () => this.goStep(this.currentStep - 1));
+    this.nextBtn.addEventListener('click', () => this.handleNext());
+    document.getElementById('wizardForm').addEventListener('submit', (event) => this.handleSubmit(event));
+    document.getElementById('refreshBtn').addEventListener('click', () => this.loadPaquetes());
+    this.toggleEntrega.addEventListener('change', () => {
+      this.entregaGroup.classList.toggle('d-none', !this.toggleEntrega.checked);
     });
-
-    this.nextBtn.addEventListener('click', () => {
-      this.clearError();
-      this.clearSuccess();
-      if (!this.validateStep(this.currentStep)) return;
-      if (this.currentStep < this.totalSteps - 1) this.showStep(this.currentStep + 1);
-    });
-
-    this.empacarBtn.addEventListener('click', () => this.empacar());
   }
 
-  async init() {
-    document.documentElement.lang = this.state.locale;
-    this.applyTranslations();
-    this.updateProgress();
-    this.bindEvents();
-    await this.loadPaquetes();
+  showError(message) {
+    this.errorAlert.textContent = message;
+    this.errorAlert.classList.remove('d-none');
+  }
+
+  clearAlerts() {
+    this.errorAlert.classList.add('d-none');
+    this.successAlert.classList.add('d-none');
+  }
+
+  async loadPaquetes() {
+    this.clearAlerts();
+    this.paquetesTableBody.innerHTML = '<tr><td colspan="7">Cargando...</td></tr>';
+    try {
+      const response = await fetch('/api/paquetes?estado=pendiente%20empacar');
+      if (!response.ok) throw new Error('No se pudieron cargar los paquetes.');
+      const data = await response.json();
+      this.renderPaquetes(data);
+    } catch (error) {
+      this.showError(error.message);
+    }
+  }
+
+  renderPaquetes(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      this.paquetesTableBody.innerHTML = '<tr><td colspan="7">Sin resultados.</td></tr>';
+      return;
+    }
+    this.paquetesTableBody.innerHTML = rows
+      .map((row) => {
+        const codigo = row.codigo_paquete || row.Vcodigo_paquete || '';
+        return `
+          <tr>
+            <td>${codigo}</td>
+            <td>${row.fecha_actualizado || row.vfecha || ''}</td>
+            <td>${row.nombre_cliente || row.vnombre_cliente || ''}</td>
+            <td>${row.num_cliente || row.vnum_cliente || ''}</td>
+            <td>${row.concatenarpuntoentrega || row.vconcatenarpuntoentrega || ''}</td>
+            <td>${row.concatenarnumrecibe || row.vconcatenarnumrecibe || ''}</td>
+            <td><button class="btn btn-ghost btn-select" data-codigo="${codigo}">Seleccionar</button></td>
+          </tr>`;
+      })
+      .join('');
+
+    this.paquetesTableBody.querySelectorAll('.btn-select').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        const codigo = event.currentTarget.dataset.codigo;
+        const row = rows.find((item) => (item.codigo_paquete || item.Vcodigo_paquete) === codigo);
+        this.selectPaquete(row);
+      });
+    });
+  }
+
+  async selectPaquete(row) {
+    if (!row) return;
+    this.selectedPaquete = {
+      codigo: row.codigo_paquete || row.Vcodigo_paquete,
+      puntoEntrega: row.concatenarpuntoentrega || row.vconcatenarpuntoentrega || '',
+      numRecibe: row.concatenarnumrecibe || row.vconcatenarnumrecibe || ''
+    };
+    this.puntoEntrega.value = this.selectedPaquete.puntoEntrega;
+    this.numRecibe.value = this.selectedPaquete.numRecibe;
+    this.summaryCodigo.textContent = this.selectedPaquete.codigo;
+
+    await this.fetchDetalle();
+    await this.fetchOrdinal();
+    this.goStep(1);
+  }
+
+  async fetchDetalle() {
+    if (!this.selectedPaquete) return;
+    this.detalleTableBody.innerHTML = '<tr><td colspan="2">Cargando...</td></tr>';
+    try {
+      const response = await fetch(`/api/mov-detalle?tipo=FAC&num=${encodeURIComponent(this.selectedPaquete.codigo)}`);
+      if (!response.ok) throw new Error('No se pudo cargar el detalle.');
+      const data = await response.json();
+      this.renderDetalle(data);
+    } catch (error) {
+      this.showError(error.message);
+    }
+  }
+
+  renderDetalle(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      this.detalleTableBody.innerHTML = '<tr><td colspan="2">Sin detalle.</td></tr>';
+      return;
+    }
+    this.detalleTableBody.innerHTML = rows
+      .map((row) => `
+        <tr>
+          <td>${row.nombre_producto || row.Vnombre_producto || ''}</td>
+          <td>${row.cantidad || row.vcantidad || ''}</td>
+        </tr>`)
+      .join('');
+  }
+
+  async fetchOrdinal() {
+    if (!this.selectedPaquete) return;
+    try {
+      const response = await fetch(`/api/ordinal?codigo=${encodeURIComponent(this.selectedPaquete.codigo)}`);
+      if (!response.ok) throw new Error('No se pudo calcular ordinal.');
+      const data = await response.json();
+      this.ordinal = data.next || 1;
+      this.summaryOrdinal.textContent = this.ordinal;
+    } catch (error) {
+      this.showError(error.message);
+    }
+  }
+
+  goStep(step) {
+    this.currentStep = Math.min(Math.max(step, 0), this.totalSteps - 1);
+    this.updateStep();
+  }
+
+  updateStep() {
+    this.stepEls.forEach((el) => el.classList.add('d-none'));
+    this.stepEls[this.currentStep].classList.remove('d-none');
+
+    this.stepBadges.forEach((badge, index) => {
+      badge.classList.toggle('active', index <= this.currentStep);
+    });
+
+    const progress = ((this.currentStep + 1) / this.totalSteps) * 100;
+    this.progressEl.style.width = `${progress}%`;
+
+    this.prevBtn.disabled = this.currentStep === 0;
+    this.nextBtn.classList.toggle('d-none', this.currentStep === this.totalSteps - 1);
+    this.submitBtn.classList.toggle('d-none', this.currentStep !== this.totalSteps - 1);
+  }
+
+  handleNext() {
+    this.clearAlerts();
+    if (this.currentStep === 0 && !this.selectedPaquete) {
+      this.showError(this.t('errorSelect'));
+      return;
+    }
+    if (this.currentStep === 1) {
+      this.goStep(2);
+      return;
+    }
+    this.goStep(this.currentStep + 1);
+  }
+
+  validateStep3() {
+    let valid = true;
+    const nameRegex = /^[a-zA-ZÀ-ÿ\s.'-]{3,60}$/;
+    const idRegex = /^\d{4,20}$/;
+
+    if (this.toggleEntrega.checked) {
+      if (!nameRegex.test(this.entregaNombre.value.trim())) {
+        this.entregaNombre.classList.add('is-invalid');
+        valid = false;
+      } else {
+        this.entregaNombre.classList.remove('is-invalid');
+      }
+      if (!idRegex.test(this.recibeId.value.trim())) {
+        this.recibeId.classList.add('is-invalid');
+        valid = false;
+      } else {
+        this.recibeId.classList.remove('is-invalid');
+      }
+    }
+
+    if (!this.confirmCheck.checked) {
+      this.confirmCheck.classList.add('is-invalid');
+      valid = false;
+    } else {
+      this.confirmCheck.classList.remove('is-invalid');
+    }
+
+    return valid;
+  }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+    this.clearAlerts();
+    if (!this.validateStep3()) return;
+
+    const payload = {
+      codigo_paquete: this.selectedPaquete.codigo,
+      entrega_nombre: this.entregaNombre.value.trim() || null,
+      recibe_id: this.recibeId.value.trim() || null
+    };
+
+    const spinner = this.submitBtn.querySelector('.spinner-border');
+    spinner.classList.remove('d-none');
+    this.submitBtn.disabled = true;
+
+    try {
+      const response = await fetch('/api/empacar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: 'Error en el servidor.' }));
+        throw new Error(err.message || 'Error en el servidor.');
+      }
+      const result = await response.json();
+      this.successAlert.textContent = result.message || this.t('success');
+      this.successAlert.classList.remove('d-none');
+      this.resetWizard();
+    } catch (error) {
+      this.showError(error.message);
+    } finally {
+      spinner.classList.add('d-none');
+      this.submitBtn.disabled = false;
+    }
+  }
+
+  resetWizard() {
+    this.selectedPaquete = null;
+    this.ordinal = null;
+    this.puntoEntrega.value = '';
+    this.numRecibe.value = '';
+    this.summaryCodigo.textContent = '-';
+    this.summaryOrdinal.textContent = '-';
+    this.entregaNombre.value = '';
+    this.recibeId.value = '';
+    this.confirmCheck.checked = false;
+    this.toggleEntrega.checked = false;
+    this.entregaGroup.classList.add('d-none');
+    this.goStep(0);
+    this.loadPaquetes();
+  }
+
+  applyTranslations() {
+    const lang = (navigator.language || 'es').toLowerCase();
+    const dictionary = {
+      es: {
+        eyebrow: 'IaaS + PaaS Global Logistics',
+        title: 'Registro de Empaque',
+        subtitle: 'Gestione paquetes pendientes con trazabilidad y control operativo.',
+        status: 'Operativo',
+        step1Title: '1. Seleccionar paquete pendiente',
+        step2Title: '2. Detalle del documento',
+        step3Title: '3. Confirmar empaque',
+        refresh: 'Actualizar',
+        colCodigo: 'Código',
+        colFecha: 'Fecha',
+        colCliente: 'Cliente',
+        colNumCliente: '# Cliente',
+        colEntrega: 'Punto Entrega',
+        colRecibe: 'Recibe',
+        colProducto: 'Producto',
+        colCantidad: 'Cantidad',
+        labelEntrega: 'Punto de entrega',
+        labelRecibe: 'Recibe',
+        labelEntregaNombre: 'Persona entrega',
+        labelRecibeId: 'Identificación recibe',
+        toggleEntrega: 'Registrar entrega/recibe',
+        confirm: 'Confirmo que el paquete está listo para empacar.',
+        prev: 'Anterior',
+        next: 'Siguiente',
+        submit: 'Empacar',
+        summaryCodigo: 'Código Paquete',
+        summaryOrdinal: 'Ordinal',
+        step1Help: 'Seleccione un paquete para ver el detalle del documento.',
+        errorSelect: 'Seleccione un paquete pendiente antes de continuar.',
+        errorEntrega: 'Ingrese un nombre válido.',
+        errorRecibe: 'Ingrese una identificación válida.',
+        errorConfirm: 'Debe confirmar antes de continuar.',
+        success: 'Empaque registrado correctamente.'
+      },
+      en: {
+        eyebrow: 'IaaS + PaaS Global Logistics',
+        title: 'Packing Registration',
+        subtitle: 'Manage pending packages with traceability and operational control.',
+        status: 'Operational',
+        step1Title: '1. Select pending package',
+        step2Title: '2. Document detail',
+        step3Title: '3. Confirm packing',
+        refresh: 'Refresh',
+        colCodigo: 'Code',
+        colFecha: 'Date',
+        colCliente: 'Client',
+        colNumCliente: 'Client #',
+        colEntrega: 'Delivery point',
+        colRecibe: 'Receiver',
+        colProducto: 'Product',
+        colCantidad: 'Quantity',
+        labelEntrega: 'Delivery point',
+        labelRecibe: 'Receiver',
+        labelEntregaNombre: 'Delivered by',
+        labelRecibeId: 'Receiver ID',
+        toggleEntrega: 'Register delivery/receiver',
+        confirm: 'I confirm the package is ready to be packed.',
+        prev: 'Back',
+        next: 'Next',
+        submit: 'Pack',
+        summaryCodigo: 'Package Code',
+        summaryOrdinal: 'Ordinal',
+        step1Help: 'Select a package to view the document detail.',
+        errorSelect: 'Please select a pending package to continue.',
+        errorEntrega: 'Enter a valid name.',
+        errorRecibe: 'Enter a valid ID.',
+        errorConfirm: 'You must confirm before continuing.',
+        success: 'Packing registered successfully.'
+      }
+    };
+
+    const locale = lang.startsWith('en') ? 'en' : 'es';
+    this.locale = locale;
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.dataset.i18n;
+      el.textContent = dictionary[locale][key] || dictionary.es[key] || el.textContent;
+    });
+  }
+
+  t(key) {
+    const lookup = {
+      es: {
+        errorSelect: 'Seleccione un paquete pendiente antes de continuar.',
+        success: 'Empaque registrado correctamente.'
+      },
+      en: {
+        errorSelect: 'Please select a pending package to continue.',
+        success: 'Packing registered successfully.'
+      }
+    };
+    return (lookup[this.locale] && lookup[this.locale][key]) || lookup.es[key] || key;
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const wizard = new FormWizard();
-  wizard.init();
+  new FormWizard();
 });

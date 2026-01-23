@@ -1,0 +1,131 @@
+const translations = {
+  es: {
+    eyebrow: "IaaS + PaaS - Operaciones Globales",
+    title: "Gestionar paquetes en standby",
+    subtitle: "Actualiza el estado de paquetes en standby con trazabilidad operativa.",
+    status: "Estado del servicio",
+    logs: "Ver logs SQL",
+    step1Title: "1. SelecciaEn de paquete en standby",
+    step2Title: "2. Detalle completo del paquete",
+    step3Title: "3. Confirmar y guardar",
+    refresh: "Actualizar",
+    colCodigo: "CaEdigo",
+    colFecha: "Fecha",
+    colCliente: "Cliente",
+    colNumCliente: "# Cliente",
+    colEntrega: "Punto Entrega",
+    colRecibe: "Recibe",
+    select: "Seleccionar",
+    step1Help: "Seleccione un paquete para cargar el detalle del documento.",
+    labelEntrega: "Punto de entrega",
+    labelRecibe: "Recibe",
+    labelFecha: "Fecha",
+    labelBase: "Base",
+    labelMotorizado: "Motorizado",
+    labelWsp: "WhatsApp",
+    labelLlamadas: "Llamadas",
+    labelYape: "Yape",
+    labelLink: "Link",
+    labelObs: "ObservaciaEn",
+    colProducto: "Producto",
+    colCantidad: "Cantidad",
+    newState: "Nuevo estado",
+    confirm: "Confirmo el cambio de estado.",
+    summaryTitle: "Resumen del paquete",
+    summaryCodigo: "CaEdigo",
+    summaryCliente: "Cliente",
+    summaryEntrega: "Punto entrega",
+    summaryRecibe: "Recibe",
+    summaryLink: "Link",
+    summaryOrdinal: "Ordinal",
+    prev: "Anterior",
+    next: "Siguiente",
+    save: "Guardar",
+    loading: "Cargando...",
+    dbConnecting: "Conectando a DB",
+    dbConnected: "DB conectada",
+    dbFailed: "Fallo de DB",
+    selectState: "Seleccione estado",
+    errorState: "Seleccione un estado vaelido.",
+    errorConfirm: "Debe confirmar antes de guardar.",
+    successSave: "Estado actualizado correctamente.",
+    logsTitle: "Logs SQL",
+    emptyLogs: "No hay logs disponibles.",
+    emptyTable: "Sin registros disponibles.",
+  },
+  en: {
+    eyebrow: "IaaS + PaaS - Global Operations",
+    title: "Manage standby packages",
+    subtitle: "Update standby package status with operational traceability.",
+    status: "Service status",
+    logs: "View SQL logs",
+    step1Title: "1. Select standby package",
+    step2Title: "2. Full package detail",
+    step3Title: "3. Confirm & save",
+    refresh: "Refresh",
+    colCodigo: "Code",
+    colFecha: "Date",
+    colCliente: "Client",
+    colNumCliente: "Client #",
+    colEntrega: "Delivery point",
+    colRecibe: "Receiver",
+    select: "Select",
+    step1Help: "Select a package to load the document detail.",
+    labelEntrega: "Delivery point",
+    labelRecibe: "Receiver",
+    labelFecha: "Date",
+    labelBase: "Base",
+    labelMotorizado: "Driver",
+    labelWsp: "WhatsApp",
+    labelLlamadas: "Calls",
+    labelYape: "Yape",
+    labelLink: "Link",
+    labelObs: "Notes",
+    colProducto: "Product",
+    colCantidad: "Quantity",
+    newState: "New status",
+    confirm: "I confirm the status change.",
+    summaryTitle: "Package summary",
+    summaryCodigo: "Code",
+    summaryCliente: "Client",
+    summaryEntrega: "Delivery",
+    summaryRecibe: "Receiver",
+    summaryLink: "Link",
+    summaryOrdinal: "Ordinal",
+    prev: "Back",
+    next: "Next",
+    save: "Save",
+    loading: "Loading...",
+    dbConnecting: "Connecting to DB",
+    dbConnected: "DB connected",
+    dbFailed: "DB failed",
+    selectState: "Select status",
+    errorState: "Select a valid status.",
+    errorConfirm: "You must confirm before saving.",
+    successSave: "Status updated successfully.",
+    logsTitle: "SQL logs",
+    emptyLogs: "No logs available.",
+    emptyTable: "No records available.",
+  },
+};
+
+export function detectLocale() {
+  if (typeof navigator === "undefined") return "es";
+  const raw = navigator.language || "es";
+  return raw.toLowerCase().startsWith("es") ? "es" : "en";
+}
+
+export function t(locale, key) {
+  return translations[locale]?.[key] ?? translations.es[key] ?? key;
+}
+
+export function applyI18n(locale) {
+  document.documentElement.lang = locale;
+  const nodes = document.querySelectorAll("[data-i18n]");
+  nodes.forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) return;
+    const value = t(locale, key);
+    if (value) node.textContent = value;
+  });
+}
