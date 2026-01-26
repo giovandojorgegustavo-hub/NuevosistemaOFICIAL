@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU2-003 Ajuste Stock</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wizard-shell">
+      <header class="hero">
+        <div>
+          <span class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Core</span>
+          <h1 data-i18n="title">Ajuste Stock AJU</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Ajusta inventario fisico con trazabilidad y actualizacion inmediata.
+          </p>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot"></span>
+          <span data-i18n="status">Operativo</span>
+        </div>
+      </header>
+
+      <section class="wizard-card">
+        <div class="wizard-progress">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="step-badge" data-step="0" data-i18n="step1Title">1. Registrar Ajuste</div>
+            <div class="step-badge" data-step="1" data-i18n="step2Title">2. Validar y confirmar</div>
+            <div class="step-badge" data-step="2" data-i18n="step3Title">3. Ejecutar ajuste</div>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Progreso">
+            <div class="progress-bar" id="wizardProgress" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="errorAlert"></div>
+        <div class="alert alert-success d-none" id="successAlert"></div>
+
+        <form id="ajusteForm" autocomplete="off">
+          <div class="wizard-step" data-step="0">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="fecha">Fecha</label>
+                <input type="date" class="form-control" id="vFecha" name="vFecha" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vTipodocumentostock"
+                  name="vTipodocumentostock"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="numeroDocumento">Numero documento</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vNumdocumentostock"
+                  name="vNumdocumentostock"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="ordinalDetalle">Ordinal detalle</label>
+                <input type="text" class="form-control" id="vordinaldetalle" name="vordinaldetalle" readonly />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="base">Base</label>
+                <select class="form-select" id="vCodigo_base" name="vCodigo_base" required>
+                  <option value="" data-i18n="seleccione">Seleccione...</option>
+                </select>
+                <div class="invalid-feedback" data-i18n="baseError">Seleccione una base.</div>
+              </div>
+            </div>
+
+            <div class="section-head">
+              <h2 data-i18n="detalleTitle">Detalle ajuste</h2>
+              <button class="btn btn-outline-light" type="button" id="addDetalleLine" data-i18n="addLine">
+                Agregar linea
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-dark table-striped align-middle" id="detalleAjusteTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colSistema">Cant. sistema</th>
+                    <th data-i18n="colReal">Cant. real</th>
+                    <th data-i18n="colAjuste">Cant. ajuste</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <p class="helper" data-i18n="step1Help">Agrega productos y cantidades para el ajuste.</p>
+          </div>
+
+          <div class="wizard-step" data-step="1">
+            <div class="summary-panel">
+              <h3 data-i18n="summaryTitle">Resumen del ajuste</h3>
+              <div class="summary-grid">
+                <div>
+                  <span data-i18n="fecha">Fecha</span>
+                  <strong id="summaryFecha">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="tipoDocumento">Tipo documento</span>
+                  <strong id="summaryTipo">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="numeroDocumento">Numero documento</span>
+                  <strong id="summaryNumero">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="base">Base</span>
+                  <strong id="summaryBase">-</strong>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-dark table-striped align-middle" id="detalleAjusteSummary">
+                  <thead>
+                    <tr>
+                      <th data-i18n="colProducto">Producto</th>
+                      <th data-i18n="colSistema">Cant. sistema</th>
+                      <th data-i18n="colReal">Cant. real</th>
+                      <th data-i18n="colAjuste">Cant. ajuste</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="confirmacion" />
+              <label class="form-check-label" for="confirmacion" data-i18n="confirmacion">
+                Confirmo que la informacion es correcta.
+              </label>
+              <div class="invalid-feedback" data-i18n="confirmacionError">Debe confirmar la operacion.</div>
+            </div>
+            <p class="helper" data-i18n="step2Help">Revisa los datos antes de registrar el ajuste.</p>
+          </div>
+
+          <div class="wizard-step" data-step="2">
+            <div class="execution-panel">
+              <div class="loading-state" id="loadingState">
+                <div class="spinner-border text-info" role="status"></div>
+                <div>
+                  <h3 data-i18n="step3Title">3. Ejecutar ajuste</h3>
+                  <p data-i18n="step3Help">Confirma para registrar el ajuste en el ERP.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="wizard-actions">
+          <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="prev">Anterior</button>
+          <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="next">Siguiente</button>
+          <button class="btn btn-accent" type="button" id="registrarBtn" data-i18n="registrar">
+            Registrar Ajuste
+          </button>
+          <button class="btn btn-ghost" type="button" id="viewLogsBtn" data-i18n="viewLogs">
+            Ver logs
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" data-i18n="logsTitle">Logs SQL</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <pre id="logsContent" class="logs-content"></pre>
+            <p class="helper" data-i18n="logsHelp">Consulta la ultima ejecucion registrada.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

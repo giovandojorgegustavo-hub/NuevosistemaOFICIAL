@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU-005 | Gestionar paquetes en standby</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="hero">
+        <div class="hero-content">
+          <p class="eyebrow" data-i18n="eyebrow">Global IaaS / PaaS Operations</p>
+          <h1 data-i18n="title">Gestionar paquetes en standby</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Flujo seguro y trazable para actualizar el estado de paquetes en espera.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-outline-light" id="btnLogs" data-i18n="viewLogs">Ver logs SQL</button>
+        </div>
+      </section>
+
+      <section class="wizard-card">
+        <div class="progress-wrapper">
+          <div class="progress" role="progressbar" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" id="wizardProgress"></div>
+          </div>
+          <div class="step-indicators">
+            <span class="step-pill active" data-step="1">1</span>
+            <span class="step-pill" data-step="2">2</span>
+            <span class="step-pill" data-step="3">3</span>
+          </div>
+        </div>
+
+        <div id="alertArea"></div>
+
+        <div class="wizard-step" data-step="1">
+          <div class="step-header">
+            <h2 data-i18n="step1Title">Seleccion de paquete en standby</h2>
+            <p data-i18n="step1Desc">Selecciona un paquete en espera para continuar.</p>
+            <span class="badge text-bg-primary">vPaquetesStandby</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" id="paquetesTable">
+              <thead>
+                <tr>
+                  <th data-i18n="thCodigo">Codigo</th>
+                  <th data-i18n="thFecha">Fecha</th>
+                  <th data-i18n="thCliente">Cliente</th>
+                  <th data-i18n="thNumCliente">Num. cliente</th>
+                  <th data-i18n="thEntrega">Punto entrega</th>
+                  <th data-i18n="thRecibe">Num. recibe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="step-actions">
+            <button class="btn btn-primary" id="step1Next" disabled data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step d-none" data-step="2">
+          <div class="step-header">
+            <h2 data-i18n="step2Title">Detalle del paquete</h2>
+            <p data-i18n="step2Desc">Informacion del viaje y contenido del documento.</p>
+          </div>
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="tripInfo">Datos del viaje</h3>
+                <div class="info-grid" id="tripInfo"></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="deliveryInfo">Datos de entrega</h3>
+                <div class="info-grid" id="deliveryInfo"></div>
+              </div>
+            </div>
+          </div>
+          <div class="info-card mt-4">
+            <h3 data-i18n="detailTitle">Detalle mov contable</h3>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th data-i18n="thCantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="step-actions">
+            <button class="btn btn-outline-light" id="step2Back" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="step2Next" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step d-none" data-step="3">
+          <div class="step-header">
+            <h2 data-i18n="step3Title">Confirmar y guardar</h2>
+            <p data-i18n="step3Desc">Actualiza el estado y confirma la operacion.</p>
+          </div>
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="summaryTitle">Resumen del paquete</h3>
+                <div class="info-grid" id="summaryInfo"></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="info-card">
+                <h3 data-i18n="statusUpdate">Nuevo estado</h3>
+                <label class="form-label" for="estadoSelect" data-i18n="estadoLabel">Estado</label>
+                <select class="form-select" id="estadoSelect" required>
+                  <option value="" selected disabled data-i18n="estadoPlaceholder">Selecciona un estado</option>
+                  <option value="robado" data-i18n="estadoRobado">Robado</option>
+                  <option value="devuelto" data-i18n="estadoDevuelto">Devuelto</option>
+                  <option value="empacado" data-i18n="estadoEmpacado">Empacado</option>
+                  <option value="llegado" data-i18n="estadoLlegado">Llegado</option>
+                </select>
+                <div class="form-check mt-3">
+                  <input class="form-check-input" type="checkbox" id="confirmCheck" />
+                  <label class="form-check-label" for="confirmCheck" data-i18n="confirmText">
+                    Confirmo que deseo actualizar el estado del paquete.
+                  </label>
+                </div>
+                <div class="loading-state d-none" id="saveLoading">
+                  <div class="spinner-border text-light" role="status"></div>
+                  <span data-i18n="saving">Guardando...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step-actions">
+            <button class="btn btn-outline-light" id="step3Back" data-i18n="back">Anterior</button>
+            <button class="btn btn-success" id="confirmBtn" data-i18n="confirm">Confirmar operacion</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" data-i18n="logsTitle">Logs SQL</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <pre id="logsContent" class="log-viewer"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -6,7 +6,12 @@ CU2-002: Transferencias
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (3 pasos). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
-El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/CU2-002` (siempre `wizard/CU2-XXX`), sobrescribiendo su propio wizard para evitar duplicados. Priorizar codigo limpio y eficiente: mientras menos codigo, mejor, sin sacrificar claridad.
+El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
+- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+- Si no existe la carpeta del modulo, debe crearse.
+- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -24,7 +29,7 @@ Incluir manejo de errores y mejores practicas de UX.
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/CU2-002/logs/`.
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 2/CU2-002/logs/`.
 - El archivo debe nombrarse `CU2-002-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -68,14 +73,14 @@ vTipodocumentostock = "TRS".
 vNumdocumentostock = calcular con SQL:
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipodocumentostock` (si no hay filas, usar 1). No editable.
 
-vCodigo_base = Seleccionar de la lista de Bases devuelta por el SP get_bases.
+vCodigo_base = Seleccionar de la lista de Bases devuelta por el SP get_bases., mostrar el campo nombre
 
-vCodigo_basedestino = Seleccionar de la lista de Bases devuelta por el SP get_bases.
+vCodigo_basedestino = Seleccionar de la lista de Bases devuelta por el SP get_bases. mostrar el campo nombre
 
 Presentar un Grid editable llamado "vDetalleTransferencia" que permita agregar, borrar y editar lineas. El Grid debe tener las siguientes columnas: vcodigo_producto, Vcantidad.
 
-vcodigo_producto = ofrecer la lista de productos que devuelve el SP get_productos.
-Vcantidad= es un campo editable
+vcodigo_producto = ofrecer la lista de productos que devuelve el SP get_productos. mostrar el campo nombre
+Vcantidad= es un campo editable. Acepta decimales con hasta 2 digitos.
 
 
 ordinaldetalle =se calcula con SQL:

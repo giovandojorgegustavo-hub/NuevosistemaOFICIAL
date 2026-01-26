@@ -1,0 +1,26 @@
+[2026-01-23T19:09:07.054Z] CONFIG | DB name=erpdb
+[2026-01-23T19:09:07.080Z] SERVER | Inicio del servidor
+[2026-01-23T19:09:07.083Z] SERVER | Servidor escuchando en puerto 3000
+[2026-01-23T19:09:10.921Z] ENDPOINT | GET /
+[2026-01-23T19:09:11.069Z] ENDPOINT | GET /styles.css
+[2026-01-23T19:09:11.072Z] ENDPOINT | GET /app.js
+[2026-01-23T19:09:11.343Z] ENDPOINT | GET /api/paquetes-en-camino
+[2026-01-23T19:09:11.344Z] SQL | CALL get_paquetes_por_estado(?) | params=["en camino"]
+[2026-01-23T19:09:12.536Z] ENDPOINT | GET /api/paquete/1
+[2026-01-23T19:09:12.536Z] SQL | CALL get_viaje_por_documento(?) | params=["1"]
+[2026-01-23T19:09:12.540Z] SQL | CALL get_mov_contable_detalle(?, ?) | params=["FAC","1"]
+[2026-01-23T19:09:12.542Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:09:17.936Z] ENDPOINT | POST /api/paquete/1/estado
+[2026-01-23T19:09:17.938Z] SQL | CALL cambiar_estado_paquete(?, ?) | params=["1","robado"]
+[2026-01-23T19:09:17.940Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:09:17.940Z] SQL | INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, 'FAC') | params=["1","5","robado"]
+[2026-01-23T19:09:17.942Z] SQL | UPDATE detalleviaje SET fecha_fin = NOW() WHERE tipo_documento = 'FAC' AND numero_documento = ? | params=["1"]
+[2026-01-23T19:09:18.083Z] ENDPOINT | GET /api/paquetes-en-camino
+[2026-01-23T19:09:18.083Z] SQL | CALL get_paquetes_por_estado(?) | params=["en camino"]
+[2026-01-23T19:09:27.835Z] ENDPOINT | POST /api/paquete/1/estado
+[2026-01-23T19:09:27.836Z] SQL | CALL cambiar_estado_paquete(?, ?) | params=["1","robado"]
+[2026-01-23T19:09:27.837Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:09:27.838Z] SQL | INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, 'FAC') | params=["1","6","robado"]
+[2026-01-23T19:09:27.839Z] SQL | UPDATE detalleviaje SET fecha_fin = NOW() WHERE tipo_documento = 'FAC' AND numero_documento = ? | params=["1"]
+[2026-01-23T19:09:27.980Z] ENDPOINT | GET /api/paquetes-en-camino
+[2026-01-23T19:09:27.981Z] SQL | CALL get_paquetes_por_estado(?) | params=["en camino"]

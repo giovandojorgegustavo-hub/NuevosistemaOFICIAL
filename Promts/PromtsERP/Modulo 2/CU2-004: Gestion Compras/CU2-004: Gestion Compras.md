@@ -6,7 +6,12 @@ CU2-004: Gestion Compras
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso. Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
-El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/CU2-004` (siempre `wizard/CU2-XXX`), sobrescribiendo su propio wizard para evitar duplicados. Priorizar codigo limpio y eficiente: mientras menos codigo, mejor, sin sacrificar claridad.
+El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
+- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+- Si no existe la carpeta del modulo, debe crearse.
+- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -24,7 +29,7 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/CU2-004/logs/`.
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 2/CU2-004/logs/`.
 - El archivo debe nombrarse `CU2-004-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -72,37 +77,34 @@ El Grid debe mostrar las siguientes columnas:
 - vcodigo_provedor=codigo_provedor, campo no visible
 - vnombre_provedor=nombre_provedor, campo visible
 
-Permitir filtrar el grid (WHERE) por `tipo_documento_compra` y `num_documento_compra`.
+
+El usuario podra seleccionar del Grid cual es la factura de compra para pasar al paso siguiente.
 
 
 
-El usuario podra seleccionar del Grid cual es la factura de compra a recibir.
-
-
-
-Luego cargar el detalle usando el SP `get_detalle_compra_por_documento(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor)`.
 
 ## Paso 2. Definir Remito de Compra.
 
-vTipo_documento_compra_remito = "REM".
 
-vNum_documento_compra_remito = 
-`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipodocumentostock = vtipo_documento_compra AND numdocumentostock = vnum_documento_compra` (si no hay filas, usar 1). No editable.
+vTipo_documento_compra_remito = "RMP".
 
-vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento `get_bases`.
-**Si no existe un campo para base en `mov_contable_prov`, el backend debe agregarlo o registrar la base en la tabla de movimientos de stock segun corresponda.**
+vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito AND numdocumentostock = vNum_documento_compra_remito` (si no hay filas, usar 1).
+vNum_documento_compra_remito =
+`SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito` (si no hay filas, usar 1). No editable.
+
+vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento `get_bases`. mostrar campo nombre
+
 
 Presentar un Grid editable llamado “vDetalleRemitoCompra” que se inicialice automaticamente con el SP `get_detalle_compra_por_documento(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor)`.
 
 Columnas de vDetalleRemitoCompra:
 
-- vCantidadDisponible=cantidad-cantidad_entregada
-- vnombre_producto=nombre_producto
-- vcodigo_producto=codigo_producto
+- vnombre_producto=nombre_producto, no editable pero si visible
+- vCantidadDisponible=cantidad-cantidad_entregada, editable y visible. nunca puede ser mayor que cantidad cantidad-cantidad entregada
+- vcodigo_producto=codigo_producto, no visible
+- vOrdinalCompra=ordinal (del detalle de la factura FCC), no visible
 
-Reglas de validacion:
-- `cantidad_remito` no puede ser mayor a `cantidad_pendiente`.
-- Si `cantidad_remito` es 0, el item no se registra en remito.
+
 
 ## Paso 3. Confirmar y Registrar Remito.
 
@@ -110,23 +112,24 @@ Mostrar resumen de Remito seleccionada, Base destino y lineas del remitodetalle.
    
 Al dar click en “Registrar Remito”, ejecutar transaccion:
 
-1. Insertar cabecera de remito en `movimiento_stock`:
-   - tipodocumentostock = vTipo_documento_compra_remito ("REM")
+1. registrar enla tabla `movimiento_stock`:
+   - tipodocumentostock = vTipo_documento_compra_remito
    - numdocumentostock = vNum_documento_compra_remito
    - fecha = vfecha
-   - codigo_base = fecha del sistema
+   - codigo_base = vCodigo_base
+   - tipo_documento_compra = vTipo_documento_compra_origen
+   - num_documento_compra = vNum_documento_compra_origen
+   - codigo_provedor = vCodigo_provedor
 
-2. Insertar detalle de remito en `detalle_mov_contable_prov` por cada item con `cantidad_remito > 0`:
-   - tipo_documento_compra, num_documento_compra, codigo_provedor
-   - ordinal correlativo
-   - codigo_producto
-   - cantidad = cantidad_remito
-   - cantidad_entregada = 0 (default)
-   - saldo = cantidad_remito
-   - precio_compra = precio_compra original (si esta disponible)
+2. Insertar en `detalle_movimiento_stock`:
+   - tipodocumentostock = vTipo_documento_compra_remito
+   - numdocumentostock = vNum_documento_compra_remito
+   - ordinal = vOrdinal (del remito)
+   - codigo_producto=vcodigo_producto
+   - cantidad = vCantidadDisponible
 
 3. Actualizar entregas en la factura de compra (FCC) usando el SP:
-   - `CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinal, vCantidad_remito)`
+   - `CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinalCompra, vCantidadDisponible)`
    - Ejecutar por cada linea del remito.
 
 No utilizar datos mock.

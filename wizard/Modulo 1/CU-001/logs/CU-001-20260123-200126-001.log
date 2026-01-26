@@ -1,0 +1,55 @@
+[2026-01-23 20:01:26] LOG FILE: CU-001-20260123-200126-001.log
+[2026-01-23 20:01:26] DB CONFIG: name=erpdb dsn=mysql://erpuser:Pepe1234%2B%2B@127.0.0.1:3306/erpdb
+[2026-01-23 20:01:26] SERVER STARTED: http://localhost:3000
+[2026-01-23 20:01:31] ENDPOINT: GET /
+[2026-01-23 20:01:31] ENDPOINT: GET /styles.css
+[2026-01-23 20:01:31] ENDPOINT: GET /app.js
+[2026-01-23 20:01:32] ENDPOINT: GET /api/now
+[2026-01-23 20:01:32] ENDPOINT: GET /api/clientes
+[2026-01-23 20:01:32] SQL: CALL get_clientes()
+[2026-01-23 20:01:32] ENDPOINT: GET /api/productos
+[2026-01-23 20:01:32] SQL: CALL get_productos()
+[2026-01-23 20:01:32] ENDPOINT: GET /api/bases
+[2026-01-23 20:01:32] SQL: CALL get_bases()
+[2026-01-23 20:01:32] ENDPOINT: GET /api/ubigeo/departamentos
+[2026-01-23 20:01:32] SQL: CALL get_ubigeo_departamentos()
+[2026-01-23 20:01:32] ENDPOINT: GET /api/next/codigo-pedido
+[2026-01-23 20:01:32] SQL: SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos
+[2026-01-23 20:01:32] ENDPOINT: GET /api/next/numero-documento
+[2026-01-23 20:01:32] SQL: SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = ? | params=["FAC"]
+[2026-01-23 20:01:43] ENDPOINT: GET /api/numrecibe
+[2026-01-23 20:01:43] SQL: CALL get_numrecibe(?) | params=["1"]
+[2026-01-23 20:01:43] ENDPOINT: GET /api/puntos-entrega
+[2026-01-23 20:01:43] SQL: CALL get_puntos_entrega(?) | params=["1"]
+[2026-01-23 20:01:59] ENDPOINT: POST /api/emitir-factura
+[2026-01-23 20:01:59] SQL: INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha) VALUES (?, ?, ?) | params=["2","1","2026-01-23 20:01:32"]
+[2026-01-23 20:01:59] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM pedido_detalle WHERE codigo_pedido = ? | params=["2"]
+[2026-01-23 20:01:59] SQL: INSERT INTO pedido_detalle
+            (codigo_pedido, ordinal, codigo_producto, cantidad, precio_total, saldo, precio_unitario)
+            VALUES (?, ?, ?, ?, ?, ?, ?) | params=["2","1","1",50,500,50,10]
+[2026-01-23 20:01:59] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = ? AND numero_documento = ? | params=["FAC","2"]
+[2026-01-23 20:01:59] SQL: INSERT INTO mov_contable
+          (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, saldo, tipo_documento, numero_documento, codigo_base,
+           codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) | params=["2","2026-01-23 20:01:32","2026-01-23 20:01:32","2026-01-23 20:01:32","1",300,"FAC","2","1","1",1,"1","2"]
+[2026-01-23 20:01:59] SQL: INSERT INTO mov_contable_detalle
+            (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?) | params=["FAC","2","1","1",30,30,300]
+[2026-01-23 20:01:59] SQL: INSERT INTO paquete (codigo_paquete, tipo_documento, estado) VALUES (?, ?, ?) | params=["2","FAC","pendiente empacar"]
+[2026-01-23 20:01:59] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = ? | params=["2","FAC"]
+[2026-01-23 20:01:59] SQL: INSERT INTO paquetedetalle (codigo_paquete, tipo_documento, ordinal, estado) VALUES (?, ?, ?, ?) | params=["2","FAC","1","pendiente empacar"]
+[2026-01-23 20:01:59] SQL: CALL actualizarsaldosclientes(?, ?, ?) | params=["1","FAC",300]
+[2026-01-23 20:01:59] SQL: CALL salidaspedidos(?, ?) | params=["FAC","2"]
+[2026-01-23 20:02:00] ENDPOINT: GET /api/now
+[2026-01-23 20:02:00] ENDPOINT: GET /api/productos
+[2026-01-23 20:02:00] SQL: CALL get_productos()
+[2026-01-23 20:02:00] ENDPOINT: GET /api/bases
+[2026-01-23 20:02:00] SQL: CALL get_bases()
+[2026-01-23 20:02:00] ENDPOINT: GET /api/clientes
+[2026-01-23 20:02:00] SQL: CALL get_clientes()
+[2026-01-23 20:02:00] ENDPOINT: GET /api/next/numero-documento
+[2026-01-23 20:02:00] SQL: SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = ? | params=["FAC"]
+[2026-01-23 20:02:00] ENDPOINT: GET /api/ubigeo/departamentos
+[2026-01-23 20:02:00] SQL: CALL get_ubigeo_departamentos()
+[2026-01-23 20:02:00] ENDPOINT: GET /api/next/codigo-pedido
+[2026-01-23 20:02:00] SQL: SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos

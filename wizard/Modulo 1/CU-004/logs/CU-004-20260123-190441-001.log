@@ -1,0 +1,8 @@
+[2026-01-23T19:04:41.943Z] CONFIG | DB name=erpdb
+[2026-01-23T19:04:41.972Z] SERVER | Inicio del servidor
+[2026-01-23T19:04:41.976Z] SERVER | Servidor escuchando en puerto 3000
+[2026-01-23T19:04:47.030Z] ENDPOINT | GET /
+[2026-01-23T19:04:47.178Z] ENDPOINT | GET /styles.css
+[2026-01-23T19:04:47.185Z] ENDPOINT | GET /app.js
+[2026-01-23T19:04:47.455Z] ENDPOINT | GET /api/paquetes-en-camino
+[2026-01-23T19:04:47.456Z] SQL | CALL get_paquetes_por_estado(?) | params=["en camino"]

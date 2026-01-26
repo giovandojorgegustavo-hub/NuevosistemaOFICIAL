@@ -7,7 +7,12 @@ CU-007: Crear Recibos.
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (si hay varios pasos) o de un solo paso (si el formulario solo tiene un paso). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
-El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/CU-007` (siempre `wizard/CU-XXX`), sobrescribiendo su propio wizard para evitar duplicados. Priorizar codigo limpio y eficiente: mientras menos codigo, mejor, sin sacrificar claridad.
+El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
+- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+- Si no existe la carpeta del modulo, debe crearse.
+- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -29,7 +34,7 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/CU-007/logs/`.
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-007/logs/`.
 - El archivo debe nombrarse `CU-007-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -92,8 +97,8 @@ vSaldoPendiente = saldo_final del cliente seleccionado (no editable).
 Campos del pago:
 vFecha_emision = Inicializar con la fecha del sistema (editable).
 vTipo_documento = "REC".
-vNumero_documento = correlativo numerico (12 digitos) no editable. Se debe generar con SQL: 
-`SELECT LPAD(COALESCE(MAX(numero_documento), 0) + 1, 12, '0') AS next FROM mov_contable WHERE tipo_documento = 'REC'`.
+vNumero_documento = correlativo numerico no editable. Se debe generar con SQL:
+`SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'REC'`.
 vCodigo_cuentabancaria = Seleccionar de la lista de cuentas bancarias devuelta por el SP `get_cuentasbancarias()`.
 vMonto = campo numerico para escribir el monto del recibo (mayor que 0 y menor o igual a vSaldoPendiente).
 
@@ -123,6 +128,9 @@ saldo=vMonto
 
 ### Actualizar saldo del cliente
 - Ejecutar el procedimiento `actualizarsaldosclientes(vCodigo_cliente, vTipo_documento, vMonto)`.
+
+### Actualizar saldo bancario
+- Ejecutar el procedimiento `aplicar_pago_cliente(vTipo_documento, vNumero_documento)`.
 
 No utilizar datos mock.
 

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pedidos | Form Wizard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-tech">
+  <div class="page-glow"></div>
+  <main class="container py-4 py-lg-5">
+    <header class="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3 mb-4">
+      <div>
+        <p class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Commerce</p>
+        <h1 class="display-title" data-i18n="title">Registro de Pedidos</h1>
+        <p class="text-muted" data-i18n="subtitle">Orquesta pedidos, facturas y entregas con precisión global.</p>
+      </div>
+      <div class="status-chip">
+        <span class="status-dot"></span>
+        <span data-i18n="status">Operativo</span>
+      </div>
+    </header>
+
+    <section class="wizard-card">
+      <div class="progress wizard-progress" role="progressbar" aria-label="Wizard progress" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" id="wizardProgress"></div>
+      </div>
+
+      <div class="step-indicator" id="stepIndicator">
+        <div class="step-badge active" data-step="0">1</div>
+        <div class="step-line"></div>
+        <div class="step-badge" data-step="1">2</div>
+        <div class="step-line"></div>
+        <div class="step-badge" data-step="2">3</div>
+        <div class="step-line"></div>
+        <div class="step-badge" data-step="3">4</div>
+        <div class="step-line"></div>
+        <div class="step-badge" data-step="4">5</div>
+      </div>
+
+      <div class="alert alert-danger d-none" id="errorAlert" role="alert"></div>
+      <div class="alert alert-success d-none" id="successAlert" role="alert"></div>
+
+      <form id="wizardForm" novalidate>
+        <section class="wizard-step" data-step="0">
+          <h2 class="section-title" data-i18n="step1Title">1. Crear Pedido</h2>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="fechaPedido">Fecha pedido</label>
+              <input type="text" class="form-control" id="fechaPedido" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="horaPedido">Hora pedido</label>
+              <input type="text" class="form-control" id="horaPedido" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="codigoPedido">Código pedido</label>
+              <input type="text" class="form-control" id="codigoPedido" readonly />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+              <label class="form-label" data-i18n="cliente">Cliente</label>
+              <select class="form-select" id="clienteSelect"></select>
+              <div class="invalid-feedback" data-i18n="clienteError">Seleccione un cliente válido.</div>
+            </div>
+            <div class="col-lg-6 d-flex align-items-end">
+              <button class="btn btn-ghost" type="button" id="addPedidoLine" data-i18n="addLine">Agregar línea</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-tech" id="pedidoTable">
+              <thead>
+                <tr>
+                  <th data-i18n="colProducto">Producto</th>
+                  <th data-i18n="colCantidad">Cantidad</th>
+                  <th data-i18n="colPrecioTotal">Precio total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="helper-text" data-i18n="step1Help">Defina los productos y cantidades del pedido.</div>
+        </section>
+
+        <section class="wizard-step d-none" data-step="1">
+          <h2 class="section-title" data-i18n="step2Title">2. Crear Factura</h2>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="fechaEmision">Fecha emisión</label>
+              <input type="text" class="form-control" id="fechaEmision" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="horaEmision">Hora emisión</label>
+              <input type="text" class="form-control" id="horaEmision" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+              <input type="text" class="form-control" id="tipoDocumento" readonly />
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="numeroDocumento">Número documento</label>
+              <input type="text" class="form-control" id="numeroDocumento" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="codigoBase">Código base</label>
+              <select class="form-select" id="baseSelect"></select>
+              <div class="invalid-feedback" data-i18n="baseError">Seleccione una base válida.</div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-tech" id="facturaTable">
+              <thead>
+                <tr>
+                  <th data-i18n="colProducto">Producto</th>
+                  <th data-i18n="colCantidad">Cantidad</th>
+                  <th data-i18n="colPrecioTotal">Precio total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="d-flex justify-content-end mt-3">
+            <div class="total-pill">
+              <span data-i18n="saldo">Saldo</span>
+              <strong id="saldoFactura">0.00</strong>
+            </div>
+          </div>
+          <div class="helper-text" data-i18n="step2Help">Edite cantidades y verifique el saldo de la factura.</div>
+        </section>
+
+        <section class="wizard-step d-none" data-step="2">
+          <h2 class="section-title" data-i18n="step3Title">3. Datos Entrega</h2>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="entregaModo" id="entregaExiste" value="existe" checked />
+            <label class="form-check-label" for="entregaExiste" data-i18n="existe">Existe</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="entregaModo" id="entregaNuevo" value="nuevo" />
+            <label class="form-check-label" for="entregaNuevo" data-i18n="nuevo">Nuevo</label>
+          </div>
+
+          <div id="entregaExisteGroup" class="mt-3">
+            <label class="form-label" data-i18n="puntoEntrega">Punto de entrega</label>
+            <select class="form-select" id="puntoEntregaSelect"></select>
+            <div class="invalid-feedback" data-i18n="puntoEntregaError">Seleccione un punto de entrega.</div>
+          </div>
+
+          <div id="entregaNuevoGroup" class="mt-3 d-none">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="departamento">Departamento</label>
+                <select class="form-select" id="depSelect"></select>
+                <div class="invalid-feedback" data-i18n="departamentoError">Seleccione un departamento.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="provincia">Provincia</label>
+                <select class="form-select" id="provSelect"></select>
+                <div class="invalid-feedback" data-i18n="provinciaError">Seleccione una provincia.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="distrito">Distrito</label>
+                <select class="form-select" id="distSelect"></select>
+                <div class="invalid-feedback" data-i18n="distritoError">Seleccione un distrito.</div>
+              </div>
+            </div>
+            <div class="row g-3 mt-1" id="limaFields">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="direccionLinea">Dirección</label>
+                <input type="text" class="form-control" id="direccionLinea" />
+                <div class="invalid-feedback" data-i18n="direccionError">Ingrese una dirección válida.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="referencia">Referencia</label>
+                <input type="text" class="form-control" id="referencia" />
+              </div>
+            </div>
+            <div class="row g-3 mt-1 d-none" id="provFields">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="regionEntrega">Región</label>
+                <input type="text" class="form-control" id="regionEntrega" readonly />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="agencia">Agencia</label>
+                <input type="text" class="form-control" id="agencia" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="nombre">Nombre</label>
+                <input type="text" class="form-control" id="entregaNombre" />
+                <div class="invalid-feedback" data-i18n="nombreError">Ingrese un nombre válido.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="dni">DNI</label>
+                <input type="text" class="form-control" id="entregaDni" />
+                <div class="invalid-feedback" data-i18n="dniError">Ingrese un DNI válido.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" data-i18n="observaciones">Observaciones</label>
+                <input type="text" class="form-control" id="observaciones" />
+              </div>
+            </div>
+          </div>
+          <div class="helper-text" data-i18n="step3Help">Seleccione un punto existente o registre uno nuevo.</div>
+        </section>
+
+        <section class="wizard-step d-none" data-step="3">
+          <h2 class="section-title" data-i18n="step4Title">4. Datos Recibe</h2>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="recibeModo" id="recibeExiste" value="existe" checked />
+            <label class="form-check-label" for="recibeExiste" data-i18n="existe">Existe</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="recibeModo" id="recibeNuevo" value="nuevo" />
+            <label class="form-check-label" for="recibeNuevo" data-i18n="nuevo">Nuevo</label>
+          </div>
+
+          <div id="recibeExisteGroup" class="mt-3">
+            <label class="form-label" data-i18n="numRecibe">Número recibe</label>
+            <select class="form-select" id="recibeSelect"></select>
+            <div class="invalid-feedback" data-i18n="recibeError">Seleccione un recibe válido.</div>
+          </div>
+
+          <div id="recibeNuevoGroup" class="mt-3 d-none">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="numeroRecibe">Número recibe</label>
+                <input type="text" class="form-control" id="numeroRecibe" />
+                <div class="invalid-feedback" data-i18n="numeroRecibeError">Ingrese un número válido.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="nombreRecibe">Nombre recibe</label>
+                <input type="text" class="form-control" id="nombreRecibe" />
+                <div class="invalid-feedback" data-i18n="nombreRecibeError">Ingrese un nombre válido.</div>
+              </div>
+            </div>
+          </div>
+          <div class="helper-text" data-i18n="step4Help">Complete los datos de quien recibe en Lima.</div>
+        </section>
+
+        <section class="wizard-step d-none" data-step="4">
+          <h2 class="section-title" data-i18n="step5Title">5. Resumen y Emitir Factura</h2>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h3 data-i18n="summaryPedido">Pedido</h3>
+              <div class="summary-item"><span data-i18n="summaryCliente">Cliente</span><span id="summaryCliente">-</span></div>
+              <div class="summary-item"><span data-i18n="summaryFecha">Fecha</span><span id="summaryFecha">-</span></div>
+              <div class="summary-item"><span data-i18n="summaryCodigo">Código</span><span id="summaryCodigo">-</span></div>
+            </div>
+            <div class="summary-card">
+              <h3 data-i18n="summaryFactura">Factura</h3>
+              <div class="summary-item"><span data-i18n="summaryNumero">Número</span><span id="summaryNumero">-</span></div>
+              <div class="summary-item"><span data-i18n="summarySaldo">Saldo</span><span id="summarySaldo">-</span></div>
+              <div class="summary-item"><span data-i18n="summaryBase">Base</span><span id="summaryBase">-</span></div>
+            </div>
+            <div class="summary-card">
+              <h3 data-i18n="summaryEntrega">Entrega</h3>
+              <div class="summary-item"><span data-i18n="summaryTipoEntrega">Tipo</span><span id="summaryTipoEntrega">-</span></div>
+              <div class="summary-item"><span data-i18n="summaryPuntoEntrega">Punto</span><span id="summaryPuntoEntrega">-</span></div>
+            </div>
+            <div class="summary-card">
+              <h3 data-i18n="summaryRecibe">Recibe</h3>
+              <div class="summary-item"><span data-i18n="summaryTipoRecibe">Tipo</span><span id="summaryTipoRecibe">-</span></div>
+              <div class="summary-item"><span data-i18n="summaryRecibeDato">Datos</span><span id="summaryRecibeDato">-</span></div>
+            </div>
+          </div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" />
+            <label class="form-check-label" for="confirmCheck" data-i18n="confirm">Confirmo que los datos están correctos para emitir.</label>
+            <div class="invalid-feedback" data-i18n="confirmError">Debe confirmar antes de emitir.</div>
+          </div>
+        </section>
+
+        <div class="wizard-actions">
+          <button class="btn btn-ghost" type="button" id="prevBtn" data-i18n="prev">Anterior</button>
+          <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="next">Siguiente</button>
+          <button class="btn btn-primary d-none" type="submit" id="submitBtn">
+            <span class="btn-text" data-i18n="submit">Emitir Factura</span>
+            <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

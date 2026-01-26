@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU-006 | Gestion Pedido</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <div class="eyebrow" data-i18n="eyebrow">Operaciones Globales IaaS / PaaS</div>
+          <h1 data-i18n="title">Gestion Pedido</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Flujo multipaso para emitir facturas y coordinar entregas con trazabilidad completa.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-outline-light" id="btnLogs" type="button" data-i18n="viewLogs">Ver logs SQL</button>
+          <span class="badge-soft" data-i18n="case">CU-006</span>
+        </div>
+      </header>
+
+      <div id="alertArea"></div>
+
+      <section class="wizard-card">
+        <div class="progress-wrapper">
+          <div class="progress" role="progressbar" aria-label="progress">
+            <div class="progress-bar" id="wizardProgress" style="width: 0%"></div>
+          </div>
+          <div class="step-pills">
+            <span class="step-pill" data-step="1" data-i18n="step1Pill">Pedido</span>
+            <span class="step-pill" data-step="2" data-i18n="step2Pill">Factura</span>
+            <span class="step-pill" data-step="3" data-i18n="step3Pill">Entrega</span>
+            <span class="step-pill" data-step="4" data-i18n="step4Pill">Recibe</span>
+            <span class="step-pill" data-step="5" data-i18n="step5Pill">Resumen</span>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="1">
+          <div class="section-title" data-i18n="step1Title">Seleccionar Pedido</div>
+          <div class="section-subtitle" data-i18n="step1Desc">
+            Filtra pedidos pendientes y selecciona el pedido a facturar.
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="filterClient">Cliente</label>
+              <input type="text" id="filterCliente" class="form-control" placeholder="Cliente" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="filterDate">Fecha</label>
+              <input type="date" id="filterFecha" class="form-control" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button class="btn btn-primary w-100" id="btnBuscar" type="button" data-i18n="filterApply">Aplicar filtros</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table" id="pedidosTable">
+              <thead>
+                <tr>
+                  <th data-i18n="thFecha">Fecha</th>
+                  <th data-i18n="thPedido">Codigo</th>
+                  <th data-i18n="thCliente">Cliente</th>
+                  <th data-i18n="thNumCliente">Num. cliente</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="action-row">
+            <div></div>
+            <button class="btn btn-primary" id="step1Next" type="button" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="2">
+          <div class="section-title" data-i18n="step2Title">Crear Factura</div>
+          <div class="section-subtitle" data-i18n="step2Desc">
+            Define datos del documento y ajusta cantidades a facturar.
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelBase">Base</label>
+              <select class="form-select" id="baseSelect"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelFechaEmision">Fecha emision</label>
+              <input type="date" class="form-control" id="fechaEmision" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelHoraEmision">Hora emision</label>
+              <input type="time" class="form-control" id="horaEmision" />
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelTipoDoc">Tipo documento</label>
+              <input type="text" class="form-control" id="tipoDocumento" value="FAC" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelNumeroDoc">Numero documento</label>
+              <input type="text" class="form-control" id="numeroDocumento" readonly />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" data-i18n="labelSaldo">Saldo total</label>
+              <input type="text" class="form-control" id="saldoTotal" readonly />
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table" id="detalleTable">
+              <thead>
+                <tr>
+                  <th data-i18n="thProducto">Producto</th>
+                  <th data-i18n="thCantidad">Cantidad</th>
+                  <th data-i18n="thPrecio">Precio total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-outline-light" id="step2Back" type="button" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="step2Next" type="button" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="3">
+          <div class="section-title" data-i18n="step3Title">Datos Entrega</div>
+          <div class="section-subtitle" data-i18n="step3Desc">
+            Selecciona punto de entrega existente o registra uno nuevo.
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="labelEntregaModo">Punto entrega</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="entregaModo" id="entregaExistente" value="existente" checked />
+                <label class="form-check-label" for="entregaExistente" data-i18n="existente">Existe</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="entregaModo" id="entregaNuevo" value="nuevo" />
+                <label class="form-check-label" for="entregaNuevo" data-i18n="nuevo">Nuevo</label>
+              </div>
+            </div>
+            <div class="col-md-6" id="puntoExistenteWrap">
+              <label class="form-label" data-i18n="labelPuntoEntrega">Punto entrega</label>
+              <select class="form-select" id="puntoEntregaSelect"></select>
+            </div>
+          </div>
+
+          <div id="puntoNuevoWrap" class="card-panel">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="labelDepartamento">Departamento</label>
+                <select class="form-select" id="depSelect"></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="labelProvincia">Provincia</label>
+                <select class="form-select" id="provSelect"></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="labelDistrito">Distrito</label>
+                <select class="form-select" id="distSelect"></select>
+              </div>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-md-6" id="limaFields">
+                <label class="form-label" data-i18n="labelDireccion">Direccion</label>
+                <input class="form-control" id="direccionLinea" type="text" />
+                <label class="form-label mt-3" data-i18n="labelReferencia">Referencia</label>
+                <input class="form-control" id="referencia" type="text" />
+              </div>
+              <div class="col-md-6" id="provFields">
+                <div class="mb-2" data-i18n="labelRegion">Region</div>
+                <div class="badge-soft" id="regionEntregaLabel">PROV</div>
+                <label class="form-label mt-3" data-i18n="labelNombre">Nombre</label>
+                <input class="form-control" id="nombreEntrega" type="text" />
+                <label class="form-label mt-3" data-i18n="labelDni">DNI</label>
+                <input class="form-control" id="dniEntrega" type="text" />
+                <label class="form-label mt-3" data-i18n="labelAgencia">Agencia</label>
+                <input class="form-control" id="agencia" type="text" />
+                <label class="form-label mt-3" data-i18n="labelObservaciones">Observaciones</label>
+                <input class="form-control" id="observaciones" type="text" />
+              </div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-outline-light" id="step3Back" type="button" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="step3Next" type="button" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="4">
+          <div class="section-title" data-i18n="step4Title">Datos Recibe</div>
+          <div class="section-subtitle" data-i18n="step4Desc">Selecciona o registra quien recibe el pedido.</div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" data-i18n="labelRecibeModo">Num recibe</label>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="recibeModo" id="recibeExistente" value="existente" checked />
+                <label class="form-check-label" for="recibeExistente" data-i18n="existente">Existe</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="recibeModo" id="recibeNuevo" value="nuevo" />
+                <label class="form-check-label" for="recibeNuevo" data-i18n="nuevo">Nuevo</label>
+              </div>
+            </div>
+            <div class="col-md-6" id="recibeExistenteWrap">
+              <label class="form-label" data-i18n="labelNumRecibe">Num recibe</label>
+              <select class="form-select" id="recibeSelect"></select>
+            </div>
+          </div>
+
+          <div id="recibeNuevoWrap" class="card-panel">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="labelNumeroRecibe">Numero</label>
+                <input class="form-control" id="numeroRecibe" type="text" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="labelNombreRecibe">Nombre</label>
+                <input class="form-control" id="nombreRecibe" type="text" />
+              </div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-outline-light" id="step4Back" type="button" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="step4Next" type="button" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+
+        <div class="wizard-step" data-step="5">
+          <div class="section-title" data-i18n="step5Title">Resumen y emitir factura</div>
+          <div class="section-subtitle" data-i18n="step5Desc">Verifica la informacion antes de confirmar.</div>
+
+          <div class="summary-grid">
+            <div class="card-panel">
+              <div class="section-title" data-i18n="summaryPedido">Pedido</div>
+              <div id="summaryPedido"></div>
+            </div>
+            <div class="card-panel">
+              <div class="section-title" data-i18n="summaryFactura">Factura</div>
+              <div id="summaryFactura"></div>
+            </div>
+            <div class="card-panel">
+              <div class="section-title" data-i18n="summaryEntrega">Entrega</div>
+              <div id="summaryEntrega"></div>
+            </div>
+            <div class="card-panel" id="summaryRecibeWrap">
+              <div class="section-title" data-i18n="summaryRecibe">Recibe</div>
+              <div id="summaryRecibe"></div>
+            </div>
+          </div>
+
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" />
+            <label class="form-check-label" for="confirmCheck" data-i18n="confirmText">
+              Confirmo que deseo emitir la factura y registrar los datos.
+            </label>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-outline-light" id="step5Back" type="button" data-i18n="back">Anterior</button>
+            <button class="btn btn-primary" id="emitirBtn" type="button" data-i18n="emit">Emitir factura</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="text-center">
+        <div class="spinner-border text-light" role="status"></div>
+        <div class="mt-3" id="loadingText" data-i18n="loading">Cargando...</div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

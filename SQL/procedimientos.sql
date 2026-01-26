@@ -36,6 +36,27 @@ END//
 
 DELIMITER ;
 
+-- =====================================================================================
+-- MODULO 2: PROCEDIMIENTOS NUEVOS
+-- =====================================================================================
+
+DROP PROCEDURE IF EXISTS `get_proveedores_saldos_pendientes`;
+DELIMITER //
+CREATE PROCEDURE `get_proveedores_saldos_pendientes`()
+BEGIN
+  SELECT
+    p.codigo_provedor,
+    p.nombre,
+    sp.saldo_final
+  FROM saldos_provedores sp
+  INNER JOIN provedores p
+    ON p.codigo_provedor = sp.codigo_provedor
+  WHERE sp.saldo_final > 0
+  ORDER BY sp.saldo_final DESC, p.nombre;
+END//
+
+DELIMITER ;
+
 -- VIAJES: buscar viaje activo por numero de documento
 
 DROP PROCEDURE IF EXISTS get_viaje_por_documento;
@@ -333,9 +354,13 @@ BEGIN
   SELECT DISTINCT
     p.codigo_pedido,
     p.codigo_cliente,
+    c.nombre AS nombre_cliente,
+    c.numero AS numero_cliente,
     p.fecha,
     p.created_at
   FROM pedidos p
+  JOIN clientes c
+    ON c.codigo_cliente = p.codigo_cliente
   JOIN pedido_detalle pd
     ON pd.codigo_pedido = p.codigo_pedido
   WHERE pd.saldo > 0
@@ -352,6 +377,24 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `get_etiquetas_gastos`;
+DELIMITER //
+CREATE PROCEDURE `get_etiquetas_gastos`()
+BEGIN
+  SELECT `codigoetiquetagasto`, `nombre`
+  FROM `etiquetagastos`;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_etiquetas_retiro`;
+DELIMITER //
+CREATE PROCEDURE `get_etiquetas_retiro`()
+BEGIN
+  SELECT `codigoetiquetaretiro`, `nombre`
+  FROM `etiqueta_retiro`;
+END//
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS `get_proveedores`;
 DELIMITER //
 CREATE PROCEDURE `get_proveedores`()
@@ -359,8 +402,6 @@ BEGIN
   SELECT `codigo_provedor`, `nombre`
   FROM `provedores`;
 END//
-
-
 
 DELIMITER ;
 
@@ -432,6 +473,122 @@ BEGIN
     AND num_documento_compra = p_num_documento_compra
     AND codigo_provedor = p_codigo_provedor
     AND ordinal = p_ordinal;
+END//
+DELIMITER ;
+
+-- =====================================================================================
+-- MODULO 3: PROCEDIMIENTOS ACTUALIZADORES - BANCOS
+-- =====================================================================================
+
+DROP PROCEDURE IF EXISTS `aplicar_operacion_bancaria`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_operacion_bancaria`(
+  IN p_tipodocumento varchar(3),
+  IN p_numdocumento numeric(12,0)
+)
+BEGIN
+  DECLARE v_monto numeric(12,2);
+  DECLARE v_cuenta_origen numeric(12,0);
+  DECLARE v_cuenta_destino numeric(12,0);
+
+  SELECT monto, codigo_cuentabancaria, codigo_cuentabancaria_destino
+    INTO v_monto, v_cuenta_origen, v_cuenta_destino
+  FROM mov_operaciones_contables
+  WHERE tipodocumento = p_tipodocumento
+    AND numdocumento = p_numdocumento;
+
+  IF p_tipodocumento = 'TRS' THEN
+    UPDATE cuentas_bancarias
+    SET saldo_actual = saldo_actual - v_monto,
+        fecha_saldo_actual = CURRENT_TIMESTAMP
+    WHERE codigo_cuentabancaria = v_cuenta_origen;
+
+    UPDATE cuentas_bancarias
+    SET saldo_actual = saldo_actual + v_monto,
+        fecha_saldo_actual = CURRENT_TIMESTAMP
+    WHERE codigo_cuentabancaria = v_cuenta_destino;
+  ELSEIF p_tipodocumento = 'AJC' THEN
+    UPDATE cuentas_bancarias
+    SET saldo_actual = saldo_actual + v_monto,
+        fecha_saldo_actual = CURRENT_TIMESTAMP
+    WHERE codigo_cuentabancaria = v_cuenta_origen;
+  ELSEIF p_tipodocumento = 'RET' THEN
+    UPDATE cuentas_bancarias
+    SET saldo_actual = saldo_actual - v_monto,
+        fecha_saldo_actual = CURRENT_TIMESTAMP
+    WHERE codigo_cuentabancaria = v_cuenta_origen;
+  END IF;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `aplicar_pago_cliente`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_pago_cliente`(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+BEGIN
+  DECLARE v_monto numeric(12,2);
+  DECLARE v_cuenta numeric(12,0);
+
+  SELECT saldo, codigo_cuentabancaria
+    INTO v_monto, v_cuenta
+  FROM mov_contable
+  WHERE tipo_documento = p_tipo_documento
+    AND numero_documento = p_numero_documento;
+
+  UPDATE cuentas_bancarias
+  SET saldo_actual = saldo_actual + v_monto,
+      fecha_saldo_actual = CURRENT_TIMESTAMP
+  WHERE codigo_cuentabancaria = v_cuenta;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `aplicar_pago_proveedor`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_pago_proveedor`(
+  IN p_tipo_documento_compra varchar(3),
+  IN p_num_documento_compra numeric(12,0),
+  IN p_codigo_provedor numeric(12,0)
+)
+BEGIN
+  DECLARE v_monto numeric(12,2);
+  DECLARE v_cuenta numeric(12,0);
+
+  SELECT monto, codigo_cuentabancaria
+    INTO v_monto, v_cuenta
+  FROM mov_contable_prov
+  WHERE tipo_documento_compra = p_tipo_documento_compra
+    AND num_documento_compra = p_num_documento_compra
+    AND codigo_provedor = p_codigo_provedor;
+
+  UPDATE cuentas_bancarias
+  SET saldo_actual = saldo_actual - v_monto,
+      fecha_saldo_actual = CURRENT_TIMESTAMP
+  WHERE codigo_cuentabancaria = v_cuenta;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `aplicar_gasto_bancario`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_gasto_bancario`(
+  IN p_tipodocumento varchar(3),
+  IN p_numdocumento numeric(12,0)
+)
+BEGIN
+  DECLARE v_monto numeric(12,2);
+  DECLARE v_cuenta numeric(12,0);
+
+  SELECT monto, codigo_cuentabancaria
+    INTO v_monto, v_cuenta
+  FROM mov_contable_gasto
+  WHERE tipodocumento = p_tipodocumento
+    AND numdocumento = p_numdocumento;
+
+  UPDATE cuentas_bancarias
+  SET saldo_actual = saldo_actual - v_monto,
+      fecha_saldo_actual = CURRENT_TIMESTAMP
+  WHERE codigo_cuentabancaria = v_cuenta;
 END//
 DELIMITER ;
 
@@ -695,6 +852,7 @@ BEGIN
 
   SET v_delta = CASE
     WHEN p_tipo_documento_compra = 'FCC' THEN p_monto
+    WHEN p_tipo_documento_compra = 'RCP' THEN -p_monto
     WHEN p_tipo_documento_compra = 'RCC' THEN -p_monto
     WHEN p_tipo_documento_compra = 'NDC' THEN -p_monto
     WHEN p_tipo_documento_compra = 'NCC' THEN p_monto
@@ -770,5 +928,25 @@ BEGIN
 
   -- Solo cambia estado; no aplica movimientos de stock aqui.
 END//
+
+DELIMITER ;
+
+
+
+-- Procedimiento para obtener saldo del sistema por base y producto
+-- Devuelve saldo_actual (0 si no existe registro)
+DELIMITER $$
+
+CREATE PROCEDURE get_saldo_stock(
+  IN p_codigo_base VARCHAR(50),
+  IN p_codigo_producto VARCHAR(50)
+)
+BEGIN
+  SELECT COALESCE(saldo_actual, 0) AS saldo_actual
+  FROM saldo_stock
+  WHERE codigo_base = p_codigo_base
+    AND codigo_producto = p_codigo_producto
+  LIMIT 1;
+END $$
 
 DELIMITER ;

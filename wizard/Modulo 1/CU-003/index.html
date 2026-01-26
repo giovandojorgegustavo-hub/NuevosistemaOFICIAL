@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU-003 | Asignar viajes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="app-header">
+      <div>
+        <span class="badge badge-tech" data-i18n="tag">IaaS + PaaS Global</span>
+        <h1 data-i18n="title">Asignar viajes</h1>
+        <p class="lead" data-i18n="subtitle">Wizard multi-paso para coordinar viajes y paquetes en tiempo real.</p>
+      </div>
+      <div class="status-card">
+        <p class="text-muted" data-i18n="status">Estado del flujo</p>
+        <div class="progress" role="progressbar" aria-label="Progress">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <small id="statusHint" class="text-muted" data-i18n="statusHint">Completa los datos del viaje para iniciar.</small>
+        <div class="status-actions">
+          <button id="viewLogsBtn" class="btn btn-outline-light btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#logPanel" aria-expanded="false" aria-controls="logPanel" data-i18n="viewLogs">Ver logs SQL</button>
+          <button id="refreshPaquetes" class="btn btn-outline-light btn-sm" type="button" data-i18n="refresh">Actualizar paquetes</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="wizard card">
+      <div id="alertArea"></div>
+      <div id="loadingState" class="loading-state"></div>
+
+      <section class="step active" data-step="1">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step1Title">1. Datos del viaje</h2>
+            <p class="text-muted" data-i18n="step1Subtitle">Registra la cabecera del viaje y la base operativa.</p>
+          </div>
+          <span class="badge badge-soft" data-i18n="required">Campos obligatorios marcados</span>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="codigoViaje">Codigo de viaje</label>
+            <input id="codigoViaje" class="form-control" type="text" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="fecha">Fecha/Hora</label>
+            <input id="fechaViaje" class="form-control" type="text" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="base">Base operativa *</label>
+            <select id="baseSelect" class="form-select" required></select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" data-i18n="motorizado">Nombre motorizado *</label>
+            <input id="nombreMotorizado" class="form-control" type="text" placeholder="Juan Perez" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" data-i18n="link">Link de seguimiento *</label>
+            <input id="link" class="form-control" type="url" placeholder="https://..." required />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="wsp">Numero WhatsApp</label>
+            <input id="numeroWsp" class="form-control" type="text" placeholder="+51 999 888 777" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="llamadas">Numero llamadas</label>
+            <input id="numeroLlamadas" class="form-control" type="text" placeholder="(01) 555-1234" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="yape">Numero Yape</label>
+            <input id="numeroYape" class="form-control" type="text" placeholder="987654321" />
+          </div>
+          <div class="col-12">
+            <label class="form-label" data-i18n="observacion">Observacion</label>
+            <textarea id="observacion" class="form-control" rows="3" placeholder="Notas para el viaje"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="step" data-step="2">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step2Title">2. Detalle del viaje</h2>
+            <p class="text-muted" data-i18n="step2Subtitle">Selecciona los paquetes empacados para asignarlos.</p>
+          </div>
+          <span id="selectedCount" class="badge badge-soft">0</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr>
+                <th></th>
+                <th data-i18n="codigo">Codigo</th>
+                <th data-i18n="fecha">Fecha</th>
+                <th data-i18n="cliente">Cliente</th>
+                <th data-i18n="telefono">Telefono</th>
+                <th data-i18n="entrega">Punto entrega</th>
+                <th data-i18n="recibe">Recibe</th>
+              </tr>
+            </thead>
+            <tbody id="paquetesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="step" data-step="3">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step3Title">3. Confirmar y guardar</h2>
+            <p class="text-muted" data-i18n="step3Subtitle">Verifica la informacion antes de asignar el viaje.</p>
+          </div>
+          <span class="badge badge-soft" data-i18n="ready">Listo para asignar</span>
+        </div>
+        <div id="summaryCard" class="summary-card"></div>
+        <div class="form-check mt-3">
+          <input class="form-check-input" type="checkbox" id="confirmCheck" />
+          <label class="form-check-label" for="confirmCheck" data-i18n="confirm">Confirmo la operacion.</label>
+        </div>
+      </section>
+
+      <div class="wizard-actions">
+        <button id="prevBtn" class="btn btn-outline-light" type="button" data-i18n="prev">Anterior</button>
+        <button id="nextBtn" class="btn btn-primary" type="button" data-i18n="next">Siguiente</button>
+      </div>
+
+      <div class="collapse log-panel" id="logPanel">
+        <div class="log-card">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong data-i18n="logsTitle">SQL Logs (ultima ejecucion)</strong>
+            <span id="logStatus" class="text-muted"></span>
+          </div>
+          <pre id="logContent" class="log-content"></pre>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

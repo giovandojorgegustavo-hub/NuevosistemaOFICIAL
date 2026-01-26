@@ -1,0 +1,29 @@
+[2026-01-23T19:01:24.315Z] CONFIG | DB name=erpdb
+[2026-01-23T19:01:24.318Z] SERVER | Iniciando servidor CU-003 usando DB: erpdb
+[2026-01-23T19:01:24.323Z] SERVER | Servidor escuchando en puerto 3000
+[2026-01-23T19:01:27.039Z] ENDPOINT | GET /
+[2026-01-23T19:01:27.185Z] ENDPOINT | GET /styles.css
+[2026-01-23T19:01:27.188Z] ENDPOINT | GET /app.js
+[2026-01-23T19:01:27.457Z] ENDPOINT | GET /api/now
+[2026-01-23T19:01:27.458Z] SQL | SELECT DATE_FORMAT(NOW(), '%Y-%m-%d') AS fecha, DATE_FORMAT(NOW(), '%H:%i:%s') AS hora | params=[]
+[2026-01-23T19:01:27.462Z] ENDPOINT | GET /api/bases
+[2026-01-23T19:01:27.463Z] SQL | CALL get_bases() | params=[]
+[2026-01-23T19:01:27.593Z] ENDPOINT | GET /api/viajes/next
+[2026-01-23T19:01:27.593Z] SQL | SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params=[]
+[2026-01-23T19:01:39.447Z] ENDPOINT | GET /api/paquetes
+[2026-01-23T19:01:39.448Z] SQL | CALL get_paquetes_por_estado(?) | params=["empacado"]
+[2026-01-23T19:02:10.917Z] ENDPOINT | POST /api/viajes/assign
+[2026-01-23T19:02:10.919Z] SQL | SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params=[]
+[2026-01-23T19:02:10.920Z] SQL | INSERT INTO viajes (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW()) | params=["2","1","dfgfgd dfgsd","235215","51253123","123512","www.asfasfa.com",null]
+[2026-01-23T19:02:10.921Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:02:10.922Z] SQL | INSERT INTO detalleviaje (codigoviaje, numero_documento, tipo_documento, fecha_inicio) VALUES (?, ?, 'FAC', NOW()) | params=["2","1"]
+[2026-01-23T19:02:10.923Z] SQL | INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, 'en camino', 'FAC') | params=["1","4"]
+[2026-01-23T19:02:10.924Z] SQL | CALL cambiar_estado_paquete(?, ?) | params=["1","en camino"]
+[2026-01-23T19:02:11.068Z] ENDPOINT | GET /api/now
+[2026-01-23T19:02:11.068Z] SQL | SELECT DATE_FORMAT(NOW(), '%Y-%m-%d') AS fecha, DATE_FORMAT(NOW(), '%H:%i:%s') AS hora | params=[]
+[2026-01-23T19:02:11.202Z] ENDPOINT | GET /api/bases
+[2026-01-23T19:02:11.202Z] SQL | CALL get_bases() | params=[]
+[2026-01-23T19:02:11.204Z] ENDPOINT | GET /api/viajes/next
+[2026-01-23T19:02:11.204Z] SQL | SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes | params=[]
+[2026-01-23T19:02:11.342Z] ENDPOINT | GET /api/paquetes
+[2026-01-23T19:02:11.342Z] SQL | CALL get_paquetes_por_estado(?) | params=["empacado"]

@@ -6,7 +6,12 @@ CU-004: Gestionar paquetes en camino
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de gestion multi-paso (3 pasos). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
-El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/CU-004` (siempre `wizard/CU-XXX`), sobrescribiendo su propio wizard para evitar duplicados. Priorizar codigo limpio y eficiente: mientras menos codigo, mejor, sin sacrificar claridad.
+El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
+- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+- Si no existe la carpeta del modulo, debe crearse.
+- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -24,7 +29,7 @@ Incluir manejo de errores y mejores practicas de UX.”
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/CU-XXX/logs/`.
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-XXX/logs/`.
 - El archivo debe nombrarse `CU-XXX-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -123,7 +128,7 @@ El usuario define el nuevo estado del paquete:
 
 Mostrar resumen del paquete seleccionado y el viaje asociado (incluyendo `link`).
 
-Al confirmar, guardar:
+Al confirmar, guardar:      
 
 1) Llamar a `cambiar_estado_paquete(p_codigo_paquete, p_estado)` con el nuevo estado.
 

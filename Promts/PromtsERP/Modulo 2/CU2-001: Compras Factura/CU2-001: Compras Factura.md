@@ -6,7 +6,12 @@ CU2-001: Compras Factura
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (si hay varios pasos) o de un solo paso (si el formulario solo tiene un paso). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
-El codigo generado debe guardarse en una sola carpeta por caso de uso: `wizard/CU2-001` (siempre `wizard/CU2-XXX`), sobrescribiendo su propio wizard para evitar duplicados. Priorizar codigo limpio y eficiente: mientras menos codigo, mejor, sin sacrificar claridad.
+El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
+- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+- Si no existe la carpeta del modulo, debe crearse.
+- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -24,7 +29,7 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/CU2-001/logs/`.
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 2/CU2-001/logs/`.
 - El archivo debe nombrarse `CU2-001-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -68,15 +73,16 @@ vCodigo_provedor = Seleccionar de la lista de Proveedores devuelta por el SP get
 vTipo_documento_compra = "FCC".
 
 vNum_documento_compra = calcular con SQL:
-`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_compras WHERE tipo_documento_compra = vTipo_documento_compra` (si no hay filas, usar 1). No editable.
+`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = vTipo_documento_compra` (si no hay filas, usar 1). No editable.
 
-Presentar un Grid editable llamado "vDetalleCompra" que permita agregar, borrar y editar lineas. El Grid debe tener las siguientes columnas: codigo_producto, cantidad, saldo, precio_compra.
+Presentar un Grid editable llamado "vDetalleCompra" que permita agregar, borrar y editar lineas. El Grid debe tener las siguientes columnas: codigo_producto, cantidad, saldo, monto.
 
 Vcodigo_producto = ofrecer la lista de productos que devuelve el SP get_productos.
-Vcantidad = es editable. si es visible
+Vcantidad = es editable. si es visible. Acepta decimales con hasta 2 digitos.
 Vsaldo=0 no es visible
-precio_compra=es editable. si es visible
+monto=es editable. si es visible
 
+vTotal_compra=la suma de todos los monto que hay en detalle_mov_contable_prov
 
 
 vordinalmovstockdetalles= `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra AND numdocumentostock = vNum_documento_compra ` (si no hay filas, usar 1).
@@ -90,26 +96,27 @@ En la vista, cada campo debe usar el mismo nombre de variable definido arriba y 
 Al terminar el formulario multipasos, cuando el usuario da click al boton "Facturar Compra" el sistema debera realizar las siguientes transacciones sobre la DB:
 
 
-- Guardar en la tabla `mov_contable_compras` con estos campos (una fila por campo):
+- Guardar en la tabla `mov_contable_prov` con estos campos (una fila por campo):
+
   - tipo_documento_compra = vTipo_documento_compra
   - num_documento_compra = vNum_documento_compra
   - codigo_provedor = vCodigo_provedor
   - fecha = vFecha
+  - monto = vTotal_compra
 
-- Guardar en la tabla `detalle_mov_contable_compras` los datos del grid "vDetalleCompra" con ordinal correlativo por item, con estos campos (una fila por campo):
+- Guardar en la tabla `detalle_mov_contable_prov` los datos del grid "vDetalleCompra" con ordinal correlativo por item, con estos campos (una fila por campo):
   - tipo_documento_compra = vTipo_documento_compra
   - num_documento_compra = vNum_documento_compra
   - codigo_provedor = vCodigo_provedor
   - ordinal = vordinal
   - codigo_producto = vDetalleCompra.codigo_producto
   - cantidad = vDetalleCompra.cantidad
+  - cantidad_entregada = 0
   - saldo = 0
-  - precio_compra = vDetalleCompra.precio_compra
+  - monto = vDetalleCompra.monto
 
 - Actualizar el saldo del proveedor ejecutando el procedimiento:
   - `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vTotal_compra)`
-  - vTotal_compra = SUM(vDetalleCompra.cantidad * vDetalleCompra.precio_compra)
-
 
 
 

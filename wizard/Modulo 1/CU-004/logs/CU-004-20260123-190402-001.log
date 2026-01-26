@@ -1,0 +1,12 @@
+[2026-01-23T19:04:02.903Z] CONFIG | DB name=erpdb
+[2026-01-23T19:04:02.907Z] ERROR | TypeError [ERR_INVALID_URL]: Invalid URL
+    at new NodeError (node:internal/errors:405:5)
+    at new URL (node:internal/url:676:13)
+    at ConnectionConfig.parseUrl (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/lib/connection_config.js:273:23)
+    at new ConnectionConfig (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/lib/connection_config.js:79:43)
+    at new PoolConfig (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/lib/pool_config.js:10:29)
+    at createPool (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/lib/create_pool.js:7:29)
+    at Object.createPromisePool [as createPool] (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/promise.js:46:20)
+    at initPool (/root/erp/NuevosistemaOFICIAL/wizard/CU-004/server.js:60:22)
+    at startServer (/root/erp/NuevosistemaOFICIAL/wizard/CU-004/server.js:124:26)
+    at Object.<anonymous> (/root/erp/NuevosistemaOFICIAL/wizard/CU-004/server.js:251:1)

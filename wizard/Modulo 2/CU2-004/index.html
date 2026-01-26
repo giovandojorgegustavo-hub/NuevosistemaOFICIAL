@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU2-004 Gestion Compras</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wizard-shell">
+      <header class="hero">
+        <div>
+          <span class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Core</span>
+          <h1 data-i18n="title">Gestion de Compras - Remitos</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Orquesta remitos de compra con trazabilidad y validaciones en tiempo real.
+          </p>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot"></span>
+          <span data-i18n="status">Operativo</span>
+        </div>
+      </header>
+
+      <section class="wizard-card">
+        <div class="wizard-progress">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="step-badge" data-step="0" data-i18n="step1Title">1. Seleccionar factura</div>
+            <div class="step-badge" data-step="1" data-i18n="step2Title">2. Definir remito</div>
+            <div class="step-badge" data-step="2" data-i18n="step3Title">3. Confirmar y registrar</div>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Progreso">
+            <div class="progress-bar" id="wizardProgress" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="errorAlert"></div>
+        <div class="alert alert-success d-none" id="successAlert"></div>
+
+        <form id="remitoForm" autocomplete="off">
+          <div class="wizard-step" data-step="0">
+            <div class="section-head">
+              <h2 data-i18n="facturasTitle">Facturas pendientes (FCC)</h2>
+              <span class="helper" data-i18n="facturasHelp">Seleccione una factura para generar el remito.</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-dark table-striped align-middle" id="facturasTable">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th data-i18n="colFecha">Fecha</th>
+                    <th data-i18n="colTipo">Tipo</th>
+                    <th data-i18n="colNumero">Numero</th>
+                    <th data-i18n="colProveedor">Proveedor</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="1">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="fecha">Fecha</label>
+                <input type="date" class="form-control" id="vFecha" name="vFecha" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="tipoRemito">Tipo remito</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vTipo_documento_compra_remito"
+                  name="vTipo_documento_compra_remito"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="numeroRemito">Numero remito</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vNum_documento_compra_remito"
+                  name="vNum_documento_compra_remito"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="ordinalRemito">Ordinal base</label>
+                <input type="text" class="form-control" id="vOrdinal" name="vOrdinal" readonly />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="base">Base destino</label>
+                <select class="form-select" id="vCodigo_base" name="vCodigo_base" required>
+                  <option value="" data-i18n="seleccione">Seleccione...</option>
+                </select>
+                <div class="invalid-feedback" data-i18n="baseError">Seleccione una base.</div>
+              </div>
+            </div>
+
+            <div class="section-head">
+              <h2 data-i18n="detalleTitle">Detalle remito</h2>
+              <span class="helper" data-i18n="detalleHelp">Defina cantidades a entregar.</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-dark table-striped align-middle" id="detalleRemitoTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colDisponible">Disponible</th>
+                    <th data-i18n="colCantidad">Cantidad remito</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="helper" data-i18n="step2Help">
+              Ajuste las cantidades sin superar el disponible.
+            </p>
+          </div>
+
+          <div class="wizard-step" data-step="2">
+            <div class="summary-panel">
+              <h3 data-i18n="summaryTitle">Resumen del remito</h3>
+              <div class="summary-grid">
+                <div>
+                  <span data-i18n="factura">Factura</span>
+                  <strong id="summaryFactura">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="proveedor">Proveedor</span>
+                  <strong id="summaryProveedor">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="remito">Remito</span>
+                  <strong id="summaryRemito">-</strong>
+                </div>
+                <div>
+                  <span data-i18n="base">Base destino</span>
+                  <strong id="summaryBase">-</strong>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-dark table-striped align-middle" id="detalleRemitoSummary">
+                  <thead>
+                    <tr>
+                      <th data-i18n="colProducto">Producto</th>
+                      <th data-i18n="colCantidad">Cantidad remito</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="confirmacion" />
+              <label class="form-check-label" for="confirmacion" data-i18n="confirmacion">
+                Confirmo que la informacion es correcta.
+              </label>
+              <div class="invalid-feedback" data-i18n="confirmacionError">Debe confirmar la operacion.</div>
+            </div>
+            <div class="execution-panel">
+              <div class="loading-state" id="loadingState">
+                <div class="spinner-border text-info" role="status"></div>
+                <div>
+                  <h3 data-i18n="step3Title">3. Confirmar y registrar</h3>
+                  <p data-i18n="step3Help">Confirma para registrar el remito en el ERP.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="wizard-actions">
+          <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="prev">Anterior</button>
+          <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="next">Siguiente</button>
+          <button class="btn btn-accent" type="button" id="registrarBtn" data-i18n="registrar">
+            Registrar Remito
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

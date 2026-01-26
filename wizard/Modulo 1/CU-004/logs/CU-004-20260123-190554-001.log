@@ -1,0 +1,21 @@
+[2026-01-23T19:05:54.281Z] CONFIG | DB name=erpdb
+[2026-01-23T19:05:54.308Z] SERVER | Inicio del servidor
+[2026-01-23T19:05:54.312Z] SERVER | Servidor escuchando en puerto 3000
+[2026-01-23T19:05:58.364Z] ENDPOINT | GET /
+[2026-01-23T19:05:58.513Z] ENDPOINT | GET /app.js
+[2026-01-23T19:05:58.515Z] ENDPOINT | GET /styles.css
+[2026-01-23T19:05:58.783Z] ENDPOINT | GET /api/paquetes-en-camino
+[2026-01-23T19:05:58.784Z] SQL | CALL get_paquetes_por_estado(?) | params=["en camino"]
+[2026-01-23T19:06:00.550Z] ENDPOINT | GET /api/paquete/1
+[2026-01-23T19:06:00.551Z] SQL | CALL get_viaje_por_documento(?) | params=["1"]
+[2026-01-23T19:06:00.554Z] SQL | CALL get_mov_contable_detalle(?, ?) | params=["FAC","1"]
+[2026-01-23T19:06:00.556Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:06:14.196Z] ENDPOINT | POST /api/paquete/1/estado
+[2026-01-23T19:06:14.198Z] SQL | CALL cambiar_estado_paquete(?, ?) | params=["1","robado"]
+[2026-01-23T19:06:14.199Z] SQL | SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC' | params=["1"]
+[2026-01-23T19:06:14.200Z] SQL | INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, 'FAC') | params=["1","5","robado"]
+[2026-01-23T19:06:14.201Z] SQL | UPDATE detalleviaje SET fecha_fin = NOW() WHERE codigo_paquete = ? | params=["1"]
+[2026-01-23T19:06:14.204Z] ERROR | Error: Unknown column 'codigo_paquete' in 'where clause'
+    at PromisePoolConnection.query (/root/erp/NuevosistemaOFICIAL/node_modules/mysql2/lib/promise/connection.js:29:22)
+    at Server.<anonymous> (/root/erp/NuevosistemaOFICIAL/wizard/CU-004/server.js:226:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

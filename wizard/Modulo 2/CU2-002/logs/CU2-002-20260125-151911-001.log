@@ -1,0 +1,15 @@
+[2026-01-25 15:19:11] LOG FILE: CU2-002-20260125-151911-001.log
+[2026-01-25 15:19:11] DB CONFIG: name=erpdb dsn=mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb
+[2026-01-25 15:19:11] SERVER START: http://localhost:3000
+[2026-01-25 15:19:17] ENDPOINT: GET /
+[2026-01-25 15:19:17] ENDPOINT: GET /styles.css
+[2026-01-25 15:19:17] ENDPOINT: GET /app.js
+[2026-01-25 15:19:18] ENDPOINT: GET /api/now
+[2026-01-25 15:19:18] ENDPOINT: GET /api/bases
+[2026-01-25 15:19:18] SQL: CALL get_bases()
+[2026-01-25 15:19:18] ENDPOINT: GET /api/productos
+[2026-01-25 15:19:18] SQL: CALL get_productos()
+[2026-01-25 15:19:18] ENDPOINT: GET /api/next-numdocumento
+[2026-01-25 15:19:18] SQL: SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ? | params=["TRS"]
+[2026-01-25 15:19:18] ENDPOINT: GET /api/next-ordinal
+[2026-01-25 15:19:18] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ? | params=["TRS","3"]

@@ -1,0 +1,44 @@
+[2026-01-25 17:11:43] LOG FILE: CU2-004-20260125-171143-001.log
+[2026-01-25 17:11:43] DB CONFIG: name=erpdb dsn=mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb
+[2026-01-25 17:11:43] SERVER START: http://localhost:3000
+[2026-01-25 17:11:48] ENDPOINT: GET /
+[2026-01-25 17:11:48] ENDPOINT: GET /styles.css
+[2026-01-25 17:11:48] ENDPOINT: GET /app.js
+[2026-01-25 17:11:48] ENDPOINT: GET /api/bases
+[2026-01-25 17:11:48] SQL: CALL get_bases()
+[2026-01-25 17:11:48] ENDPOINT: GET /api/now
+[2026-01-25 17:11:48] ENDPOINT: GET /api/facturas-pendientes
+[2026-01-25 17:11:48] SQL: CALL get_facturascompras_pendientes()
+[2026-01-25 17:11:52] ENDPOINT: GET /api/next-numdocumento
+[2026-01-25 17:11:52] SQL: SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ? | params=["RMP"]
+[2026-01-25 17:11:52] ENDPOINT: GET /api/next-ordinal
+[2026-01-25 17:11:52] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ? | params=["RMP","1"]
+[2026-01-25 17:11:52] ENDPOINT: GET /api/detalle-compra
+[2026-01-25 17:11:52] SQL: CALL get_detalle_compra_por_documento(?, ?, ?) | params=["FCC","1","2001"]
+[2026-01-25 17:12:02] ENDPOINT: POST /api/remitos
+[2026-01-25 17:12:02] SQL: BEGIN TRANSACTION
+[2026-01-25 17:12:02] SQL: INSERT INTO movimiento_stock
+      (tipodocumentostock, numdocumentostock, fecha, codigo_base, tipo_documento_compra, num_documento_compra, codigo_provedor)
+      VALUES (?, ?, ?, ?, ?, ?, ?) | params=["RMP","1","2026-01-25","1","FCC","1","2001"]
+[2026-01-25 17:12:02] SQL: SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ? | params=["RMP","1"]
+[2026-01-25 17:12:02] SQL: INSERT INTO detalle_movimiento_stock
+      (ordinal, tipodocumentostock, numdocumentostock, codigo_producto, cantidad)
+      VALUES (?, ?, ?, ?, ?) | params=["1","RMP","1","1","3000"]
+[2026-01-25 17:12:02] SQL: CALL aplicar_entrega_compra(?, ?, ?, ?, ?) | params=["FCC","1","2001","1","3000"]
+[2026-01-25 17:12:02] SQL: INSERT INTO detalle_movimiento_stock
+      (ordinal, tipodocumentostock, numdocumentostock, codigo_producto, cantidad)
+      VALUES (?, ?, ?, ?, ?) | params=["11","RMP","1","2","1000"]
+[2026-01-25 17:12:02] SQL: CALL aplicar_entrega_compra(?, ?, ?, ?, ?) | params=["FCC","1","2001","2","1000"]
+[2026-01-25 17:12:02] SQL: COMMIT
+[2026-01-25 17:35:58] ENDPOINT: POST /
+[2026-01-25 17:36:03] ENDPOINT: POST /
+[2026-01-25 17:36:07] ENDPOINT: POST /_next
+[2026-01-25 17:36:12] ENDPOINT: POST /_next
+[2026-01-25 17:36:15] ENDPOINT: POST /api
+[2026-01-25 17:36:20] ENDPOINT: POST /api
+[2026-01-25 17:36:22] ENDPOINT: POST /_next/server
+[2026-01-25 17:36:29] ENDPOINT: POST /_next/server
+[2026-01-25 17:36:31] ENDPOINT: POST /app
+[2026-01-25 17:36:39] ENDPOINT: POST /app
+[2026-01-25 17:36:41] ENDPOINT: POST /api/route
+[2026-01-25 17:38:05] ENDPOINT: POST /api/route
