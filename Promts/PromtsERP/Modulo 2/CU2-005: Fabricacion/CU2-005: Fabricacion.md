@@ -53,7 +53,7 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Confirmar Operacion
 - Estados de loading y error
 - Ver Logs de sentencias SQL
-- Registrar Fabricacion (FAB)
+- Registrar Fabricacion (salida insumos FIS + entrada produccion FPR)
 
 # **Pasos del formulario-multipaso.
 
@@ -72,12 +72,12 @@ vFecha = Inicializar con la fecha del sistema.
 
 vCodigo_base = Seleccionar de la lista de Bases devuelta por el SP get_bases.
 
-vTipoDocumentoStockInsumo = "FIS".
+vTipoDocumentoStockInsumo = "FIS" (salida de insumos).
 
 vNumDocumentoStockInsumo = calcular con SQL:
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipoDocumentoStockInsumo` (si no hay filas, usar 1). No editable.
 
-vTipoDocumentoStockProduccion = "FPR".
+vTipoDocumentoStockProduccion = "FPR" (entrada de productos terminados).
 
 vNumDocumentoStockProduccion = calcular con SQL:
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipoDocumentoStockProduccion` (si no hay filas, usar 1). No editable.
@@ -152,6 +152,8 @@ En este paso se muestra el resumen final y el boton \"Registrar Fabricacion\". A
 4) Guardar detalle de produccion en `detalle_movimiento_stock` (vDetalleProduccion) con ordinal correlativo.
 5) Guardar cabecera en `mov_contable_gasto` y detalle en `mov_contable_gasto_detalle` (solo etiquetas).
 6) Guardar relacion en `fabricaciongastos` entre la cabecera de fabricacion (movimiento_stock) y la cabecera de gasto, usando el doc stock de produccion.
+7) Actualizar `saldo_stock` por cada item de insumos usando `upd_stock_bases` con `p_tipodoc = 'FBI'` (salida de insumos).
+8) Actualizar `saldo_stock` por cada item de produccion usando `upd_stock_bases` con `p_tipodoc = 'FBE'` (entrada de productos).
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
@@ -197,6 +199,6 @@ fabricaciongastos.tipodocumentogasto = vTipoDocumentoGasto
 fabricaciongastos.numdocumentogasto = vNumDocumentoGasto
 fabricaciongastos.ordinal = vOrdinalGasto
 
-7) Ejecutar el procedimiento `aplicar_gasto_bancario(vTipoDocumentoGasto, vNumDocumentoGasto)` para actualizar saldo bancario.
+9) Ejecutar el procedimiento `aplicar_gasto_bancario(vTipoDocumentoGasto, vNumDocumentoGasto)` para actualizar saldo bancario.
 
 **

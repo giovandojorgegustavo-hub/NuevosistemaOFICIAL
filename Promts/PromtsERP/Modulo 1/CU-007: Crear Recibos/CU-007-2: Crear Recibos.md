@@ -96,9 +96,9 @@ vSaldoPendiente = saldo_final del cliente seleccionado (no editable).
 
 Campos del pago:
 vFecha_emision = Inicializar con la fecha del sistema (editable).
-vTipo_documento = "REC".
+vTipo_documento = "RCP".
 vNumero_documento = correlativo numerico no editable. Se debe generar con SQL:
-`SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'REC'`.
+`SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'`.
 vCodigo_cuentabancaria = Seleccionar de la lista de cuentas bancarias devuelta por el SP `get_cuentasbancarias()`.
 vMonto = campo numerico para escribir el monto del recibo (mayor que 0 y menor o igual a vSaldoPendiente).
 
@@ -116,21 +116,20 @@ Validaciones:
 
 ## Grabar Recibo. Tomar los datos capturados en el paso 2:
 
-### Guardar en la tabla "mov_contable".
-fecha_emision=vFecha_emision  
-fecha_valor=vFecha_emision
-fecha_vencimiento=vFecha_emision
-tipo_documento=vTipo_documento  
-numero_documento=vNumero_documento  
-codigo_cliente=vCodigo_cliente  
+### Guardar en la tabla "mov_operaciones_contables".
+tipodocumento=vTipo_documento  
+numdocumento=vNumero_documento  
+fecha=vFecha_emision  
+monto=vMonto  
 codigo_cuentabancaria=vCodigo_cuentabancaria  
-saldo=vMonto  
+codigo_cuentabancaria_destino=NULL  
+descripcion=opcional  
 
 ### Actualizar saldo del cliente
 - Ejecutar el procedimiento `actualizarsaldosclientes(vCodigo_cliente, vTipo_documento, vMonto)`.
 
 ### Actualizar saldo bancario
-- Ejecutar el procedimiento `aplicar_pago_cliente(vTipo_documento, vNumero_documento)`.
+- Ejecutar el procedimiento `aplicar_operacion_bancaria(vTipo_documento, vNumero_documento)`.
 
 No utilizar datos mock.
 

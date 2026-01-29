@@ -47,8 +47,12 @@ function logLine(level, message) {
   fs.appendFileSync(logFile, `${line}\n`, 'utf8');
 }
 
+function logError(error) {
+  logLine('ERROR', error && error.stack ? error.stack : error.message);
+}
+
 function parseErpConfig() {
-  const configPath = path.join(ROOT_DIR, '..', '..', 'erp.yml');
+  const configPath = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
   const raw = fs.readFileSync(configPath, 'utf8');
   const nameMatch = raw.match(/name:\s*"?([^"\n]+)"?/);
   const dsnMatch = raw.match(/dsn:\s*"?([^"\n]+)"?/);
@@ -68,7 +72,7 @@ function parseMysqlDsn(dsn) {
     password: match[2],
     host: match[3],
     port: Number(match[4]),
-    database: match[5],
+    database: match[5]
   };
 }
 
@@ -84,7 +88,7 @@ logLine('INFO', `Iniciando servidor CU-002 usando DB: ${name}`);
 const pool = mysql.createPool({
   ...dbConfig,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 10
 });
 
 async function queryDb(connection, sql, params = []) {
@@ -96,7 +100,7 @@ function sendJson(res, status, payload) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Content-Length': Buffer.byteLength(body),
+    'Content-Length': Buffer.byteLength(body)
   });
   res.end(body);
 }
@@ -142,59 +146,59 @@ async function handleRequest(req, res) {
   }
 
   if (method === 'GET' && route === '/api/paquetes') {
-    const estado = parsed.query.estado || 'pendiente empacar';
-    logLine('INFO', `ENDPOINT: GET /api/paquetes?estado=${estado}`);
-    try {
-      const [rows] = await queryDb(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
-      return sendJson(res, 200, rows[0] || []);
-    } catch (error) {
-      logLine('ERROR', error.message);
-      return sendJson(res, 500, { message: 'Error al obtener paquetes.' });
+    const estado = parsed.query.estado;
+    if (!estado) {
+      return sendJson(res, 400, { message: 'Estado requerido.' });
     }
-  }
-
-  if (method === 'GET' && route === '/api/paquetes/detalle') {
-    const codigo = parsed.query.codigo;
-    const tipo = parsed.query.tipo || 'FAC';
-    logLine('INFO', `ENDPOINT: GET /api/paquetes/detalle?codigo=${codigo}&tipo=${tipo}`);
-
-    if (!codigo) {
-      return sendJson(res, 400, { message: 'Codigo requerido.' });
-    }
-
     const connection = await pool.getConnection();
     try {
-      const [rows] = await queryDb(connection, 'CALL get_mov_contable_detalle(?, ?)', [tipo, codigo]);
-      const [ordinalRows] = await queryDb(
-        connection,
-        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
-        [codigo]
-      );
-      const ordinal = ordinalRows[0]?.next || 1;
-      return sendJson(res, 200, { detalle: rows[0] || [], ordinal });
+      const [rows] = await queryDb(connection, 'CALL get_paquetes_por_estado(?)', [estado]);
+      return sendJson(res, 200, rows[0] || []);
     } catch (error) {
-      logLine('ERROR', error.message);
-      return sendJson(res, 500, { message: 'Error al obtener detalle.' });
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al cargar paquetes pendientes.' });
     } finally {
       connection.release();
     }
   }
 
-  if (method === 'POST' && route === '/api/empacar') {
-    logLine('INFO', 'ENDPOINT: POST /api/empacar');
+  if (method === 'GET' && route === '/api/paquetes/detalle') {
+    const codigo = parsed.query.codigo;
+    if (!codigo) {
+      return sendJson(res, 400, { message: 'Codigo de paquete requerido.' });
+    }
+    const connection = await pool.getConnection();
+    try {
+      const [detalleRows] = await queryDb(connection, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
+      const [ordinalRows] = await queryDb(
+        connection,
+        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+        [codigo]
+      );
+      return sendJson(res, 200, {
+        detalle: detalleRows[0] || [],
+        ordinal: ordinalRows[0]?.next || 1
+      });
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al cargar detalle del documento.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'POST' && route === '/api/empaque') {
     let payload;
     try {
       payload = await parseBody(req);
     } catch (error) {
-      logLine('ERROR', error.message);
-      return sendJson(res, 400, { message: 'Payload invalido.' });
+      logError(error);
+      return sendJson(res, 400, { message: 'Body invalido.' });
     }
 
-    const { codigo_paquete } = payload || {};
-    const codeRegex = /^[0-9A-Za-z-]+$/;
-
-    if (!codigo_paquete || !codeRegex.test(codigo_paquete)) {
-      return sendJson(res, 400, { message: 'Codigo de paquete invalido.' });
+    const codigoPaquete = (payload.codigo_paquete || '').trim();
+    if (!codigoPaquete) {
+      return sendJson(res, 400, { message: 'Codigo de paquete requerido.' });
     }
 
     const connection = await pool.getConnection();
@@ -204,36 +208,68 @@ async function handleRequest(req, res) {
       const [ordinalRows] = await queryDb(
         connection,
         "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
-        [codigo_paquete]
+        [codigoPaquete]
       );
       const ordinal = ordinalRows[0]?.next || 1;
 
       await queryDb(
         connection,
-        "INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, 'empacado', 'FAC')",
-        [codigo_paquete, ordinal]
+        'INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, ?)',
+        [codigoPaquete, ordinal, 'empacado', 'FAC']
       );
 
-      await queryDb(connection, 'CALL cambiar_estado_paquete(?, ?)', [codigo_paquete, 'empacado']);
-      await queryDb(connection, 'CALL get_actualizarsaldostock(?, ?)', ['FAC', codigo_paquete]);
+      await queryDb(connection, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'empacado']);
+
+      const [movRows] = await queryDb(
+        connection,
+        'SELECT codigo_base FROM mov_contable WHERE tipo_documento = ? AND numero_documento = ?',
+        ['FAC', codigoPaquete]
+      );
+      const codigoBase = movRows[0]?.codigo_base;
+      if (!codigoBase) {
+        throw new Error('No se encontro codigo_base en mov_contable.');
+      }
+
+      const [detalleRows] = await queryDb(connection, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigoPaquete]);
+      const detalle = detalleRows[0] || [];
+
+      for (const row of detalle) {
+        const codigoProducto = row.codigo_producto || row.Vcodigo_producto || row.vcodigo_producto;
+        const cantidad = row.cantidad || row.Vcantidad || row.vcantidad;
+        if (!codigoProducto || !cantidad) continue;
+
+        await queryDb(
+          connection,
+          'CALL upd_stock_bases(?, ?, ?, ?, ?)',
+          [codigoBase, codigoProducto, cantidad, 'FAC', codigoPaquete]
+        );
+
+        await queryDb(
+          connection,
+          'CALL aplicar_salida_partidas(?, ?, ?, ?)',
+          ['FAC', codigoPaquete, codigoProducto, cantidad]
+        );
+      }
 
       await connection.commit();
-      return sendJson(res, 200, { codigo_paquete, ordinal });
+      return sendJson(res, 200, { codigo_paquete: codigoPaquete });
     } catch (error) {
       await connection.rollback();
-      logLine('ERROR', error.stack || error.message);
+      logError(error);
       return sendJson(res, 500, { message: 'Error al registrar empaque.' });
     } finally {
       connection.release();
     }
   }
 
-  res.writeHead(404, { 'Content-Type': 'text/plain' });
-  res.end('Not found');
+  sendJson(res, 404, { message: 'Not found' });
 }
 
 const server = http.createServer((req, res) => {
-  handleRequest(req, res);
+  handleRequest(req, res).catch((error) => {
+    logError(error);
+    sendJson(res, 500, { message: 'Error interno.' });
+  });
 });
 
 server.listen(PORT, () => {

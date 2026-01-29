@@ -1908,17 +1908,12 @@ INSERT INTO `clientes` (`nombre`, `numero`, `codigo_cliente`, `created_at`) VALU
   ('Comercial San Martin', 3, 3, '2026-01-12 22:07:43');
 
 INSERT INTO `bases` (`nombre`, `codigo_base`, `created_at`, `latitud`, `longitud`, `direccion`) VALUES
-  ('CUSCO', 1, '2026-01-10 16:58:30', NULL, NULL, NULL),
-  ('LEVIATAN', 2, '2026-01-10 16:58:30', NULL, NULL, NULL);
+  ('CUSCO', 1, '2026-01-10 16:58:30', -13.53195000, -71.96746000, 'Plaza de Armas, Cusco'),
+  ('LEVIATAN', 2, '2026-01-10 16:58:30', -12.04640000, -77.04280000, 'Centro de Lima'),
+  ('LIMA', 3, '2026-01-10 16:58:30', -12.04640000, -77.04280000, 'Lima Metropolitana'),
+  ('AREQUIPA', 4, '2026-01-10 16:58:30', -16.40900000, -71.53750000, 'Cercado, Arequipa');
 
-INSERT INTO `bases` (`nombre`, `codigo_base`, `created_at`, `latitud`, `longitud`, `direccion`) VALUES
-  ('LIMA', 3, '2026-01-10 16:58:30', NULL, NULL, NULL),
-  ('AREQUIPA', 4, '2026-01-10 16:58:30', NULL, NULL, NULL);
 
-INSERT INTO `packing` (`nombre`, `codigo_packing`, `created_at`) VALUES
-  ('CAJA ESTÁNDAR', 1, '2026-01-10 16:58:30'),
-  ('FRÁGIL', 2, '2026-01-10 16:58:30'),
-  ('REFRIGERADO', 3, '2026-01-10 16:58:30');
 
 INSERT INTO puntos_entrega (
   codigo_puntoentrega,
@@ -1932,12 +1927,14 @@ INSERT INTO puntos_entrega (
   agencia,
   concatenarpuntoentrega,
   estado,
-  created_at
+  created_at,
+  latitud,
+  longitud
 ) VALUES
-  (1, 1, '150131', 'LIMA', 'AV. JAVIER PRADO ESTE 1234 OF 501', NULL, NULL, NULL, NULL, 'AV. JAVIER PRADO ESTE 1234 OF 501 | SAN ISIDRO', 'activo', '2026-01-10 16:43:24'),
-  (2, 1, '150122', 'LIMA', 'CALLE SCHELL 456 DEP 302', NULL, NULL, NULL, NULL, 'CALLE SCHELL 456 DEP 302 | MIRAFLORES', 'activo', '2026-01-10 16:43:24'),
-  (3, 2, '080108', 'PROV', NULL, NULL, 'Maria Gomez', '87654321', 'CUSCO - WANCHAQ', 'Maria Gomez | 87654321 | CUSCO - WANCHAQ', 'activo', '2026-01-10 16:43:24'),
-  (4, 3, '040126', 'PROV', NULL, NULL, 'Comercial San Martin', '20123456789', 'AREQUIPA - YANAHUARA', 'Comercial San Martin | 20123456789 | AREQUIPA - YANAHUARA', 'activo', '2026-01-10 16:43:24');
+  (1, 1, '150131', 'LIMA', 'Jockey Plaza', NULL, NULL, NULL, NULL, 'Jockey Plaza', 'activo', '2026-01-10 16:43:24', -12.08517985, -76.97712021),
+  (2, 1, '150122', 'LIMA', 'Larcomar', NULL, NULL, NULL, NULL, 'Larcomar', 'activo', '2026-01-10 16:43:24', -12.13191583, -77.03045942),
+  (3, 2, '080108', 'PROV', 'La Rambla', NULL, 'Maria Gomez', '87654321', 'CUSCO - WANCHAQ', 'Maria Gomez | 87654321 | CUSCO - WANCHAQ', 'activo', '2026-01-10 16:43:24', -12.08885156, -77.00508223),
+  (4, 3, '040126', 'PROV', 'Plaza San Miguel', NULL, 'Comercial San Martin', '20123456789', 'AREQUIPA - YANAHUARA', 'Comercial San Martin | 20123456789 | AREQUIPA - YANAHUARA', 'activo', '2026-01-10 16:43:24', -12.07727017, -77.08324429);
 
 
 INSERT INTO `numrecibe` (
@@ -1983,9 +1980,11 @@ INSERT INTO `cuentas_bancarias` (`codigo_cuentabancaria`, `nombre`, `banco`, `cr
 -- entrada al modulo 2
 
 INSERT INTO `provedores` (`codigo_provedor`, `nombre`, `created_at`) VALUES
+  (0, 'Proveedor Generico', NOW()),
   (2001, 'Proveedor Andino', NOW()),
   (2002, 'Proveedor Pacifico', NOW()),
   (2003, 'Proveedor Continental', NOW());
+
 
 -- etiquetas por defecto
 

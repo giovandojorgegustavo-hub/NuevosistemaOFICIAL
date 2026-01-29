@@ -32,7 +32,7 @@ function ensureLogFile() {
     fs.mkdirSync(LOG_DIR, { recursive: true });
   }
   const now = new Date();
-  const base = `CU2-002-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+  const base = `CU2-006-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
     now.getHours()
   )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   let counter = 1;
@@ -43,7 +43,9 @@ function ensureLogFile() {
     counter += 1;
   } while (fs.existsSync(path.join(LOG_DIR, filename)));
 
-  global.logStream = fs.createWriteStream(path.join(LOG_DIR, filename), { flags: 'a' });
+  global.logFileName = filename;
+  global.logFilePath = path.join(LOG_DIR, filename);
+  global.logStream = fs.createWriteStream(global.logFilePath, { flags: 'a' });
   logLine(`LOG FILE: ${filename}`);
 }
 
@@ -115,6 +117,13 @@ async function runQuery(conn, sql, params) {
   return conn.query(sql, params);
 }
 
+async function getNextNumber(conn, sql, params) {
+  const [rows] = await runQuery(conn, sql, params);
+  const nextRaw = rows[0]?.next ?? 1;
+  const next = Number(nextRaw || 1);
+  return Number.isFinite(next) && next > 0 ? next : 1;
+}
+
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
@@ -128,99 +137,60 @@ app.use(express.static(ROOT_DIR));
 app.get('/api/now', (req, res) => {
   const now = new Date();
   res.json({
-    fecha: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    fecha: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    hora: `${pad(now.getHours())}:${pad(now.getMinutes())}`
   });
 });
 
-app.get('/api/bases', async (req, res) => {
-  const sql = 'CALL get_bases()';
+app.get('/api/proveedores-pendientes', async (req, res) => {
+  const sql = 'CALL get_proveedores_saldos_pendientes()';
   try {
     const [resultSets] = await runQuery(req.app.locals.db, sql);
     res.json(normalizeRows(resultSets));
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al cargar bases.' });
+    res.status(500).json({ message: 'Error al cargar proveedores con saldo pendiente.' });
   }
 });
 
-app.get('/api/productos', async (req, res) => {
-  const sql = 'CALL get_productos()';
+app.get('/api/cuentasbancarias', async (req, res) => {
+  const sql = 'CALL get_cuentasbancarias()';
   try {
     const [resultSets] = await runQuery(req.app.locals.db, sql);
     res.json(normalizeRows(resultSets));
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al cargar productos.' });
+    res.status(500).json({ message: 'Error al cargar cuentas bancarias.' });
   }
 });
 
-app.get('/api/next-numdocumento', async (req, res) => {
-  const tipo = req.query.tipo;
-  if (!tipo) {
-    return res.status(400).json({ message: 'Falta tipodocumentostock.' });
-  }
+app.get('/api/next-numdocumento-rcp', async (req, res) => {
   const sql =
-    'SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ?';
+    "SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = 'RCP'";
   try {
-    const [rows] = await runQuery(req.app.locals.db, sql, [tipo]);
-    res.json({ next: rows[0]?.next || 1 });
+    const next = await getNextNumber(req.app.locals.db, sql);
+    res.json({ next });
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
     res.status(500).json({ message: 'Error al calcular numero de documento.' });
   }
 });
 
-app.get('/api/next-ordinal', async (req, res) => {
-  const tipo = req.query.tipo;
-  const num = req.query.num;
-  if (!tipo || !num) {
-    return res.status(400).json({ message: 'Falta tipo o numero de documento.' });
-  }
-  const sql =
-    'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
-  try {
-    const [rows] = await runQuery(req.app.locals.db, sql, [tipo, num]);
-    res.json({ next: rows[0]?.next || 1 });
-  } catch (error) {
-    logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al calcular ordinal.' });
-  }
-});
-
-app.get('/api/logs/latest', (req, res) => {
-  try {
-    if (!fs.existsSync(LOG_DIR)) {
-      return res.json({ content: '' });
-    }
-    const files = fs
-      .readdirSync(LOG_DIR)
-      .filter((file) => file.endsWith('.log'))
-      .sort();
-    const latest = files[files.length - 1];
-    if (!latest) {
-      return res.json({ content: '' });
-    }
-    const content = fs.readFileSync(path.join(LOG_DIR, latest), 'utf-8');
-    res.json({ content });
-  } catch (error) {
-    logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al leer logs.' });
-  }
-});
-
-app.post('/api/transferencia', async (req, res) => {
+app.post('/api/recibo-proveedor', async (req, res) => {
   const payload = req.body || {};
-  const detalles = Array.isArray(payload.vDetalleTransferencia) ? payload.vDetalleTransferencia : [];
+  const vFecha = payload.vFecha;
+  const vTipo = payload.vTipo_documento_compra || 'RCP';
+  const vNum = payload.vNum_documento_compra;
+  const vCodigoProveedor = payload.vCodigo_provedor;
+  const vCuenta = payload.vCodigo_cuentabancaria;
+  const vMonto = Number(payload.vMonto);
 
-  if (
-    !payload.vTipodocumentostock ||
-    !payload.vNumdocumentostock ||
-    !payload.vFecha ||
-    !payload.vCodigo_base ||
-    !payload.vCodigo_basedestino ||
-    !detalles.length
-  ) {
-    return res.status(400).json({ message: 'Datos incompletos para registrar transferencia.' });
+  if (!vFecha || !vCodigoProveedor || !vCuenta || !vNum) {
+    return res.status(400).json({ message: 'Faltan datos requeridos para registrar el recibo.' });
+  }
+
+  if (!Number.isFinite(vMonto) || vMonto <= 0) {
+    return res.status(400).json({ message: 'El monto debe ser mayor a 0.' });
   }
 
   const conn = await req.app.locals.db.getConnection();
@@ -228,51 +198,22 @@ app.post('/api/transferencia', async (req, res) => {
     await conn.beginTransaction();
     logLine('SQL: BEGIN TRANSACTION');
 
-    const insertMovSql = `INSERT INTO movimiento_stock
-      (tipodocumentostock, numdocumentostock, fecha, codigo_base, codigo_basedestino)
-      VALUES (?, ?, ?, ?, ?)`;
-    await runQuery(conn, insertMovSql, [
-      payload.vTipodocumentostock,
-      payload.vNumdocumentostock,
-      payload.vFecha,
-      payload.vCodigo_base,
-      payload.vCodigo_basedestino
-    ]);
+    const insertSql =
+      'INSERT INTO mov_contable_prov (fecha, tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_cuentabancaria, monto) VALUES (?, ?, ?, ?, ?, ?)';
+    await runQuery(conn, insertSql, [vFecha, vTipo, vNum, vCodigoProveedor, vCuenta, vMonto]);
 
-    const ordinalSql =
-      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
-    const [ordinalRows] = await runQuery(conn, ordinalSql, [
-      payload.vTipodocumentostock,
-      payload.vNumdocumentostock
-    ]);
-    let ordinal = ordinalRows[0]?.next || 1;
-
-    const insertDetalleSql = `INSERT INTO detalle_movimiento_stock
-      (ordinal, tipodocumentostock, numdocumentostock, codigo_producto, cantidad)
-      VALUES (?, ?, ?, ?, ?)`;
-
-    for (const item of detalles) {
-      await runQuery(conn, insertDetalleSql, [
-        ordinal,
-        payload.vTipodocumentostock,
-        payload.vNumdocumentostock,
-        item.vcodigo_producto,
-        item.Vcantidad
-      ]);
-      ordinal += 1;
-    }
-
-    const callSql = 'CALL get_saldo_stock(?, ?)';
-    await runQuery(conn, callSql, [payload.vTipodocumentostock, payload.vNumdocumentostock]);
+    await runQuery(conn, 'CALL actualizarsaldosprovedores(?, ?, ?)', [vCodigoProveedor, vTipo, vMonto]);
+    await runQuery(conn, 'CALL aplicar_pago_proveedor(?, ?, ?)', [vTipo, vNum, vCodigoProveedor]);
 
     await conn.commit();
     logLine('SQL: COMMIT');
-    res.json({ message: 'Transferencia registrada correctamente.' });
+
+    res.json({ message: 'Recibo registrado correctamente.' });
   } catch (error) {
     await conn.rollback();
     logLine('SQL: ROLLBACK');
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al registrar la transferencia.' });
+    res.status(500).json({ message: 'Error al registrar el recibo.' });
   } finally {
     conn.release();
   }
@@ -281,8 +222,7 @@ app.post('/api/transferencia', async (req, res) => {
 async function start() {
   ensureLogFile();
   try {
-    const db = await initDb();
-    app.locals.db = db;
+    app.locals.db = await initDb();
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
       logLine(`SERVER START: http://localhost:${port}`);

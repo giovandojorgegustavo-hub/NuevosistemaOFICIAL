@@ -1,0 +1,21 @@
+[2026-01-26 23:21:20] LOG FILE: CU3-001-20260126-232120-001.log
+[2026-01-26 23:21:20] DB CONFIG: name=erpdb dsn=mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb
+[2026-01-26 23:21:20] SERVER START: http://localhost:3008
+[2026-01-26 23:21:22] ENDPOINT: GET /
+[2026-01-26 23:21:23] ENDPOINT: GET /styles.css
+[2026-01-26 23:21:23] ENDPOINT: GET /app.js
+[2026-01-26 23:21:23] ENDPOINT: GET /api/now
+[2026-01-26 23:21:23] ENDPOINT: GET /api/cuentasbancarias
+[2026-01-26 23:21:23] SQL: CALL get_cuentasbancarias()
+[2026-01-26 23:21:24] ENDPOINT: GET /api/next-numdocumento-trs
+[2026-01-26 23:21:24] SQL: SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = ? | params=["TRS"]
+[2026-01-26 23:21:40] ENDPOINT: POST /api/transferencia
+[2026-01-26 23:21:40] SQL: BEGIN TRANSACTION
+[2026-01-26 23:21:40] SQL: INSERT INTO mov_operaciones_contables (tipodocumento, numdocumento, fecha, monto, codigo_cuentabancaria, codigo_cuentabancaria_destino, descripcion) VALUES (?, ?, ?, ?, ?, ?, ?) | params=["TRS","1","2026-01-26",500,"1001","1002",""]
+[2026-01-26 23:21:40] SQL: CALL aplicar_operacion_bancaria(?, ?) | params=["TRS","1"]
+[2026-01-26 23:21:40] SQL: COMMIT
+[2026-01-26 23:21:49] ENDPOINT: GET /api/cuentasbancarias
+[2026-01-26 23:21:49] SQL: CALL get_cuentasbancarias()
+[2026-01-26 23:21:49] ENDPOINT: GET /api/now
+[2026-01-26 23:21:50] ENDPOINT: GET /api/next-numdocumento-trs
+[2026-01-26 23:21:50] SQL: SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = ? | params=["TRS"]

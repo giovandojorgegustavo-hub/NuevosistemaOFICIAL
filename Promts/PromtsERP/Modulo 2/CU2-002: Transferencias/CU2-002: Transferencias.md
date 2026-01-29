@@ -53,7 +53,7 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Confirmar Operacion
 - Estados de loading y error
 - Ver Logs de sentencias SQL
-- Registrar transferencia (TRS)
+- Registrar transferencia (TRS) con salida (origen) y entrada (destino)
 
 # **Pasos del formulario-multipaso.
 
@@ -69,6 +69,7 @@ Paso 1  Registrar Transferencia (TRS).
 vFecha = Inicializar con la fecha del sistema.
 
 vTipodocumentostock = "TRS".
+Este documento TRS representa salida desde vCodigo_base y entrada hacia vCodigo_basedestino (se actualiza via upd_stock_bases).
 
 vNumdocumentostock = calcular con SQL:
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipodocumentostock` (si no hay filas, usar 1). No editable.
@@ -102,12 +103,14 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Regis
 - Guardar en la tabla `detalle_movimiento_stock` los datos del grid "vDetalleTransferencia" con ordinal correlativo por item.
 
 ordinal=ordinaldetalle
-tipodocumentostock=
+tipodocumentostock=vTipodocumentostock
 numdocumentostock=vNumdocumentostock
 codigo_producto=vcodigo_producto
 cantidad=Vcantidad
 
-- Ejecutar el SP `get_actualizarsaldosstocktrs(vTipodocumentostock, vNumdocumentostock)` para actualizar `saldo_stock`.
+- Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item:
+  - Salida (origen): `p_codigo_base = vCodigo_base`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostock` (TRS), `p_numdoc = vNumdocumentostock`.
+  - Entrada (destino): `p_codigo_base = vCodigo_basedestino`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostock` (TRE), `p_numdoc = vNumdocumentostock`.
 
 
 No utilizar datos mock.

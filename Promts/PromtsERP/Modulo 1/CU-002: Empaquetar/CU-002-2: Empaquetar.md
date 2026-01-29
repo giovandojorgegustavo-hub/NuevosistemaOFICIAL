@@ -82,9 +82,9 @@ Columnas sugeridas del Grid:
 - vconcatenarpuntoentrega=concatenarpuntoentrega
 - vconcatenarnumrecibe=concatenarnumrecibe
 
-Al seleccionar un paquete del Grid, llama el procedimiento get_mov_contable_detalle(Tipo_documento,Num_documento) los parametros son
+Al seleccionar un paquete del Grid, llama el procedimiento get_mov_contable_detalle(Tipo_documento,numero_documento) los parametros son
 Tipo_documento="FAC"
-Num_documento=Vcodigo_paquete
+numero_documento=Vcodigo_paquete
 
 Vordinal=`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = Vcodigo_paquete AND tipo_documento = 'FAC';` (si no hay filas, usar 1).
 
@@ -118,9 +118,21 @@ Al dar click en "Empacar" el sistema debera realizar las siguientes transaccione
    - `p_codigo_paquete` = Vcodigo_paquete
    - `p_estado` = "empacado".
 
-3) Ejecutar `get_actualizarsaldostock(p_tipo_documento, p_numero_documento)` para actualizar stock en `saldo_stock`.
-   - `p_tipo_documento` = "FAC" (solo guardar en DB, no mostrar en UI).
-   - `p_numero_documento` = Vcodigo_paquete
+3) Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item del documento:
+   - Obtener `codigo_base` desde `mov_contable` del documento seleccionado.
+   - Por cada fila de `mov_contable_detalle`:
+     - `p_codigo_base = codigo_base`
+     - `p_codigo_producto = codigo_producto`
+     - `p_cantidad = cantidad`
+     - `p_tipodoc = "FAC"` (salida, negativo)
+     - `p_numdoc = Vcodigo_paquete`
+
+4) Aplicar salida de partidas por cada item del documento:
+   - Ejecutar `aplicar_salida_partidas(p_tipo_documento_venta, p_numero_documento, p_codigo_producto, p_cantidad)` por cada fila de `mov_contable_detalle`:
+     - `p_tipo_documento_venta = "FAC"`
+     - `p_numero_documento = Vcodigo_paquete`
+     - `p_codigo_producto = codigo_producto`
+     - `p_cantidad = cantidad`
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

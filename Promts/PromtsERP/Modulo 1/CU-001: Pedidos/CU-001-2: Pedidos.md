@@ -75,7 +75,9 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 
 4. Datos Recibe (solo si vRegion_Entrega = "LIMA").
 
-5. Resumen y Emitir Factura.
+5. Registro de Pago (Recibo).
+
+6. Resumen y Emitir Factura.
 
 # **Descripcion de los pasos del formulario de registro.
 
@@ -208,7 +210,20 @@ vOrdinal_paquetedetalle = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 
 
 Vconcatenarnumrecibe = `numero | nombre` (omite campos vacios).
 
-## Paso 5. Resumen y Emitir Factura.
+## Paso 5. Registro de Pago (Recibo).
+
+vTipo_documento_pago = "RCP"
+
+vNumero_documento_pago = calcular con SQL: `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'` (si no hay filas, usar 1).
+
+vCuentaBancaria = Seleccionar de la lista de Cuentas Bancarias devuelta por el SP get_cuentasbancarias.
+
+vMontoPago = Inicializar con Vfsaldo (monto total de la factura). Debe ser editable para permitir pago parcial.
+- Permitir no registrar pago (vMontoPago vacio o 0).
+- Si vMontoPago > 0, validar: vMontoPago <= Vfsaldo.
+
+
+## Paso 6. Resumen y Emitir Factura.
 
 
 Mostrar resumen de Pedido, Factura y Entrega, con boton "Emitir Factura".
@@ -312,6 +327,36 @@ estado= "pendiente empacar"
 
 
 - Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteSeleted, vTipo_Documento, mov_contable.saldo)`.
+
+## Registrar Recibo (Pago)
+Si vMontoPago > 0:
+- Guardar en la tabla "mov_contable" el recibo de pago:
+  - fecha_emision=vFechaP
+  - fecha_vencimiento=vFechaP
+  - fecha_valor=vFechaP
+  - tipo_documento="RCP"
+  - numero_documento=vNumero_documento_pago
+  - codigo_cliente=Vcodigo_cliente
+  - codigo_cuentabancaria=vCuentaBancaria
+  - saldo=vMontoPago
+
+- Guardar en la tabla "mov_operaciones_contables" (actualiza bancos):
+  - tipodocumento="RCP"
+  - numdocumento=vNumero_documento_pago
+  - fecha=vFechaP
+  - monto=vMontoPago
+  - codigo_cuentabancaria=vCuentaBancaria
+  - codigo_cuentabancaria_destino=NULL
+  - descripcion="Recibo cliente" (opcional)
+
+- Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
+  - `CALL aplicar_recibo_a_facturas(vClienteSeleted, "RCP", vNumero_documento_pago, vMontoPago)`
+
+- Actualizar saldo del cliente por el pago:
+  - `CALL actualizarsaldosclientes(vClienteSeleted, "RCP", vMontoPago)`
+
+- Actualizar saldo bancario:
+  - `CALL aplicar_operacion_bancaria("RCP", vNumero_documento_pago)`
 
 
 

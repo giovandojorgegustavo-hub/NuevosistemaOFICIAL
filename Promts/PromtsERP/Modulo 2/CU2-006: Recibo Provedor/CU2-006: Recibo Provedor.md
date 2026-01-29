@@ -91,9 +91,9 @@ vSaldoPendiente = saldo_final del proveedor seleccionado (no editable).
 
 Campos del pago:
 vFecha = Inicializar con la fecha del sistema (editable).
-vTipo_documento_compra = "RCP".
+vTipo_documento_compra = "RCC".
 vNum_documento_compra = correlativo numerico (12 digitos) no editable. Se debe generar con SQL: 
-`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = 'RCP'`.
+`SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCC'`.
 vCodigo_cuentabancaria = Seleccionar de la lista de cuentas bancarias devuelta por el SP `get_cuentasbancarias()`.
 vMonto = campo numerico para escribir el monto del recibo (mayor que 0 y menor o igual a vSaldoPendiente).
 
@@ -111,22 +111,23 @@ Validaciones:
 
 ## Grabar Recibo. Tomar los datos capturados en el paso 2:
 
-### Guardar en la tabla "mov_contable_prov".
+### Guardar en la tabla "mov_operaciones_contables".
+tipodocumento=vTipo_documento_compra  
+numdocumento=vNum_documento_compra  
 fecha=vFecha  
-tipo_documento_compra=vTipo_documento_compra  
-num_documento_compra=vNum_documento_compra  
-codigo_provedor=vCodigo_provedor  
-codigo_cuentabancaria=vCodigo_cuentabancaria  
 monto=vMonto  
+codigo_cuentabancaria=vCodigo_cuentabancaria  
+codigo_cuentabancaria_destino=NULL  
+descripcion=opcional  
 
 ### Detalle
-Para recibos proveedores (RCP) no registrar detalle en `detalle_mov_contable_prov`.
+Para recibos proveedores (RCC) no registrar detalle.
 
 ### Actualizar saldo del proveedor
 - Ejecutar el procedimiento `actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vMonto)`.
 
 ### Actualizar saldo bancario
-- Ejecutar el procedimiento `aplicar_pago_proveedor(vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor)`.
+- Ejecutar el procedimiento `aplicar_operacion_bancaria(vTipo_documento_compra, vNum_documento_compra)`.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

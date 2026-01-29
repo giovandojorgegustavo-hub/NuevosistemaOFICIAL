@@ -106,7 +106,13 @@ numdocumentostock=vNumdocumentostock
 codigo_producto=vcodigo_producto
 cantidad=Vcantidad (donde Vcantidad = Vcantidad_real - Vcantidad_sistema)
 
-- Ejecutar el SP `get_actualizarsaldosstockaju(vTipodocumentostock, vNumdocumentostock)` para actualizar `saldo_stock`.
+- Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item del detalle.
+  Para cada fila de `detalle_movimiento_stock`:
+  - `p_codigo_base = vCodigo_base`
+  - `p_codigo_producto = vcodigo_producto`
+  - `p_cantidad = Vcantidad`
+  - `p_tipodoc = vTipodocumentostock` (documentos soportados: FAC/FCC/AJS/TRE/TRS/FBI/FBE)
+  - `p_numdoc = vNumdocumentostock`
 
 
 No utilizar datos mock.

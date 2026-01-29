@@ -86,7 +86,7 @@ El usuario podra seleccionar del Grid cual es la factura de compra para pasar al
 ## Paso 2. Definir Remito de Compra.
 
 
-vTipo_documento_compra_remito = "RMP".
+vTipo_documento_compra_remito = "REM".
 
 vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito AND numdocumentostock = vNum_documento_compra_remito` (si no hay filas, usar 1).
 vNum_documento_compra_remito =
@@ -131,6 +131,13 @@ Al dar click en “Registrar Remito”, ejecutar transaccion:
 3. Actualizar entregas en la factura de compra (FCC) usando el SP:
    - `CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinalCompra, vCantidadDisponible)`
    - Ejecutar por cada linea del remito.
+
+4. Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item del remito:
+   - `p_codigo_base = vCodigo_base`
+   - `p_codigo_producto = vcodigo_producto`
+   - `p_cantidad = vCantidadDisponible`
+   - `p_tipodoc = vTipo_documento_compra_remito` (REM, entrada positiva)
+   - `p_numdoc = vNum_documento_compra_remito`
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
