@@ -16,6 +16,7 @@ class FormWizard {
     this.selectedBadge = document.getElementById('selectedBadge');
 
     this.selectedPaquete = null;
+    this.selectedIndex = null;
     this.detalleRows = [];
     this.ordinal = null;
 
@@ -76,6 +77,11 @@ class FormWizard {
 
   updateButtons() {
     this.prevBtn.disabled = this.currentStep === 0;
+    if (this.currentStep === 0) {
+      this.nextBtn.disabled = !this.selectedPaquete;
+    } else {
+      this.nextBtn.disabled = false;
+    }
     this.nextBtn.textContent = this.currentStep === this.steps.length - 1 ? this.dict.pack : this.dict.next;
     const progress = ((this.currentStep + 1) / this.steps.length) * 100;
     this.progressBar.style.width = `${progress}%`;
@@ -99,7 +105,7 @@ class FormWizard {
 
     this.goToStep(this.currentStep + 1);
     if (this.currentStep === 1 && this.selectedPaquete) {
-      await this.loadDetalle(this.selectedPaquete.codigo);
+      await this.loadDetalle(this.selectedPaquete.codigo, this.selectedIndex);
     }
     if (this.currentStep === 2) {
       this.renderSummary();
@@ -116,7 +122,7 @@ class FormWizard {
     this.clearAlert();
 
     if (this.currentStep === 0) {
-      const codeRegex = /^[A-Za-z0-9-]{2,}$/;
+      const codeRegex = /^[A-Za-z0-9-]{1,}$/;
       if (!this.selectedPaquete || !codeRegex.test(this.selectedPaquete.codigo)) {
         this.showAlert('warning', this.dict.errors.selectPaquete);
         return false;
@@ -178,10 +184,11 @@ class FormWizard {
       return;
     }
 
-    paquetes.forEach((paquete) => {
+    paquetes.forEach((paquete, index) => {
       const codigo = paquete.codigo_paquete || paquete.Vcodigo_paquete || paquete.vcodigo_paquete || '';
       const row = document.createElement('tr');
       row.dataset.codigo = codigo;
+      row.dataset.index = String(index + 1);
       row.innerHTML = `
         <td>${codigo}</td>
         <td>${paquete.fecha_actualizado || paquete.vfecha || ''}</td>
@@ -190,7 +197,7 @@ class FormWizard {
         <td>${paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || ''}</td>
         <td>${paquete.concatenarnumrecibe || paquete.vconcatenarnumrecibe || ''}</td>
       `;
-      row.addEventListener('click', () => this.selectPaquete(paquete, row));
+      row.addEventListener('click', () => this.selectPaquete(paquete, row, index + 1));
       if (this.selectedPaquete && this.selectedPaquete.codigo === codigo) {
         row.classList.add('selected');
       }
@@ -198,7 +205,7 @@ class FormWizard {
     });
   }
 
-  selectPaquete(paquete, row) {
+  selectPaquete(paquete, row, index) {
     const codigo = paquete.codigo_paquete || paquete.Vcodigo_paquete || paquete.vcodigo_paquete || '';
     if (!codigo) return;
 
@@ -213,7 +220,9 @@ class FormWizard {
       entrega: paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || '',
       recibe: paquete.concatenarnumrecibe || paquete.vconcatenarnumrecibe || ''
     };
+    this.selectedIndex = Number(index) || Number(row.dataset.index) || null;
     this.updateSelectedBadge();
+    this.updateButtons();
   }
 
   updateSelectedBadge() {
@@ -224,10 +233,14 @@ class FormWizard {
     this.selectedBadge.textContent = this.dict.noneSelected;
   }
 
-  async loadDetalle(codigo) {
+  async loadDetalle(codigo, index) {
     try {
       this.setLoading(this.dict.loadingDetalle);
-      const data = await this.fetchJson(`/api/paquetes/detalle?codigo=${encodeURIComponent(codigo)}`);
+      const query = new URLSearchParams({ codigo });
+      if (index) {
+        query.set('index', String(index));
+      }
+      const data = await this.fetchJson(`/api/paquetes/detalle?${query.toString()}`);
       this.detalleRows = Array.isArray(data.detalle) ? data.detalle : [];
       this.ordinal = data.ordinal || 1;
       this.puntoEntrega.value = this.selectedPaquete?.entrega || '';
@@ -290,8 +303,9 @@ class FormWizard {
   async saveEmpaque() {
     try {
       this.setLoading(this.dict.saving);
-      const payload = {
-        codigo_paquete: this.selectedPaquete?.codigo || ''
+    const payload = {
+        codigo_paquete: this.selectedPaquete?.codigo || '',
+        ordinal_index: this.selectedIndex
       };
       const result = await this.postJson('/api/empaque', payload);
       this.showAlert('success', this.dict.success.replace('{id}', result.codigo_paquete || payload.codigo_paquete));
@@ -305,6 +319,7 @@ class FormWizard {
 
   async resetWizard() {
     this.selectedPaquete = null;
+    this.selectedIndex = null;
     this.detalleRows = [];
     this.ordinal = null;
     document.getElementById('confirmCheck').checked = false;

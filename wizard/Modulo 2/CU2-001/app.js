@@ -11,8 +11,9 @@ class FormWizard {
     this.successAlert = document.getElementById('successAlert');
     this.detalleTableBody = document.querySelector('#detalleCompraTable tbody');
     this.summaryTableBody = document.querySelector('#detalleCompraSummary tbody');
-    this.productos = [];
+    this.loadingState = document.getElementById('loadingState');
     this.proveedores = [];
+    this.productos = [];
     this.decimalRegex = /^\d+(?:\.\d{1,2})?$/;
   }
 
@@ -21,7 +22,7 @@ class FormWizard {
     this.bindEvents();
     await this.loadInitialData();
     this.addDetalleRow();
-    this.updateProgress();
+    this.goStep(0);
   }
 
   applyLocale() {
@@ -29,61 +30,89 @@ class FormWizard {
     const locale = lang.startsWith('es') ? 'es' : 'en';
     const translations = {
       es: {
-        eyebrow: 'IaaS + PaaS Global Procurement',
-        title: 'Compras - Factura',
-        subtitle: 'Gestiona compras y facturación con trazabilidad global.',
+        eyebrow: 'IaaS + PaaS Global Core',
+        title: 'Compras Factura',
+        subtitle: 'Registra facturas de compra con trazabilidad y facturacion inmediata.',
         status: 'Operativo',
         step1Title: '1. Crear Compra',
-        step2Title: '2. Confirmar y Facturar Compra',
+        step2Title: '2. Confirmar y Facturar',
         fecha: 'Fecha',
         tipoDocumento: 'Tipo documento',
-        numeroDocumento: 'Número documento',
-        totalCompra: 'Total compra',
+        numeroDocumento: 'Numero documento',
+        ordinalStock: 'Ordinal stock',
         proveedor: 'Proveedor',
-        proveedorError: 'Seleccione un proveedor válido.',
-        addLine: 'Agregar línea',
+        proveedorError: 'Seleccione un proveedor valido.',
+        total: 'Total compra',
+        detalleTitle: 'Detalle compra',
+        addLine: 'Agregar linea',
         colProducto: 'Producto',
         colCantidad: 'Cantidad',
+        colSaldo: 'Saldo',
         colMonto: 'Monto',
-        step1Help: 'Agrega los productos y montos de la compra.',
-        confirmacion: 'Confirmo que la información es correcta.',
-        confirmacionError: 'Debe confirmar la operación.',
-        step2Help: 'Revise antes de facturar la compra.',
+        step1Help: 'Agrega productos con cantidades y montos para la factura de compra.',
+        summaryTitle: 'Resumen de compra',
+        summaryProveedor: 'Proveedor',
+        summaryDocumento: 'Documento',
+        summaryFecha: 'Fecha',
+        summaryTotal: 'Total',
+        confirmacion: 'Confirmo que la informacion es correcta.',
+        confirmacionError: 'Debe confirmar la operacion.',
+        step2Help: 'Revisa los datos antes de facturar.',
         prev: 'Anterior',
         next: 'Siguiente',
-        facturar: 'Facturar Compra'
+        facturar: 'Facturar Compra',
+        loading: 'Procesando...',
+        invalidProducto: 'Seleccione un producto valido.',
+        invalidCantidad: 'Ingrese una cantidad valida.',
+        invalidMonto: 'Ingrese un monto valido.',
+        noDetalle: 'Debe agregar al menos una linea de detalle.'
       },
       en: {
-        eyebrow: 'IaaS + PaaS Global Procurement',
+        eyebrow: 'IaaS + PaaS Global Core',
         title: 'Purchase Invoice',
-        subtitle: 'Manage purchases and billing with global traceability.',
+        subtitle: 'Register purchase invoices with traceability and immediate billing.',
         status: 'Operational',
         step1Title: '1. Create Purchase',
-        step2Title: '2. Confirm & Invoice Purchase',
+        step2Title: '2. Confirm & Bill',
         fecha: 'Date',
         tipoDocumento: 'Document type',
         numeroDocumento: 'Document number',
-        totalCompra: 'Purchase total',
+        ordinalStock: 'Stock ordinal',
         proveedor: 'Supplier',
         proveedorError: 'Select a valid supplier.',
+        total: 'Purchase total',
+        detalleTitle: 'Purchase detail',
         addLine: 'Add line',
         colProducto: 'Product',
         colCantidad: 'Quantity',
+        colSaldo: 'Balance',
         colMonto: 'Amount',
-        step1Help: 'Add products and amounts to the purchase.',
+        step1Help: 'Add products, quantities, and amounts for the invoice.',
+        summaryTitle: 'Purchase summary',
+        summaryProveedor: 'Supplier',
+        summaryDocumento: 'Document',
+        summaryFecha: 'Date',
+        summaryTotal: 'Total',
         confirmacion: 'I confirm the information is correct.',
         confirmacionError: 'You must confirm the operation.',
-        step2Help: 'Review before invoicing the purchase.',
+        step2Help: 'Review the data before billing.',
         prev: 'Back',
         next: 'Next',
-        facturar: 'Invoice Purchase'
+        facturar: 'Bill Purchase',
+        loading: 'Processing...',
+        invalidProducto: 'Select a valid product.',
+        invalidCantidad: 'Enter a valid quantity.',
+        invalidMonto: 'Enter a valid amount.',
+        noDetalle: 'Add at least one detail line.'
       }
     };
 
+    this.translations = translations[locale];
+
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n');
-      if (translations[locale][key]) {
-        el.textContent = translations[locale][key];
+      if (this.translations[key]) {
+        el.textContent = this.translations[key];
       }
     });
   }
@@ -92,18 +121,23 @@ class FormWizard {
     this.prevBtn.addEventListener('click', () => this.goStep(this.currentStep - 1));
     this.nextBtn.addEventListener('click', () => this.handleNext());
     this.facturarBtn.addEventListener('click', () => this.handleFacturar());
-
     document.getElementById('addDetalleLine').addEventListener('click', () => this.addDetalleRow());
+
+    document.getElementById('vCodigo_provedor').addEventListener('input', (event) => {
+      this.clearFieldError(event.target);
+    });
 
     this.detalleTableBody.addEventListener('input', (event) => {
       if (event.target.matches('input')) {
-        this.validateDecimalInput(event.target);
-        this.updateTotal();
+        if (event.target.dataset.field === 'vcantidad' || event.target.dataset.field === 'vmonto') {
+          this.validateDecimalInput(event.target);
+          this.updateTotals();
+        }
       }
     });
 
     this.detalleTableBody.addEventListener('change', (event) => {
-      if (event.target.matches('select')) {
+      if (event.target.matches('input')) {
         this.clearFieldError(event.target);
       }
     });
@@ -115,7 +149,7 @@ class FormWizard {
         this.fetchJson('/api/now'),
         this.fetchJson('/api/proveedores'),
         this.fetchJson('/api/productos'),
-        this.fetchJson('/api/next-num-documento?tipo=FCC')
+        this.fetchJson('/api/next-numdocumento?tipo=FCC')
       ]);
 
       this.proveedores = proveedores;
@@ -128,20 +162,21 @@ class FormWizard {
       const ordinal = await this.fetchJson(`/api/next-ordinal?tipo=FCC&num=${nextNum.next}`);
       document.getElementById('vordinalmovstockdetalles').value = ordinal.next;
 
-      this.populateSelect('vCodigo_provedor', proveedores, 'codigo_provedor', 'nombre_provedor');
+      this.populateDatalist('proveedorList', proveedores, 'codigo_provedor', 'nombre');
+      this.populateDatalist('productoList', productos, 'codigo_producto', 'nombre');
     } catch (error) {
       this.showError(error.message || 'Error al cargar datos iniciales.');
     }
   }
 
-  populateSelect(selectId, items, valueKey, labelKey) {
-    const select = document.getElementById(selectId);
-    select.innerHTML = '<option value="">Seleccione...</option>';
+  populateDatalist(listId, items, valueKey, labelKey) {
+    const list = document.getElementById(listId);
+    list.innerHTML = '';
     items.forEach((item) => {
       const option = document.createElement('option');
       option.value = item[valueKey];
-      option.textContent = item[labelKey] || item[valueKey];
-      select.appendChild(option);
+      option.label = item[labelKey] || item[valueKey];
+      list.appendChild(option);
     });
   }
 
@@ -149,32 +184,232 @@ class FormWizard {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>
-        <select class="form-select" data-field="codigo_producto" name="vDetalleCompra.codigo_producto">
-          <option value="">Seleccione...</option>
-          ${this.productos.map((prod) => `<option value="${prod.codigo_producto}">${prod.nombre_producto || prod.descripcion || prod.codigo_producto}</option>`).join('')}
-        </select>
-        <div class="invalid-feedback">Seleccione un producto.</div>
+        <input
+          class="form-control"
+          list="productoList"
+          data-field="vcodigo_producto"
+          name="vDetalleCompra.vcodigo_producto"
+          placeholder=""
+        />
+        <div class="invalid-feedback">${this.translations.invalidProducto}</div>
       </td>
       <td>
-        <input type="text" class="form-control" data-field="cantidad" name="vDetalleCompra.cantidad" placeholder="0.00" />
-        <div class="invalid-feedback">Ingrese cantidad válida.</div>
+        <input
+          type="text"
+          class="form-control"
+          data-field="vcantidad"
+          name="vDetalleCompra.vcantidad"
+          placeholder="0.00"
+        />
+        <div class="invalid-feedback">${this.translations.invalidCantidad}</div>
+      </td>
+      <td class="d-none">
+        <input
+          type="text"
+          class="form-control"
+          data-field="vsaldo"
+          name="vDetalleCompra.vsaldo"
+          value="0"
+          readonly
+        />
       </td>
       <td>
-        <input type="text" class="form-control" data-field="monto" name="vDetalleCompra.monto" placeholder="0.00" />
-        <div class="invalid-feedback">Ingrese monto válido.</div>
-        <input type="hidden" data-field="saldo" name="vDetalleCompra.saldo" value="0" />
+        <input
+          type="text"
+          class="form-control"
+          data-field="vmonto"
+          name="vDetalleCompra.vmonto"
+          placeholder="0.00"
+        />
+        <div class="invalid-feedback">${this.translations.invalidMonto}</div>
       </td>
       <td class="text-end">
-        <button class="btn btn-outline-light btn-sm" type="button" data-action="delete">Eliminar</button>
+        <button type="button" class="btn btn-outline-danger btn-sm" data-action="remove">&times;</button>
       </td>
     `;
 
-    row.querySelector('[data-action="delete"]').addEventListener('click', () => {
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => {
       row.remove();
-      this.updateTotal();
+      this.updateTotals();
     });
 
     this.detalleTableBody.appendChild(row);
+    this.updateTotals();
+  }
+
+  goStep(index) {
+    if (index < 0 || index >= this.steps.length) {
+      return;
+    }
+    this.currentStep = index;
+    this.steps.forEach((step, idx) => {
+      step.classList.toggle('active', idx === index);
+      step.style.display = idx === index ? 'block' : 'none';
+    });
+    this.stepBadges.forEach((badge, idx) => {
+      badge.classList.toggle('active', idx === index);
+    });
+
+    const progress = (index / (this.steps.length - 1)) * 100;
+    this.progressBar.style.width = `${progress}%`;
+
+    this.prevBtn.disabled = index === 0;
+    this.nextBtn.classList.toggle('d-none', index === this.steps.length - 1);
+    this.facturarBtn.classList.toggle('d-none', index !== this.steps.length - 1);
+
+    if (index === 1) {
+      this.buildSummary();
+    }
+  }
+
+  handleNext() {
+    if (this.currentStep === 0) {
+      const valid = this.validateStep1();
+      if (!valid) {
+        return;
+      }
+    }
+    this.goStep(this.currentStep + 1);
+  }
+
+  async handleFacturar() {
+    if (!this.validateStep2()) {
+      return;
+    }
+
+    const payload = this.collectPayload();
+    if (!payload) {
+      return;
+    }
+
+    try {
+      this.setLoading(true);
+      this.clearAlerts();
+      const response = await this.fetchJson('/api/facturar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      this.showSuccess(response.message || 'Factura registrada.');
+      this.resetForm();
+    } catch (error) {
+      this.showError(error.message || 'Error al facturar compra.');
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  validateStep1() {
+    let valid = true;
+    const proveedorInput = document.getElementById('vCodigo_provedor');
+    const proveedorVal = proveedorInput.value.trim();
+    const proveedorOk = this.proveedores.some((prov) => prov.codigo_provedor === proveedorVal);
+    if (!proveedorOk) {
+      this.markInvalid(proveedorInput);
+      valid = false;
+    }
+
+    const rows = Array.from(this.detalleTableBody.querySelectorAll('tr'));
+    if (!rows.length) {
+      this.showError(this.translations.noDetalle);
+      return false;
+    }
+
+    rows.forEach((row) => {
+      const productoInput = row.querySelector('[data-field="vcodigo_producto"]');
+      const cantidadInput = row.querySelector('[data-field="vcantidad"]');
+      const montoInput = row.querySelector('[data-field="vmonto"]');
+
+      const productoVal = productoInput.value.trim();
+      const productoOk = this.productos.some((prod) => prod.codigo_producto === productoVal);
+      if (!productoOk) {
+        this.markInvalid(productoInput);
+        valid = false;
+      }
+
+      if (!this.decimalRegex.test(cantidadInput.value.trim()) || Number(cantidadInput.value) <= 0) {
+        this.markInvalid(cantidadInput);
+        valid = false;
+      }
+
+      if (!this.decimalRegex.test(montoInput.value.trim()) || Number(montoInput.value) <= 0) {
+        this.markInvalid(montoInput);
+        valid = false;
+      }
+    });
+
+    if (!valid) {
+      this.showError(this.translations.noDetalle);
+    }
+    return valid;
+  }
+
+  validateStep2() {
+    const confirm = document.getElementById('confirmacion');
+    if (!confirm.checked) {
+      confirm.classList.add('is-invalid');
+      this.showError(this.translations.confirmacionError);
+      return false;
+    }
+    confirm.classList.remove('is-invalid');
+    return true;
+  }
+
+  collectPayload() {
+    const detalle = Array.from(this.detalleTableBody.querySelectorAll('tr')).map((row) => {
+      return {
+        codigo_producto: row.querySelector('[data-field="vcodigo_producto"]').value.trim(),
+        cantidad: row.querySelector('[data-field="vcantidad"]').value.trim(),
+        monto: row.querySelector('[data-field="vmonto"]').value.trim()
+      };
+    });
+
+    return {
+      tipo_documento_compra: document.getElementById('vTipo_documento_compra').value.trim(),
+      num_documento_compra: document.getElementById('vNum_documento_compra').value.trim(),
+      codigo_provedor: document.getElementById('vCodigo_provedor').value.trim(),
+      fecha: document.getElementById('vFecha').value.trim(),
+      total_compra: document.getElementById('vTotal_compra').value.trim(),
+      detalle
+    };
+  }
+
+  buildSummary() {
+    const proveedor = document.getElementById('vCodigo_provedor').value.trim();
+    const proveedorNombre = this.proveedores.find((prov) => prov.codigo_provedor === proveedor)?.nombre || proveedor;
+    document.getElementById('summaryProveedor').textContent = proveedorNombre;
+    document.getElementById('summaryDocumento').textContent = `${
+      document.getElementById('vTipo_documento_compra').value
+    }-${document.getElementById('vNum_documento_compra').value}`;
+    document.getElementById('summaryFecha').textContent = document.getElementById('vFecha').value;
+    document.getElementById('summaryTotal').textContent = document.getElementById('vTotal_compra').value;
+
+    this.summaryTableBody.innerHTML = '';
+    Array.from(this.detalleTableBody.querySelectorAll('tr')).forEach((row) => {
+      const codigo = row.querySelector('[data-field="vcodigo_producto"]').value.trim();
+      const nombre = this.productos.find((prod) => prod.codigo_producto === codigo)?.nombre || codigo;
+      const cantidad = row.querySelector('[data-field="vcantidad"]').value.trim();
+      const monto = row.querySelector('[data-field="vmonto"]').value.trim();
+      const summaryRow = document.createElement('tr');
+      summaryRow.innerHTML = `
+        <td>${nombre}</td>
+        <td>${cantidad}</td>
+        <td>${monto}</td>
+      `;
+      this.summaryTableBody.appendChild(summaryRow);
+    });
+  }
+
+  updateTotals() {
+    let total = 0;
+    Array.from(this.detalleTableBody.querySelectorAll('tr')).forEach((row) => {
+      const montoInput = row.querySelector('[data-field="vmonto"]');
+      const value = parseFloat(montoInput.value || '0');
+      if (!Number.isNaN(value)) {
+        total += value;
+      }
+    });
+    document.getElementById('vTotal_compra').value = total.toFixed(2);
   }
 
   validateDecimalInput(input) {
@@ -190,210 +425,51 @@ class FormWizard {
     }
   }
 
-  updateTotal() {
-    let total = 0;
-    this.detalleTableBody.querySelectorAll('tr').forEach((row) => {
-      const montoInput = row.querySelector('input[data-field="monto"]');
-      if (montoInput && this.decimalRegex.test(montoInput.value.trim())) {
-        total += parseFloat(montoInput.value);
-      }
-    });
-    document.getElementById('vTotal_compra').value = total.toFixed(2);
+  markInvalid(input) {
+    input.classList.add('is-invalid');
   }
 
-  handleNext() {
-    if (this.currentStep === 0 && !this.validateStep1()) {
-      return;
-    }
-    this.goStep(this.currentStep + 1);
-    if (this.currentStep === 1) {
-      this.renderSummary();
-    }
-  }
-
-  validateStep1() {
-    let valid = true;
-    const proveedorSelect = document.getElementById('vCodigo_provedor');
-    if (!proveedorSelect.value) {
-      proveedorSelect.classList.add('is-invalid');
-      valid = false;
-    } else {
-      proveedorSelect.classList.remove('is-invalid');
-    }
-
-    const rows = Array.from(this.detalleTableBody.querySelectorAll('tr'));
-    if (!rows.length) {
-      this.showError('Debe agregar al menos un detalle.');
-      return false;
-    }
-
-    rows.forEach((row) => {
-      const producto = row.querySelector('select[data-field="codigo_producto"]');
-      const cantidad = row.querySelector('input[data-field="cantidad"]');
-      const monto = row.querySelector('input[data-field="monto"]');
-
-      if (!producto.value) {
-        producto.classList.add('is-invalid');
-        valid = false;
-      } else {
-        producto.classList.remove('is-invalid');
-      }
-
-      if (!cantidad.value || !this.decimalRegex.test(cantidad.value)) {
-        cantidad.classList.add('is-invalid');
-        valid = false;
-      } else {
-        cantidad.classList.remove('is-invalid');
-      }
-
-      if (!monto.value || !this.decimalRegex.test(monto.value)) {
-        monto.classList.add('is-invalid');
-        valid = false;
-      } else {
-        monto.classList.remove('is-invalid');
-      }
-    });
-
-    if (!valid) {
-      this.showError('Complete los campos requeridos antes de continuar.');
-    }
-    return valid;
-  }
-
-  renderSummary() {
-    const proveedorSelect = document.getElementById('vCodigo_provedor');
-    const proveedorLabel = proveedorSelect.options[proveedorSelect.selectedIndex]?.text || '-';
-    document.getElementById('summaryProveedor').textContent = proveedorLabel;
-    document.getElementById('summaryFecha').textContent = document.getElementById('vFecha').value;
-    document.getElementById('summaryNumero').textContent = document.getElementById('vNum_documento_compra').value;
-    document.getElementById('summaryTotal').textContent = document.getElementById('vTotal_compra').value;
-
-    this.summaryTableBody.innerHTML = '';
-    this.detalleTableBody.querySelectorAll('tr').forEach((row) => {
-      const producto = row.querySelector('select[data-field="codigo_producto"]');
-      const cantidad = row.querySelector('input[data-field="cantidad"]');
-      const monto = row.querySelector('input[data-field="monto"]');
-      const summaryRow = document.createElement('tr');
-      summaryRow.innerHTML = `
-        <td>${producto.options[producto.selectedIndex]?.text || ''}</td>
-        <td>${cantidad.value}</td>
-        <td>${monto.value}</td>
-      `;
-      this.summaryTableBody.appendChild(summaryRow);
-    });
-  }
-
-  validateStep2() {
-    const confirm = document.getElementById('confirmOperacion');
-    if (!confirm.checked) {
-      confirm.classList.add('is-invalid');
-      return false;
-    }
-    confirm.classList.remove('is-invalid');
-    return true;
-  }
-
-  async handleFacturar() {
-    if (!this.validateStep2()) {
-      this.showError('Debe confirmar la operación.');
-      return;
-    }
-
-    this.toggleLoading(true);
-    try {
-      const payload = this.buildPayload();
-      const response = await this.fetchJson('/api/facturar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      this.showSuccess(response.message || 'Compra facturada correctamente.');
-      this.resetWizard();
-    } catch (error) {
-      this.showError(error.message || 'Error al facturar la compra.');
-    } finally {
-      this.toggleLoading(false);
-    }
-  }
-
-  buildPayload() {
-    const detalle = [];
-    this.detalleTableBody.querySelectorAll('tr').forEach((row, index) => {
-      detalle.push({
-        ordinal: index + 1,
-        codigo_producto: row.querySelector('select[data-field="codigo_producto"]').value,
-        cantidad: row.querySelector('input[data-field="cantidad"]').value,
-        saldo: 0,
-        monto: row.querySelector('input[data-field="monto"]').value
-      });
-    });
-
-    return {
-      vTipo_documento_compra: document.getElementById('vTipo_documento_compra').value,
-      vNum_documento_compra: document.getElementById('vNum_documento_compra').value,
-      vCodigo_provedor: document.getElementById('vCodigo_provedor').value,
-      vFecha: document.getElementById('vFecha').value,
-      vTotal_compra: document.getElementById('vTotal_compra').value,
-      vordinalmovstockdetalles: document.getElementById('vordinalmovstockdetalles').value,
-      vDetalleCompra: detalle
-    };
-  }
-
-  resetWizard() {
-    this.goStep(0);
-    document.getElementById('confirmOperacion').checked = false;
-    this.detalleTableBody.innerHTML = '';
-    this.addDetalleRow();
-    this.updateTotal();
-  }
-
-  goStep(step) {
-    if (step < 0 || step >= this.steps.length) return;
-    this.currentStep = step;
-    this.steps.forEach((section, index) => {
-      section.classList.toggle('d-none', index !== step);
-    });
-    this.prevBtn.classList.toggle('d-none', step === 0);
-    this.nextBtn.classList.toggle('d-none', step !== 0);
-    this.facturarBtn.classList.toggle('d-none', step !== 1);
-    this.updateProgress();
-  }
-
-  updateProgress() {
-    const progress = ((this.currentStep + 1) / this.steps.length) * 100;
-    this.progressBar.style.width = `${progress}%`;
-    this.stepBadges.forEach((badge, index) => {
-      badge.classList.toggle('active', index <= this.currentStep);
-    });
+  clearFieldError(input) {
+    input.classList.remove('is-invalid');
   }
 
   showError(message) {
+    if (!message) return;
     this.errorAlert.textContent = message;
     this.errorAlert.classList.remove('d-none');
     this.successAlert.classList.add('d-none');
   }
 
   showSuccess(message) {
+    if (!message) return;
     this.successAlert.textContent = message;
     this.successAlert.classList.remove('d-none');
     this.errorAlert.classList.add('d-none');
   }
 
-  clearFieldError(field) {
-    field.classList.remove('is-invalid');
+  clearAlerts() {
+    this.errorAlert.classList.add('d-none');
+    this.successAlert.classList.add('d-none');
   }
 
-  toggleLoading(isLoading) {
-    const spinner = this.facturarBtn.querySelector('.spinner-border');
-    this.facturarBtn.disabled = isLoading;
-    spinner.classList.toggle('d-none', !isLoading);
+  setLoading(isLoading) {
+    this.loadingState.classList.toggle('show', isLoading);
+  }
+
+  resetForm() {
+    document.getElementById('compraForm').reset();
+    this.detalleTableBody.innerHTML = '';
+    document.getElementById('confirmacion').checked = false;
+    this.loadInitialData();
+    this.addDetalleRow();
+    this.goStep(0);
   }
 
   async fetchJson(url, options) {
     const response = await fetch(url, options);
     if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.message || 'Error de red.');
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.message || 'Error en la solicitud.');
     }
     return response.json();
   }

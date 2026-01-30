@@ -14,7 +14,9 @@ function pad(value) {
 
 function timestamp() {
   const now = new Date();
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(
+    now.getMinutes()
+  )}:${pad(now.getSeconds())}`;
 }
 
 function logLine(message) {
@@ -30,7 +32,9 @@ function ensureLogFile() {
     fs.mkdirSync(LOG_DIR, { recursive: true });
   }
   const now = new Date();
-  const base = `CU2-001-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const base = `CU2-001-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(
+    now.getHours()
+  )}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
   let counter = 1;
   let filename;
   do {
@@ -68,14 +72,14 @@ function parseErpConfig() {
   const raw = fs.readFileSync(ERP_CONFIG, 'utf-8');
   const data = yaml.parse(raw);
   if (!data || !Array.isArray(data.connections) || !data.connections.length) {
-    throw new Error('No se encontró configuración de conexiones en erp.yml');
+    throw new Error('No se encontro configuracion de conexiones en erp.yml');
   }
   const connection = data.connections[0];
   if (!connection.dsn) {
-    throw new Error('No se encontró DSN en erp.yml');
+    throw new Error('No se encontro DSN en erp.yml');
   }
   return {
-    name: connection.name || 'default',
+    name: connection.name || '',
     dsn: connection.dsn
   };
 }
@@ -84,8 +88,10 @@ async function initDb() {
   const config = parseErpConfig();
   logLine(`DB CONFIG: name=${config.name} dsn=${config.dsn}`);
   const dbConfig = parseDsn(config.dsn);
+  const database = config.name ? config.name : dbConfig.database;
   return mysql.createPool({
     ...dbConfig,
+    database,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -148,18 +154,19 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
-app.get('/api/next-num-documento', async (req, res) => {
+app.get('/api/next-numdocumento', async (req, res) => {
   const tipo = req.query.tipo;
   if (!tipo) {
     return res.status(400).json({ message: 'Falta tipo_documento_compra.' });
   }
-  const sql = 'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?';
+  const sql =
+    'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?';
   try {
     const [rows] = await runQuery(req.app.locals.db, sql, [tipo]);
     res.json({ next: rows[0]?.next || 1 });
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al calcular número de documento.' });
+    res.status(500).json({ message: 'Error al calcular numero de documento.' });
   }
 });
 
@@ -167,9 +174,10 @@ app.get('/api/next-ordinal', async (req, res) => {
   const tipo = req.query.tipo;
   const num = req.query.num;
   if (!tipo || !num) {
-    return res.status(400).json({ message: 'Falta tipo o número de documento.' });
+    return res.status(400).json({ message: 'Falta tipo o numero de documento.' });
   }
-  const sql = 'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
+  const sql =
+    'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
   try {
     const [rows] = await runQuery(req.app.locals.db, sql, [tipo, num]);
     res.json({ next: rows[0]?.next || 1 });
@@ -180,39 +188,47 @@ app.get('/api/next-ordinal', async (req, res) => {
 });
 
 app.post('/api/facturar', async (req, res) => {
-  const payload = req.body || {};
-  const detalles = Array.isArray(payload.vDetalleCompra) ? payload.vDetalleCompra : [];
+  const {
+    tipo_documento_compra,
+    num_documento_compra,
+    codigo_provedor,
+    fecha,
+    total_compra,
+    detalle
+  } = req.body || {};
 
-  if (!payload.vCodigo_provedor || !detalles.length) {
+  if (!tipo_documento_compra || !num_documento_compra || !codigo_provedor || !fecha || !total_compra) {
     return res.status(400).json({ message: 'Datos incompletos para facturar.' });
+  }
+  if (!Array.isArray(detalle) || !detalle.length) {
+    return res.status(400).json({ message: 'Debe enviar detalle de compra.' });
   }
 
   const conn = await req.app.locals.db.getConnection();
   try {
     await conn.beginTransaction();
-    logLine('SQL: BEGIN TRANSACTION');
 
-    const insertMovSql = `INSERT INTO mov_contable_prov
-      (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto)
-      VALUES (?, ?, ?, ?, ?)`;
-    await runQuery(conn, insertMovSql, [
-      payload.vTipo_documento_compra,
-      payload.vNum_documento_compra,
-      payload.vCodigo_provedor,
-      payload.vFecha,
-      payload.vTotal_compra
+    const insertCompraSql =
+      'INSERT INTO mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto) VALUES (?, ?, ?, ?, ?)';
+    await runQuery(conn, insertCompraSql, [
+      tipo_documento_compra,
+      num_documento_compra,
+      codigo_provedor,
+      fecha,
+      total_compra
     ]);
 
-    const insertDetalleSql = `INSERT INTO detalle_mov_contable_prov
-      (tipo_documento_compra, num_documento_compra, codigo_provedor, ordinal, codigo_producto, cantidad, cantidad_entregada, saldo, monto)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const insertDetalleSql =
+      'INSERT INTO detalle_mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, ordinal, codigo_producto, cantidad, cantidad_entregada, saldo, monto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
 
-    for (const [index, item] of detalles.entries()) {
+    for (let i = 0; i < detalle.length; i += 1) {
+      const item = detalle[i];
+      const ordinal = i + 1;
       await runQuery(conn, insertDetalleSql, [
-        payload.vTipo_documento_compra,
-        payload.vNum_documento_compra,
-        payload.vCodigo_provedor,
-        item.ordinal || index + 1,
+        tipo_documento_compra,
+        num_documento_compra,
+        codigo_provedor,
+        ordinal,
         item.codigo_producto,
         item.cantidad,
         0,
@@ -221,21 +237,15 @@ app.post('/api/facturar', async (req, res) => {
       ]);
     }
 
-    const callSql = 'CALL actualizarsaldosprovedores(?, ?, ?)';
-    await runQuery(conn, callSql, [
-      payload.vCodigo_provedor,
-      payload.vTipo_documento_compra,
-      payload.vTotal_compra
-    ]);
+    const actualizarSql = 'CALL actualizarsaldosprovedores(?, ?, ?)';
+    await runQuery(conn, actualizarSql, [codigo_provedor, tipo_documento_compra, total_compra]);
 
     await conn.commit();
-    logLine('SQL: COMMIT');
     res.json({ message: 'Compra facturada correctamente.' });
   } catch (error) {
     await conn.rollback();
-    logLine('SQL: ROLLBACK');
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al facturar la compra.' });
+    res.status(500).json({ message: 'Error al facturar compra.' });
   } finally {
     conn.release();
   }
@@ -244,8 +254,7 @@ app.post('/api/facturar', async (req, res) => {
 async function start() {
   ensureLogFile();
   try {
-    const db = await initDb();
-    app.locals.db = db;
+    app.locals.db = await initDb();
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
       logLine(`SERVER START: http://localhost:${port}`);

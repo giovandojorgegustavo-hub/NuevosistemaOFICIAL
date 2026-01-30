@@ -5,38 +5,45 @@ CU-006: Gestion Pedido.
   
 # **Prompt AI.
 
+
+## Campos devueltos por SPs de lectura (obligatorio)
+Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
+
+Reglas:
+Toda variable/campo empieza con `v` y se lista sin `-`.
+Cada variable debe indicar si es visible / no visible y si es editable / no editable.
+En SPs de lectura: primero declarar `vX = Llamada SP: ... (devuelve campo_visible)`, luego listar `Campos devueltos` y despues `Variables` con su visibilidad/edicion.
+Todo campo tipo Select debe permitir escribir y filtrar la lista conforme se escribe (typeahead) para soportar miles de registros.
+
+
+
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (si hay varios pasos) o de un solo paso (si el formulario solo tiene un paso). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados. Regla de ruta obligatoria:
-- Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
-- Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
-- Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
-- Si no existe la carpeta del modulo, debe crearse.
-- Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
+Si el caso empieza con `CU-` (sin numero), usar `wizard/Modulo 1/CU-XXX/`.
+Si empieza con `CU2-`, usar `wizard/Modulo 2/CU2-XXX/`.
+Si empieza con `CU3-`, usar `wizard/Modulo 3/CU3-XXX/`.
+Si no existe la carpeta del modulo, debe crearse.
+Si no coincide con ningun prefijo, detenerse y pedir confirmacion del modulo. 
 
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
 **Estructura del codigo:**
-
-- Clase Form Wizard para manejar la logica
-
-- Validaciones con expresiones regulares
-
-- Componentes Bootstrap (progress bar, alerts, etc.)
-
-- Responsive design para moviles
-
-- El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
+Clase Form Wizard para manejar la logica
+Validaciones con expresiones regulares
+Componentes Bootstrap (progress bar, alerts, etc.)
+Responsive design para moviles
+El Backend, guarda en MySQL, con endpoints js corriendo sobre [node.js](http://node.js)
 
 **User Experience (UX)
 
 Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
-- Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-006/logs/`.
-- El archivo debe nombrarse `CU-006-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
-- Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
+Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
+Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-006/logs/`.
+El archivo debe nombrarse `CU-006-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
+Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
 **El look and feel
 
@@ -45,25 +52,19 @@ Se requiere que la interfaz grafica de usuario (GUI) se muestre en el idioma pre
 ## Consistencia visual (primer wizard)
 Si existe `wizard/_design-system/`, leerlo solo como referencia y copiar sus tokens a `styles.css` del wizard actual (no depender en runtime).
 Si no existe `wizard/_design-system/`, crear la carpeta, inventar un baseline visual y guardar:
-- `design.json` con paleta, tipografias, tamanos, radios, sombras, grid y tokens de componentes.
-- `tokens.css` con variables CSS equivalentes.
+`design.json` con paleta, tipografias, tamanos, radios, sombras, grid y tokens de componentes.
+`tokens.css` con variables CSS equivalentes.
 
 Los wizards posteriores deben reutilizar esos tokens para mantener colores, tamanos y estilos consistentes.
 Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego copiarlo al wizard actual.
 
 # **Funcionalidades requeridas:
-
-- Barra de progreso visual
-
-- Navegacion entre pasos (anterior/siguiente)
-
-- Confirmar Operacion.
-
-- Estados de loading y error
-
-- Ver Logs de sentencias SQL (no en interfaz)
-
-- Emitir Factura.
+Barra de progreso visual
+Navegacion entre pasos (anterior/siguiente)
+Confirmar Operacion.
+Estados de loading y error
+Ver Logs de sentencias SQL (no en interfaz)
+Emitir Factura.
 
 # **Pasos del formulario-multipaso.
 
@@ -75,7 +76,9 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 
 4. Datos Recibe (solo si vRegion_Entrega = "LIMA").
 
-5. Resumen y Emitir Factura.
+5. Registro de Pago (Recibo).
+
+6. Resumen y Emitir Factura.
 
 # **Descripcion de los pasos del formulario de registro.
 
@@ -104,7 +107,9 @@ vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento ge
 
 
 vTipo_documento="FAC"
-vNumero_documento = calcular con SQL: `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'` (si no hay filas, usar 1).
+vNumero_documento = regla sin ambiguedad:
+- Si la factura es NUEVA: calcular con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'`.
+- Si YA EXISTE: mantener el valor actual de vNumero_documento.
 
 
 
@@ -122,7 +127,9 @@ Vprecio_total=Vsaldo*Vprecio_unitario, visible y se actualiza cada vez que cambi
 
 
 Vsaldo=Vprecio_total es la suma cada item del Grid vProdFactura
-vOrdinalDetMovCont = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = vTipo_documento AND numero_documento = vNumero_documento` (si no hay filas, usar 1).
+vOrdinalDetMovCont = regla sin ambiguedad:
+- Si la factura es NUEVA: asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid.
+- Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = vTipo_documento AND numero_documento = vNumero_documento`.
 
 con estos requerimientos:
 
@@ -144,7 +151,9 @@ vFechaP = concatenar vFechaemision y vHoraemision de tal manera que fecha se gua
 vCodigo_base = Seleccionar de una lista la base devuelta por el procedimiento get_bases.
 
 vTipo_documento = "FAC"
-vNumero_documento = calcular con SQL: `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'` (si no hay filas, usar 1).
+vNumero_documento = regla sin ambiguedad:
+- Si la factura es NUEVA: calcular con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'`.
+- Si YA EXISTE: mantener el valor actual de vNumero_documento.
 
 Presentar un Grid editable llamado "vProdFactura" 
 
@@ -153,7 +162,9 @@ vFCantidadProducto = iniciar con el valor de vCantidadProducto (desde vProdPedid
 vFPrecioTotal = inicia con un valor calculado y recalculado cada que vFCantidadProducto cambia. Aparece pero no es editable
 
 Vfsaldo = vFPrecioTotal es la suma cada item del Grid vProdFactura
-vOrdinalDetMovCont = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = vTipo_documento AND numero_documento = vNumero_documento` (si no hay filas, usar 1).
+vOrdinalDetMovCont = regla sin ambiguedad:
+- Si la factura es NUEVA: asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid.
+- Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = vTipo_documento AND numero_documento = vNumero_documento`.
 
 Con estos requerimientos:
 - solo se permite eliminar filas si hay mas de una.
@@ -187,7 +198,9 @@ vCod_Dep= Inicializar con el SP get_ubigeo_departamentos().
 vCod_Prov=Inicializar con el SP get_ubigeo_provincias(vCod_Dep).
 vCod_Dist=Inicializar con el SP get_ubigeo_distritos(vCod_Dep, vCod_Prov)
 Vubigeo=concatenarvCod_Dep y vCod_Prov y vCod_Dist en ese orden
-Vcodigo_puntoentrega = calcular con SQL: `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteSeleted` (si no hay filas, usar 1).
+Vcodigo_puntoentrega = regla sin ambiguedad:
+- Si el punto de entrega es NUEVO: calcular con SQL `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteSeleted`.
+- Si YA EXISTE: mantener el valor actual de Vcodigo_puntoentrega.
 
 
 vRegion_Entrega = se calcula automaticamente segun los codigos:
@@ -229,14 +242,32 @@ Nuevo: se puede darle click para entrar a otros campos
 
 vNumeroRecibe = Campo para escribir
 vNombreRecibe = Campo para escribir 
-Vordinal_numrecibe = calcular con SQL: `SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = vCodigoClienteNumrecibe` (si no hay filas, usar 1).
+Vordinal_numrecibe = regla sin ambiguedad:
+- Si el numrecibe es NUEVO: asignar ordinal secuencial por nuevo registro (1,2,3...).
+- Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = vCodigoClienteNumrecibe`.
 
 
-vOrdinal_paquetedetalle = calcular con SQL: `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = vNumero_documento AND tipo_documento = 'FAC'` (si no hay filas, usar 1).
+vOrdinal_paquetedetalle = regla sin ambiguedad:
+- Si el paquete es NUEVO: asignar ordinal secuencial por linea (1,2,3...) segun el indice.
+- Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = vNumero_documento AND tipo_documento = 'FAC'`.
 
 Vconcatenarnumrecibe = `numero | nombre` (omite campos vacios).
 
-## Paso 5. Resumen y Emitir Factura.
+## Paso 5. Registro de Pago (Recibo).
+
+vTipo_documento_pago = "RCP"
+
+vNumero_documento_pago = regla sin ambiguedad:
+- Si el recibo es NUEVO: calcular con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'`.
+- Si YA EXISTE: mantener el valor actual de vNumero_documento_pago.
+
+vCuentaBancaria = Seleccionar de la lista de Cuentas Bancarias devuelta por el SP get_cuentasbancarias.
+
+vMontoPago = Inicializar con Vfsaldo (monto total de la factura). Debe ser editable para permitir pago parcial.
+- Permitir no registrar pago (vMontoPago vacio o 0).
+- Si vMontoPago > 0, validar: vMontoPago <= Vfsaldo.
+
+## Paso 6. Resumen y Emitir Factura.
 
 Mostrar resumen de Pedido, Factura y Entrega, con boton "Emitir Factura".
 
@@ -331,6 +362,36 @@ estado= "pendiente empacar"
 
 
 - Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteSeleted, vTipo_documento, mov_contable.saldo)`.
+
+## Registrar Recibo (Pago)
+Si vMontoPago > 0:
+- Guardar en la tabla "mov_contable" el recibo de pago:
+  - fecha_emision=vFechaP
+  - fecha_vencimiento=vFechaP
+  - fecha_valor=vFechaP
+  - tipo_documento="RCP"
+  - numero_documento=vNumero_documento_pago
+  - codigo_cliente=Vcodigo_cliente
+  - codigo_cuentabancaria=vCuentaBancaria
+  - saldo=vMontoPago
+
+- Guardar en la tabla "mov_operaciones_contables" (actualiza bancos):
+  - tipodocumento="RCP"
+  - numdocumento=vNumero_documento_pago
+  - fecha=vFechaP
+  - monto=vMontoPago
+  - codigo_cuentabancaria=vCuentaBancaria
+  - codigo_cuentabancaria_destino=NULL
+  - descripcion="Recibo cliente" (opcional)
+
+- Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
+  - `CALL aplicar_recibo_a_facturas(vClienteSeleted, "RCP", vNumero_documento_pago, vMontoPago)`
+
+- Actualizar saldo del cliente por el pago:
+  - `CALL actualizarsaldosclientes(vClienteSeleted, "RCP", vMontoPago)`
+
+- Actualizar saldo bancario:
+  - `CALL aplicar_operacion_bancaria("RCP", vNumero_documento_pago)`
 
 - Actualizar el saldo de `pedido_detalle` restando las cantidades facturadas ejecutando el procedimiento `salidaspedidos(vTipo_documento, vNumero_documento)` (usa el codigo_pedido vinculado en mov_contable).
 

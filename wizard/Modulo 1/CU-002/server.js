@@ -43,7 +43,11 @@ const logFile = ensureLogFile();
 
 function logLine(level, message) {
   const line = `[${timestamp()}] [${level}] ${message}`;
-  console.log(line);
+  if (level === 'ERROR') {
+    console.error(line);
+  } else {
+    console.log(line);
+  }
   fs.appendFileSync(logFile, `${line}\n`, 'utf8');
 }
 
@@ -164,20 +168,32 @@ async function handleRequest(req, res) {
 
   if (method === 'GET' && route === '/api/paquetes/detalle') {
     const codigo = parsed.query.codigo;
+    const index = Number(parsed.query.index || 0);
     if (!codigo) {
       return sendJson(res, 400, { message: 'Codigo de paquete requerido.' });
     }
     const connection = await pool.getConnection();
     try {
       const [detalleRows] = await queryDb(connection, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
-      const [ordinalRows] = await queryDb(
+      const [countRows] = await queryDb(
         connection,
-        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+        "SELECT COUNT(*) AS total FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
         [codigo]
       );
+      let ordinal = 1;
+      if ((countRows?.[0]?.total || 0) > 0) {
+        const [ordinalRows] = await queryDb(
+          connection,
+          "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+          [codigo]
+        );
+        ordinal = ordinalRows[0]?.next || 1;
+      } else {
+        ordinal = index > 0 ? index : 1;
+      }
       return sendJson(res, 200, {
         detalle: detalleRows[0] || [],
-        ordinal: ordinalRows[0]?.next || 1
+        ordinal
       });
     } catch (error) {
       logError(error);
@@ -197,6 +213,7 @@ async function handleRequest(req, res) {
     }
 
     const codigoPaquete = (payload.codigo_paquete || '').trim();
+    const ordinalIndex = Number(payload.ordinal_index || 0);
     if (!codigoPaquete) {
       return sendJson(res, 400, { message: 'Codigo de paquete requerido.' });
     }
@@ -205,12 +222,22 @@ async function handleRequest(req, res) {
     try {
       await connection.beginTransaction();
 
-      const [ordinalRows] = await queryDb(
+      const [countRows] = await queryDb(
         connection,
-        "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+        "SELECT COUNT(*) AS total FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
         [codigoPaquete]
       );
-      const ordinal = ordinalRows[0]?.next || 1;
+      let ordinal = 1;
+      if ((countRows?.[0]?.total || 0) > 0) {
+        const [ordinalRows] = await queryDb(
+          connection,
+          "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+          [codigoPaquete]
+        );
+        ordinal = ordinalRows[0]?.next || 1;
+      } else {
+        ordinal = ordinalIndex > 0 ? ordinalIndex : 1;
+      }
 
       await queryDb(
         connection,

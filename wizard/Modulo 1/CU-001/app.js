@@ -1,190 +1,135 @@
-const translations = {
-  es: {
-    eyebrow: 'Global IaaS & PaaS Operations',
-    title: 'Registro de Pedidos y Facturacion',
-    subtitle: 'Crea pedidos, emite facturas y coordina entregas con trazabilidad total.',
-    metric1Label: 'Registros activos',
-    metric2Label: 'Saldo actual',
-    step1: 'Pedido',
-    step2: 'Factura',
-    step3: 'Entrega',
-    step4: 'Recibe',
-    step5: 'Resumen',
-    pedidoTitle: 'Crear Pedido',
-    pedidoHelp: 'Selecciona cliente, fecha y registra los productos solicitados.',
-    cliente: 'Cliente',
-    fecha: 'Fecha Pedido',
-    hora: 'Hora Pedido',
-    productosPedido: 'Productos del Pedido',
-    addRow: 'Agregar linea',
-    producto: 'Producto',
-    cantidad: 'Cantidad',
-    precioTotal: 'Precio total',
-    precioUnitario: 'Precio unitario',
-    facturaTitle: 'Crear Factura',
-    facturaHelp: 'Ajusta cantidades a facturar y valida el saldo total.',
-    fechaEmision: 'Fecha emision',
-    horaEmision: 'Hora emision',
-    codigoBase: 'Codigo base',
-    numeroDocumento: 'Numero documento',
-    productosFactura: 'Productos a Facturar',
-    cantidadFactura: 'Cantidad Factura',
-    entregaTitle: 'Datos Entrega',
-    entregaHelp: 'Selecciona un punto de entrega existente o registra uno nuevo.',
-    existe: 'Existe',
-    nuevo: 'Nuevo',
-    puntoEntrega: 'Punto de entrega',
-    departamento: 'Departamento',
-    provincia: 'Provincia',
-    distrito: 'Distrito',
-    direccion: 'Direccion',
-    referencia: 'Referencia',
-    nombre: 'Nombre',
-    dni: 'DNI',
-    agencia: 'Agencia',
-    observaciones: 'Observaciones',
-    recibeTitle: 'Datos Recibe',
-    recibeHelp: 'Solo aplica para entregas en Lima Metropolitana.',
-    numRecibe: 'Numero recibe',
-    numeroRecibe: 'Numero',
-    nombreRecibe: 'Nombre',
-    resumenTitle: 'Resumen y Emitir Factura',
-    resumenHelp: 'Verifica la informacion antes de emitir la factura.',
-    confirm: 'Confirmo la operacion y el envio de factura.',
-    emitir: 'Emitir Factura',
-    prev: 'Anterior',
-    next: 'Siguiente',
-    save: 'Emitir',
-    loading: 'Cargando informacion...',
-    emptyRows: 'Sin registros',
-    errors: {
-      cliente: 'Selecciona un cliente valido.',
-      pedidoItems: 'Agrega al menos un producto con datos validos.',
-      cantidad: 'Revisa las cantidades ingresadas.',
-      facturaCantidad: 'La cantidad facturada no puede superar la cantidad del pedido.',
-      base: 'Selecciona una base valida.',
-      entrega: 'Selecciona un punto de entrega o completa los campos nuevos.',
-      recibe: 'Selecciona un numrecibe o completa los campos nuevos.',
-      confirm: 'Debes confirmar la operacion para emitir.',
-      api: 'No se pudo completar la operacion. Intenta nuevamente.'
-    },
-    resumenPedido: 'Resumen Pedido',
-    resumenFactura: 'Resumen Factura',
-    resumenEntrega: 'Resumen Entrega',
-    resumenRecibe: 'Resumen Recibe',
-    existente: 'EXISTENTE',
-    nuevoRegistro: 'NUEVO',
-    regionLima: 'LIMA',
-    regionProv: 'PROV',
-    items: 'items'
-  },
-  en: {
-    eyebrow: 'Global IaaS & PaaS Operations',
-    title: 'Order & Invoice Registration',
-    subtitle: 'Create orders, issue invoices, and coordinate delivery with full traceability.',
-    metric1Label: 'Active records',
-    metric2Label: 'Current balance',
-    step1: 'Order',
-    step2: 'Invoice',
-    step3: 'Delivery',
-    step4: 'Receiver',
-    step5: 'Summary',
-    pedidoTitle: 'Create Order',
-    pedidoHelp: 'Select client, date and register requested products.',
-    cliente: 'Client',
-    fecha: 'Order Date',
-    hora: 'Order Time',
-    productosPedido: 'Order Products',
-    addRow: 'Add line',
-    producto: 'Product',
-    cantidad: 'Quantity',
-    precioTotal: 'Total price',
-    precioUnitario: 'Unit price',
-    facturaTitle: 'Create Invoice',
-    facturaHelp: 'Adjust quantities to invoice and validate the total balance.',
-    fechaEmision: 'Issue date',
-    horaEmision: 'Issue time',
-    codigoBase: 'Base code',
-    numeroDocumento: 'Document number',
-    productosFactura: 'Products to invoice',
-    cantidadFactura: 'Invoice Quantity',
-    entregaTitle: 'Delivery Details',
-    entregaHelp: 'Select an existing delivery point or register a new one.',
-    existe: 'Existing',
-    nuevo: 'New',
-    puntoEntrega: 'Delivery point',
-    departamento: 'Department',
-    provincia: 'Province',
-    distrito: 'District',
-    direccion: 'Address',
-    referencia: 'Reference',
-    nombre: 'Name',
-    dni: 'ID',
-    agencia: 'Agency',
-    observaciones: 'Notes',
-    recibeTitle: 'Receiver Details',
-    recibeHelp: 'Only applies to Lima deliveries.',
-    numRecibe: 'Receiver number',
-    numeroRecibe: 'Number',
-    nombreRecibe: 'Name',
-    resumenTitle: 'Summary & Issue Invoice',
-    resumenHelp: 'Verify the information before issuing the invoice.',
-    confirm: 'I confirm the operation and invoice issuance.',
-    emitir: 'Issue Invoice',
-    prev: 'Back',
-    next: 'Next',
-    save: 'Issue',
-    loading: 'Loading information...',
-    emptyRows: 'No records',
-    errors: {
-      cliente: 'Select a valid client.',
-      pedidoItems: 'Add at least one product with valid data.',
-      cantidad: 'Review the quantities entered.',
-      facturaCantidad: 'Invoiced quantity cannot exceed order quantity.',
-      base: 'Select a valid base.',
-      entrega: 'Select a delivery point or complete the new fields.',
-      recibe: 'Select a receiver or complete the new fields.',
-      confirm: 'You must confirm the operation to issue.',
-      api: 'The operation could not be completed. Please try again.'
-    },
-    resumenPedido: 'Order Summary',
-    resumenFactura: 'Invoice Summary',
-    resumenEntrega: 'Delivery Summary',
-    resumenRecibe: 'Receiver Summary',
-    existente: 'EXISTING',
-    nuevoRegistro: 'NEW',
-    regionLima: 'LIMA',
-    regionProv: 'OUTSIDE',
-    items: 'items'
-  }
-};
-
 class FormWizard {
   constructor() {
-    this.stepsAll = Array.from(document.querySelectorAll('.step'));
-    this.steps = [];
+    this.steps = Array.from(document.querySelectorAll('.step'));
     this.currentStep = 0;
     this.progressBar = document.getElementById('progressBar');
     this.nextBtn = document.getElementById('nextBtn');
     this.prevBtn = document.getElementById('prevBtn');
+    this.emitirBtn = document.getElementById('emitirBtn');
     this.loadingState = document.getElementById('loadingState');
     this.alertArea = document.getElementById('alertArea');
+    this.statusHint = document.getElementById('statusHint');
+
+    this.fechaPedidoInput = document.getElementById('fechaPedido');
+    this.horaPedidoInput = document.getElementById('horaPedido');
+    this.clienteInput = document.getElementById('clienteInput');
+    this.clienteList = document.getElementById('clienteList');
+    this.clienteNumero = document.getElementById('clienteNumero');
+
     this.pedidoBody = document.getElementById('pedidoBody');
+    this.addPedidoRowBtn = document.getElementById('addPedidoRow');
+
+    this.fechaEmisionInput = document.getElementById('fechaEmision');
+    this.horaEmisionInput = document.getElementById('horaEmision');
+    this.tipoDocumentoInput = document.getElementById('tipoDocumento');
+    this.numeroDocumentoInput = document.getElementById('numeroDocumento');
     this.facturaBody = document.getElementById('facturaBody');
-    this.saldoBadge = document.getElementById('saldoBadge');
+    this.saldoFactura = document.getElementById('saldoFactura');
+
+    this.entregaExisteRadio = document.getElementById('entregaExiste');
+    this.entregaNuevoRadio = document.getElementById('entregaNuevo');
+    this.entregaExistenteCard = document.getElementById('entregaExistente');
+    this.entregaNuevoCard = document.getElementById('entregaNuevo');
+    this.puntoEntregaInput = document.getElementById('puntoEntregaInput');
+    this.puntoEntregaList = document.getElementById('puntoEntregaList');
+    this.entregaExistenteInfo = document.getElementById('entregaExistenteInfo');
+    this.departamentoInput = document.getElementById('departamentoInput');
+    this.departamentoList = document.getElementById('departamentoList');
+    this.provinciaInput = document.getElementById('provinciaInput');
+    this.provinciaList = document.getElementById('provinciaList');
+    this.distritoInput = document.getElementById('distritoInput');
+    this.distritoList = document.getElementById('distritoList');
+    this.entregaLimaFields = document.getElementById('entregaLimaFields');
+    this.entregaProvFields = document.getElementById('entregaProvFields');
+    this.direccionInput = document.getElementById('direccionInput');
+    this.referenciaInput = document.getElementById('referenciaInput');
+    this.nombreProvInput = document.getElementById('nombreProvInput');
+    this.dniProvInput = document.getElementById('dniProvInput');
+    this.agenciaProvInput = document.getElementById('agenciaProvInput');
+    this.observacionesProvInput = document.getElementById('observacionesProvInput');
+
+    this.recibeExisteRadio = document.getElementById('recibeExiste');
+    this.recibeNuevoRadio = document.getElementById('recibeNuevo');
+    this.recibeExistenteCard = document.getElementById('recibeExistente');
+    this.recibeNuevoCard = document.getElementById('recibeNuevo');
+    this.recibeInput = document.getElementById('recibeInput');
+    this.recibeList = document.getElementById('recibeList');
+    this.numeroRecibeInput = document.getElementById('numeroRecibeInput');
+    this.nombreRecibeInput = document.getElementById('nombreRecibeInput');
+
+    this.cuentaInput = document.getElementById('cuentaInput');
+    this.cuentaList = document.getElementById('cuentaList');
+    this.cuentaBanco = document.getElementById('cuentaBanco');
+    this.montoPendienteInput = document.getElementById('montoPendiente');
+    this.montoPagoInput = document.getElementById('montoPago');
+    this.addPagoBtn = document.getElementById('addPagoBtn');
+    this.pagosBody = document.getElementById('pagosBody');
+
+    this.baseInput = document.getElementById('baseInput');
+    this.baseList = document.getElementById('baseList');
+    this.jsonDetalle = document.getElementById('jsonDetalle');
+
+    this.resumenPedido = document.getElementById('resumenPedido');
+    this.resumenFactura = document.getElementById('resumenFactura');
+    this.resumenEntrega = document.getElementById('resumenEntrega');
+    this.resumenRecibe = document.getElementById('resumenRecibe');
+
+    this.confirmCheck = document.getElementById('confirmCheck');
 
     this.state = {
+      vcodigo_pedido: null,
+      vFechaPedido: null,
+      vHoraPedido: null,
+      vFechaP: null,
+      vClienteSeleted: null,
+      vClienteNombre: '',
+      vClienteNumero: '',
+      vProdPedidos: [],
+      vProdFactura: [],
+      vTipo_documento: 'FAC',
+      vNumero_documento: null,
+      vRegion_Entrega: null,
+      vEntregaExiste: true,
+      vPuntoEntrega: null,
+      vPuntoEntregaTexto: '',
+      vDireccionLinea: '',
+      vReferencia: '',
+      vNombre: '',
+      vDni: '',
+      vAgencia: '',
+      vObservaciones: '',
+      vCod_Dep: '',
+      vCod_Prov: '',
+      vCod_Dist: '',
+      Vubigeo: '',
+      Vcodigo_puntoentrega: null,
+      vRecibeExiste: true,
+      vConcatenarnumrecibe: '',
+      vNumeroRecibe: '',
+      vNombreRecibe: '',
+      vOrdinal_numrecibe: null,
+      vTipo_documento_pago: 'RCP',
+      vNumero_documento_pago: null,
+      vCuentaNombre: '',
+      vCuentaBanco: '',
+      vCuentaBancaria: null,
+      vMontoPendiente: 0,
+      vMontoPago: 0,
+      vPagos: [],
+      vCodigo_base: null,
+      vBaseNombre: ''
+    };
+
+    this.catalogos = {
       clientes: [],
       productos: [],
-      bases: [],
       puntosEntrega: [],
-      numRecibe: [],
-      pedidoItems: [],
-      facturaItems: [],
-      regionEntrega: 'PROV',
-      codigoPedido: null,
-      numeroDocumento: null,
-      moneda: 'PEN'
+      departamentos: [],
+      provincias: [],
+      distritos: [],
+      numrecibe: [],
+      cuentas: [],
+      bases: []
     };
 
     this.init();
@@ -193,10 +138,11 @@ class FormWizard {
   init() {
     this.setLanguage();
     this.applyLanguage();
-    this.bindEvents();
-    this.initDates();
-    this.refreshSteps();
-    this.loadInit();
+    this.initializeDates();
+    this.updateButtons();
+    this.attachEvents();
+    this.loadInitialData();
+    this.addPedidoRow();
   }
 
   setLanguage() {
@@ -207,44 +153,57 @@ class FormWizard {
   }
 
   applyLanguage() {
+    const dict = this.dict;
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n');
-      if (this.dict[key]) {
-        el.textContent = this.dict[key];
+      if (dict[key]) {
+        el.textContent = dict[key];
       }
     });
   }
 
-  bindEvents() {
-    this.nextBtn.addEventListener('click', () => this.handleNext());
-    this.prevBtn.addEventListener('click', () => this.handlePrev());
-    document.getElementById('addPedidoRow').addEventListener('click', () => this.addPedidoRow());
-    document.getElementById('clienteSelect').addEventListener('change', (e) => this.handleClienteChange(e));
-    document.getElementById('baseSelect').addEventListener('change', () => this.calculateSaldo());
-    document.getElementById('emitirBtn').addEventListener('click', () => this.handleEmitir());
-    document.getElementById('puntoEntregaSelect').addEventListener('change', () => this.updateRegionFromExisting());
-
-    document.querySelectorAll('input[name="entregaMode"]').forEach((input) => {
-      input.addEventListener('change', () => this.toggleEntregaMode());
-    });
-    document.querySelectorAll('input[name="recibeMode"]').forEach((input) => {
-      input.addEventListener('change', () => this.toggleRecibeMode());
-    });
-
-    document.getElementById('depSelect').addEventListener('change', () => this.loadProvincias());
-    document.getElementById('provSelect').addEventListener('change', () => this.loadDistritos());
-    document.getElementById('depSelect').addEventListener('change', () => this.updateRegionEntrega());
-    document.getElementById('provSelect').addEventListener('change', () => this.updateRegionEntrega());
+  initializeDates() {
+    const now = new Date();
+    const date = now.toISOString().slice(0, 10);
+    const time = now.toTimeString().slice(0, 8);
+    this.state.vFechaPedido = date;
+    this.state.vHoraPedido = time;
+    this.state.vFechaP = `${date} ${time}`;
+    this.fechaPedidoInput.value = date;
+    this.horaPedidoInput.value = time;
+    this.fechaEmisionInput.value = date;
+    this.horaEmisionInput.value = time;
+    this.tipoDocumentoInput.value = this.state.vTipo_documento;
   }
 
-  initDates() {
-    const now = new Date();
-    const fecha = now.toISOString().slice(0, 10);
-    const hora = now.toTimeString().slice(0, 5);
-    document.getElementById('fechaPedido').value = fecha;
-    document.getElementById('horaPedido').value = hora;
-    document.getElementById('fechaEmision').value = fecha;
-    document.getElementById('horaEmision').value = hora;
+  attachEvents() {
+    this.nextBtn.addEventListener('click', () => this.handleNext());
+    this.prevBtn.addEventListener('click', () => this.handlePrev());
+    this.emitirBtn.addEventListener('click', () => this.handleEmitir());
+
+    this.addPedidoRowBtn.addEventListener('click', () => this.addPedidoRow());
+    this.entregaExisteRadio.addEventListener('change', () => this.toggleEntrega());
+    this.entregaNuevoRadio.addEventListener('change', () => this.toggleEntrega());
+    this.recibeExisteRadio.addEventListener('change', () => this.toggleRecibe());
+    this.recibeNuevoRadio.addEventListener('change', () => this.toggleRecibe());
+
+    this.addPagoBtn.addEventListener('click', () => this.addPago());
+    this.montoPagoInput.addEventListener('input', () => this.clearInvalid(this.montoPagoInput));
+
+    this.clienteInput.addEventListener('input', () => this.showTypeahead('clientes', this.clienteInput, this.clienteList, 'nombre'));
+    this.puntoEntregaInput.addEventListener('input', () => this.showTypeahead('puntosEntrega', this.puntoEntregaInput, this.puntoEntregaList, 'concatenarpuntoentrega'));
+    this.departamentoInput.addEventListener('input', () => this.showTypeahead('departamentos', this.departamentoInput, this.departamentoList, 'departamento'));
+    this.provinciaInput.addEventListener('input', () => this.showTypeahead('provincias', this.provinciaInput, this.provinciaList, 'provincia'));
+    this.distritoInput.addEventListener('input', () => this.showTypeahead('distritos', this.distritoInput, this.distritoList, 'distrito'));
+    this.recibeInput.addEventListener('input', () => this.showTypeahead('numrecibe', this.recibeInput, this.recibeList, 'concatenarnumrecibe'));
+    this.cuentaInput.addEventListener('input', () => this.showTypeahead('cuentas', this.cuentaInput, this.cuentaList, 'nombre'));
+    this.baseInput.addEventListener('input', () => this.showTypeahead('bases', this.baseInput, this.baseList, 'nombre'));
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.typeahead')) {
+        document.querySelectorAll('.typeahead-list').forEach((list) => list.style.display = 'none');
+      }
+    });
   }
 
   setLoading(message) {
@@ -268,33 +227,28 @@ class FormWizard {
   }
 
   updateButtons() {
+    const sequence = this.getStepSequence();
     this.prevBtn.disabled = this.currentStep === 0;
-    const isLast = this.currentStep === this.steps.length - 1;
-    this.nextBtn.textContent = isLast ? this.dict.save : this.dict.next;
-    const progress = ((this.currentStep + 1) / this.steps.length) * 100;
+    this.nextBtn.textContent = this.currentStep === sequence.length - 1 ? this.dict.finish : this.dict.next;
+    const progress = ((this.currentStep + 1) / sequence.length) * 100;
     this.progressBar.style.width = `${progress}%`;
   }
 
-  refreshSteps() {
-    const includeRecibe = this.state.regionEntrega === 'LIMA';
-    const recibeStep = document.getElementById('step-recibe');
-    recibeStep.classList.toggle('d-none', !includeRecibe);
-
-    this.steps = this.stepsAll.filter((step) => !step.classList.contains('d-none'));
-    if (this.currentStep >= this.steps.length) {
-      this.currentStep = this.steps.length - 1;
+  getStepSequence() {
+    const steps = [0, 1, 2, 3, 4, 5, 6];
+    if (this.state.vRegion_Entrega && this.state.vRegion_Entrega !== 'LIMA') {
+      return steps.filter((step) => step !== 3);
     }
-    this.stepsAll.forEach((step) => step.classList.remove('active'));
-    if (this.steps[this.currentStep]) {
-      this.steps[this.currentStep].classList.add('active');
-    }
-    this.updateButtons();
+    return steps;
   }
 
   goToStep(index) {
-    this.steps[this.currentStep].classList.remove('active');
+    const sequence = this.getStepSequence();
+    const actualIndex = sequence[index];
+    const currentActual = sequence[this.currentStep];
+    this.steps[currentActual].classList.remove('active');
     this.currentStep = index;
-    this.steps[this.currentStep].classList.add('active');
+    this.steps[actualIndex].classList.add('active');
     this.updateButtons();
   }
 
@@ -305,672 +259,1008 @@ class FormWizard {
   }
 
   async handleNext() {
+    this.clearAlert();
     const valid = this.validateStep();
     if (!valid) return;
 
-    if (this.currentStep === this.steps.length - 1) {
-      await this.handleEmitir();
+    const sequence = this.getStepSequence();
+    if (this.currentStep === sequence.length - 1) {
+      this.goToStep(this.currentStep);
       return;
     }
 
     this.goToStep(this.currentStep + 1);
-    if (this.steps[this.currentStep].id === 'step-factura') {
-      this.buildFacturaGrid();
+
+    const stepIndex = sequence[this.currentStep];
+    if (stepIndex === 1) {
+      this.prepareFactura();
     }
-    if (this.steps[this.currentStep].id === 'step-resumen') {
-      this.renderSummary();
+    if (stepIndex === 2) {
+      this.updateEntregaUI();
+    }
+    if (stepIndex === 4) {
+      this.updateMontoPendiente();
+    }
+    if (stepIndex === 5) {
+      this.updateJsonDetalle();
+    }
+    if (stepIndex === 6) {
+      this.renderResumen();
     }
   }
 
   validateStep() {
-    this.clearAlert();
-    if (this.steps[this.currentStep].id === 'step-pedido') {
-      const cliente = document.getElementById('clienteSelect').value;
-      if (!cliente) {
+    const stepIndex = this.getStepSequence()[this.currentStep];
+
+    if (stepIndex === 0) {
+      if (!this.state.vClienteSeleted) {
         this.showAlert('warning', this.dict.errors.cliente);
+        this.clienteInput.classList.add('is-invalid');
         return false;
       }
-      const items = this.collectPedidoItems();
-      if (this.state.pedidoInvalid) {
-        this.showAlert('warning', this.dict.errors.cantidad);
+
+      const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
+      if (rows.length === 0) {
+        this.showAlert('warning', this.dict.errors.detallePedido);
         return false;
       }
-      if (items.length === 0) {
-        this.showAlert('warning', this.dict.errors.pedidoItems);
-        return false;
+
+      const decimalRegex = /^\d+(\.\d{1,2})?$/;
+      for (const row of rows) {
+        const producto = row.dataset.codigoProducto;
+        const cantidadInput = row.querySelector('.pedido-cantidad');
+        const precioInput = row.querySelector('.pedido-precio');
+        if (!producto) {
+          this.showAlert('warning', this.dict.errors.producto);
+          row.querySelector('.pedido-producto').classList.add('is-invalid');
+          return false;
+        }
+        if (!decimalRegex.test(cantidadInput.value) || Number(cantidadInput.value) <= 0) {
+          this.showAlert('warning', this.dict.errors.cantidad);
+          cantidadInput.classList.add('is-invalid');
+          return false;
+        }
+        if (!decimalRegex.test(precioInput.value) || Number(precioInput.value) <= 0) {
+          this.showAlert('warning', this.dict.errors.precio);
+          precioInput.classList.add('is-invalid');
+          return false;
+        }
+      }
+      this.storePedidoLines();
+      return true;
+    }
+
+    if (stepIndex === 1) {
+      const decimalRegex = /^\d+(\.\d{1,2})?$/;
+      for (const line of this.state.vProdFactura) {
+        if (!decimalRegex.test(String(line.vFCantidadProducto)) || Number(line.vFCantidadProducto) <= 0) {
+          this.showAlert('warning', this.dict.errors.cantidadFactura);
+          return false;
+        }
+        if (Number(line.vFCantidadProducto) > Number(line.vMaxCantidad)) {
+          this.showAlert('danger', this.dict.errors.cantidadFacturaExcede);
+          return false;
+        }
       }
       return true;
     }
 
-    if (this.steps[this.currentStep].id === 'step-factura') {
-      const base = document.getElementById('baseSelect').value;
-      if (!base) {
-        this.showAlert('warning', this.dict.errors.base);
+    if (stepIndex === 2) {
+      if (this.state.vEntregaExiste && !this.state.vPuntoEntrega) {
+        this.showAlert('warning', this.dict.errors.puntoEntrega);
+        this.puntoEntregaInput.classList.add('is-invalid');
         return false;
       }
-      if (!this.validateFacturaItems()) {
-        return false;
+
+      if (!this.state.vEntregaExiste) {
+        if (!this.state.vCod_Dep || !this.state.vCod_Prov || !this.state.vCod_Dist) {
+          this.showAlert('warning', this.dict.errors.ubigeo);
+          return false;
+        }
+        if (this.state.vRegion_Entrega === 'LIMA' && !this.direccionInput.value.trim()) {
+          this.showAlert('warning', this.dict.errors.direccion);
+          this.direccionInput.classList.add('is-invalid');
+          return false;
+        }
+        if (this.state.vRegion_Entrega === 'PROV') {
+          const nameRegex = /^[A-Za-z0-9\s'.-]{2,}$/;
+          const dniRegex = /^\d{8}$/;
+          if (!nameRegex.test(this.nombreProvInput.value.trim())) {
+            this.showAlert('warning', this.dict.errors.nombre);
+            this.nombreProvInput.classList.add('is-invalid');
+            return false;
+          }
+          if (!dniRegex.test(this.dniProvInput.value.trim())) {
+            this.showAlert('warning', this.dict.errors.dni);
+            this.dniProvInput.classList.add('is-invalid');
+            return false;
+          }
+        }
       }
+
       return true;
     }
 
-    if (this.steps[this.currentStep].id === 'step-entrega') {
-      if (!this.validateEntrega()) {
-        this.showAlert('warning', this.dict.errors.entrega);
-        return false;
+    if (stepIndex === 3) {
+      if (this.state.vRegion_Entrega !== 'LIMA') {
+        return true;
       }
-      return true;
-    }
-
-    if (this.steps[this.currentStep].id === 'step-recibe') {
-      if (!this.validateRecibe()) {
+      if (this.state.vRecibeExiste && !this.state.vConcatenarnumrecibe) {
         this.showAlert('warning', this.dict.errors.recibe);
+        this.recibeInput.classList.add('is-invalid');
+        return false;
+      }
+      if (!this.state.vRecibeExiste) {
+        if (!this.numeroRecibeInput.value.trim() || !this.nombreRecibeInput.value.trim()) {
+          this.showAlert('warning', this.dict.errors.recibeNuevo);
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (stepIndex === 4) {
+      if (this.state.vPagos.length > 0) {
+        return true;
+      }
+      const pago = Number(this.montoPagoInput.value || 0);
+      if (pago > 0 && (!this.state.vCuentaBancaria || pago > this.state.vMontoPendiente)) {
+        this.showAlert('warning', this.dict.errors.pago);
         return false;
       }
       return true;
     }
 
-    if (this.steps[this.currentStep].id === 'step-resumen') {
-      if (!document.getElementById('confirmEmit').checked) {
+    if (stepIndex === 5) {
+      if (!this.state.vCodigo_base) {
+        this.showAlert('warning', this.dict.errors.base);
+        this.baseInput.classList.add('is-invalid');
+        return false;
+      }
+      return true;
+    }
+
+    if (stepIndex === 6) {
+      if (!this.confirmCheck.checked) {
         this.showAlert('warning', this.dict.errors.confirm);
         return false;
       }
+      return true;
     }
 
     return true;
   }
 
-  async loadInit() {
+  async loadInitialData() {
+    this.setLoading(this.dict.loading);
     try {
-      this.setLoading(this.dict.loading);
-      const response = await fetch('/api/init');
-      const data = await response.json();
-      this.state.clientes = data.clientes || [];
-      this.state.productos = data.productos || [];
-      this.state.bases = data.bases || [];
-      this.state.codigoPedido = data.codigo_pedido || null;
-      this.state.numeroDocumento = data.numero_documento || null;
+      const [clientes, productos, cuentas, bases, nextPedido, nextFactura, nextRecibo] = await Promise.all([
+        this.fetchJson('/api/clientes'),
+        this.fetchJson('/api/productos'),
+        this.fetchJson('/api/cuentas'),
+        this.fetchJson('/api/bases'),
+        this.fetchJson('/api/next/pedido'),
+        this.fetchJson('/api/next/factura'),
+        this.fetchJson('/api/next/recibo')
+      ]);
+      this.catalogos.clientes = clientes;
+      this.catalogos.productos = productos;
+      this.catalogos.cuentas = cuentas;
+      this.catalogos.bases = bases;
+      this.state.vcodigo_pedido = nextPedido.next;
+      this.state.vNumero_documento = nextFactura.next;
+      this.state.vNumero_documento_pago = nextRecibo.next;
+      this.numeroDocumentoInput.value = this.state.vNumero_documento;
+      this.refreshPedidoRowsTypeahead();
 
-      this.fillClientes();
-      this.fillBases();
-      this.fillMetricas();
-      this.numeroDocumentoField();
-      this.addPedidoRow();
-      await this.loadUbigeoDepartamentos();
+      this.bindTypeahead(this.clienteInput, this.clienteList, clientes, 'nombre', (item) => {
+        this.state.vClienteSeleted = item.codigo_cliente;
+        this.state.vClienteNombre = item.nombre;
+        this.state.vClienteNumero = item.numero;
+        this.clienteNumero.textContent = `${this.dict.numeroCliente}: ${item.numero}`;
+        this.clienteInput.value = item.nombre;
+        this.clienteInput.classList.remove('is-invalid');
+        this.loadEntregaData();
+        this.loadRecibeData();
+      });
+
+      this.bindTypeahead(this.cuentaInput, this.cuentaList, cuentas, 'nombre', (item) => {
+        this.state.vCuentaBancaria = item.codigo_cuentabancaria;
+        this.state.vCuentaNombre = item.nombre;
+        this.state.vCuentaBanco = item.banco;
+        this.cuentaBanco.textContent = item.banco ? `${this.dict.banco}: ${item.banco}` : '';
+        this.cuentaInput.value = item.nombre;
+        this.cuentaInput.classList.remove('is-invalid');
+      });
+
+      this.bindTypeahead(this.baseInput, this.baseList, bases, 'nombre', (item) => {
+        this.state.vCodigo_base = item.codigo_base;
+        this.state.vBaseNombre = item.nombre;
+        this.baseInput.value = item.nombre;
+        this.baseInput.classList.remove('is-invalid');
+        this.updateJsonDetalle();
+      });
     } catch (error) {
-      this.showAlert('danger', this.dict.errors.api);
+      this.showAlert('danger', error.message || this.dict.errors.general);
     } finally {
       this.setLoading('');
     }
   }
 
-  fillMetricas() {
-    const pedidosMetric = document.getElementById('metricPedidos');
-    pedidosMetric.textContent = this.state.codigoPedido ? `#${this.state.codigoPedido}` : '--';
-    document.getElementById('metricSaldo').textContent = this.formatMoney(this.calculateSaldo());
-  }
+  async loadEntregaData() {
+    if (!this.state.vClienteSeleted) return;
+    try {
+      this.state.vPuntoEntrega = null;
+      this.state.vPuntoEntregaTexto = '';
+      this.state.vRegion_Entrega = null;
+      this.puntoEntregaInput.value = '';
+      this.entregaExistenteInfo.innerHTML = '';
+      this.departamentoInput.value = '';
+      this.provinciaInput.value = '';
+      this.distritoInput.value = '';
+      const [puntos, departamentos] = await Promise.all([
+        this.fetchJson(`/api/puntos-entrega?codigoCliente=${this.state.vClienteSeleted}`),
+        this.fetchJson('/api/departamentos')
+      ]);
+      this.catalogos.puntosEntrega = puntos;
+      this.catalogos.departamentos = departamentos;
 
-  numeroDocumentoField() {
-    document.getElementById('numeroDocumento').value = this.state.numeroDocumento || '';
-  }
-
-  fillClientes() {
-    const select = document.getElementById('clienteSelect');
-    select.innerHTML = '<option value="">--</option>';
-    this.state.clientes.forEach((cliente) => {
-      const value = this.getField(cliente, ['codigo_cliente', 'vcodigo_cliente', 'codigo', 'id']);
-      const name = this.getField(cliente, ['nombre_cliente', 'vnombre_cliente', 'razon_social', 'nombre', 'descripcion']);
-      const label = value ? `${value} - ${name || ''}` : name || '';
-      const option = document.createElement('option');
-      option.value = value || '';
-      option.textContent = label || value || '--';
-      select.appendChild(option);
-    });
-  }
-
-  fillBases() {
-    const select = document.getElementById('baseSelect');
-    select.innerHTML = '<option value="">--</option>';
-    this.state.bases.forEach((base) => {
-      const value = this.getField(base, ['codigo_base', 'vcodigo_base', 'codigo', 'id']);
-      const name = this.getField(base, ['descripcion', 'nombre', 'vdescripcion']);
-      const option = document.createElement('option');
-      option.value = value || '';
-      option.textContent = name ? `${value} - ${name}` : value;
-      select.appendChild(option);
-    });
-  }
-
-  getField(obj, keys) {
-    for (const key of keys) {
-      if (obj && obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
-        return obj[key];
+      if (!puntos || puntos.length === 0) {
+        this.entregaExisteRadio.disabled = true;
+        this.entregaNuevoRadio.checked = true;
+        this.state.vEntregaExiste = false;
+      } else {
+        this.entregaExisteRadio.disabled = false;
+        this.entregaExisteRadio.checked = true;
+        this.state.vEntregaExiste = true;
       }
+      this.toggleEntrega();
+
+      this.bindTypeahead(this.puntoEntregaInput, this.puntoEntregaList, puntos, 'concatenarpuntoentrega', (item) => {
+        this.state.vPuntoEntrega = item;
+        this.state.vPuntoEntregaTexto = item.concatenarpuntoentrega;
+        this.state.vRegion_Entrega = item.region_entrega;
+        this.state.Vcodigo_puntoentrega = item.codigo_puntoentrega;
+        this.state.vCod_Dep = item.cod_dep;
+        this.state.vCod_Prov = item.cod_prov;
+        this.state.vCod_Dist = item.cod_dist;
+        this.state.Vubigeo = item.ubigeo;
+        this.entregaExistenteInfo.innerHTML = this.renderEntregaInfo(item);
+        this.updateRegionUI();
+      });
+
+      this.bindTypeahead(this.departamentoInput, this.departamentoList, departamentos, 'departamento', (item) => {
+        this.state.vCod_Dep = item.cod_dep;
+        this.departamentoInput.value = item.departamento;
+        this.departamentoInput.classList.remove('is-invalid');
+        this.loadProvincias(item.cod_dep);
+      });
+    } catch (error) {
+      this.showAlert('danger', error.message || this.dict.errors.general);
     }
-    return '';
   }
 
-  getProductoLabel(codigo) {
-    const producto = this.state.productos.find((item) =>
-      String(this.getField(item, ['codigo_producto', 'vcodigo_producto', 'codigo', 'id'])) === String(codigo)
-    );
-    const name = this.getField(producto, ['nombre_producto', 'descripcion', 'vdescripcion', 'nombre']);
-    return name ? `${codigo} - ${name}` : String(codigo);
+  async loadProvincias(codDep) {
+    this.provinciaInput.value = '';
+    this.distritoInput.value = '';
+    this.catalogos.provincias = [];
+    this.catalogos.distritos = [];
+    if (!codDep) return;
+    const provincias = await this.fetchJson(`/api/provincias?codDep=${codDep}`);
+    this.catalogos.provincias = provincias;
+    this.bindTypeahead(this.provinciaInput, this.provinciaList, provincias, 'provincia', (item) => {
+      this.state.vCod_Prov = item.cod_prov;
+      this.provinciaInput.value = item.provincia;
+      this.provinciaInput.classList.remove('is-invalid');
+      this.loadDistritos(this.state.vCod_Dep, item.cod_prov);
+    });
+  }
+
+  async loadDistritos(codDep, codProv) {
+    this.distritoInput.value = '';
+    this.catalogos.distritos = [];
+    if (!codDep || !codProv) return;
+    const distritos = await this.fetchJson(`/api/distritos?codDep=${codDep}&codProv=${codProv}`);
+    this.catalogos.distritos = distritos;
+    this.bindTypeahead(this.distritoInput, this.distritoList, distritos, 'distrito', (item) => {
+      this.state.vCod_Dist = item.cod_dist;
+      this.distritoInput.value = item.distrito;
+      this.distritoInput.classList.remove('is-invalid');
+      this.defineRegion();
+    });
+  }
+
+  async loadRecibeData() {
+    if (!this.state.vClienteSeleted) return;
+    this.state.vConcatenarnumrecibe = '';
+    this.state.vNumeroRecibe = '';
+    this.state.vNombreRecibe = '';
+    this.state.vOrdinal_numrecibe = null;
+    this.recibeInput.value = '';
+    this.numeroRecibeInput.value = '';
+    this.nombreRecibeInput.value = '';
+    const numrecibe = await this.fetchJson(`/api/numrecibe?codigoCliente=${this.state.vClienteSeleted}`);
+    this.catalogos.numrecibe = numrecibe;
+
+    if (!numrecibe || numrecibe.length === 0) {
+      this.recibeExisteRadio.disabled = true;
+      this.recibeNuevoRadio.checked = true;
+      this.state.vRecibeExiste = false;
+    } else {
+      this.recibeExisteRadio.disabled = false;
+      this.recibeExisteRadio.checked = true;
+      this.state.vRecibeExiste = true;
+    }
+    this.toggleRecibe();
+
+    this.bindTypeahead(this.recibeInput, this.recibeList, numrecibe, 'concatenarnumrecibe', (item) => {
+      this.state.vConcatenarnumrecibe = item.concatenarnumrecibe;
+      this.state.vNumeroRecibe = item.numero;
+      this.state.vNombreRecibe = item.nombre;
+      this.state.vOrdinal_numrecibe = item.ordinal_numrecibe;
+      this.recibeInput.value = item.concatenarnumrecibe;
+      this.recibeInput.classList.remove('is-invalid');
+    });
+  }
+
+  async fetchJson(url) {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || this.dict.errors.general);
+    }
+    return data;
+  }
+
+  bindTypeahead(input, listEl, items, key, onSelect) {
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    input.addEventListener('focus', () => this.showTypeaheadItems(input, listEl, items, key, onSelect));
+    input.addEventListener('input', () => this.showTypeaheadItems(input, listEl, items, key, onSelect));
+    listEl.onmousedown = (event) => {
+      const item = event.target.closest('.typeahead-item');
+      if (!item) return;
+      const index = Number(item.dataset.index);
+      const selected = items[index];
+      if (selected) {
+        onSelect(selected);
+      }
+      listEl.style.display = 'none';
+    };
+  }
+
+  showTypeaheadItems(input, listEl, items, key, onSelect) {
+    const query = input.value.trim().toLowerCase();
+    const filtered = items.filter((item) => String(item[key] || '').toLowerCase().includes(query));
+    listEl.innerHTML = filtered
+      .slice(0, 50)
+      .map((item, index) => `<div class="typeahead-item" data-index="${items.indexOf(item)}">${item[key]}</div>`)
+      .join('');
+    listEl.style.display = filtered.length ? 'block' : 'none';
+    listEl.onmousedown = (event) => {
+      const node = event.target.closest('.typeahead-item');
+      if (!node) return;
+      const selected = items[Number(node.dataset.index)];
+      if (selected) {
+        onSelect(selected);
+      }
+      listEl.style.display = 'none';
+    };
+  }
+
+  showTypeahead(catalogKey, input, listEl, key) {
+    const items = this.catalogos[catalogKey] || [];
+    this.showTypeaheadItems(input, listEl, items, key, () => {});
   }
 
   addPedidoRow() {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td></td>
-      <td><input type="text" class="form-control form-control-sm cantidad-input" /></td>
-      <td><input type="text" class="form-control form-control-sm total-input" /></td>
-      <td><input type="text" class="form-control form-control-sm unit-input" disabled /></td>
-      <td><button type="button" class="btn btn-sm btn-outline-light delete-row">×</button></td>
+      <td>
+        <div class="typeahead">
+          <input class="form-control typeahead-input pedido-producto" type="text" placeholder="Buscar producto" autocomplete="off" />
+          <div class="typeahead-list"></div>
+        </div>
+      </td>
+      <td><input class="form-control pedido-cantidad" type="text" placeholder="0.00" /></td>
+      <td><input class="form-control pedido-precio" type="text" placeholder="0.00" /></td>
+      <td><button class="btn btn-outline-light btn-sm remove-row" type="button">${this.dict.remove}</button></td>
     `;
+    const productoInput = row.querySelector('.pedido-producto');
+    const listEl = row.querySelector('.typeahead-list');
 
-    const productCell = row.children[0];
-    const select = document.createElement('select');
-    select.className = 'form-select form-select-sm';
-    select.innerHTML = '<option value="">--</option>';
-    this.state.productos.forEach((producto) => {
-      const value = this.getField(producto, ['codigo_producto', 'vcodigo_producto', 'codigo', 'id']);
-      const name = this.getField(producto, ['nombre_producto', 'descripcion', 'vdescripcion', 'nombre']);
-      const option = document.createElement('option');
-      option.value = value || '';
-      option.textContent = name ? `${value} - ${name}` : value;
-      select.appendChild(option);
+    this.bindTypeahead(productoInput, listEl, this.catalogos.productos, 'nombre', (item) => {
+      row.dataset.codigoProducto = item.codigo_producto;
+      row.dataset.nombreProducto = item.nombre;
+      productoInput.value = item.nombre;
+      productoInput.classList.remove('is-invalid');
     });
-    productCell.appendChild(select);
 
-    row.querySelector('.delete-row').addEventListener('click', () => {
+    row.querySelector('.remove-row').addEventListener('click', () => {
       row.remove();
-      this.calculateSaldo();
     });
 
-    row.querySelectorAll('input, select').forEach((input) => {
-      input.addEventListener('input', () => this.updateUnitPrice(row));
-      input.addEventListener('change', () => this.updateUnitPrice(row));
+    row.querySelector('.pedido-cantidad').addEventListener('input', (event) => {
+      this.clearInvalid(event.target);
+    });
+    row.querySelector('.pedido-precio').addEventListener('input', (event) => {
+      this.clearInvalid(event.target);
     });
 
     this.pedidoBody.appendChild(row);
   }
 
-  updateUnitPrice(row) {
-    const cantidad = this.parseNumber(row.querySelector('.cantidad-input').value);
-    const total = this.parseNumber(row.querySelector('.total-input').value);
-    const unitInput = row.querySelector('.unit-input');
-    if (cantidad > 0 && total > 0) {
-      unitInput.value = (total / cantidad).toFixed(4);
-    } else {
-      unitInput.value = '';
-    }
-    this.calculateSaldo();
-  }
-
-  collectPedidoItems() {
-    const decimalRegex = /^\d+(\.\d{1,2})?$/;
-    const items = [];
-    let invalid = false;
-    this.pedidoBody.querySelectorAll('tr').forEach((row) => {
-      const producto = row.querySelector('select').value;
-      const cantidadRaw = row.querySelector('.cantidad-input').value.trim();
-      const totalRaw = row.querySelector('.total-input').value.trim();
-      const hasData = producto || cantidadRaw || totalRaw;
-      if (!producto || !decimalRegex.test(cantidadRaw) || !decimalRegex.test(totalRaw)) {
-        if (hasData) {
-          invalid = true;
-        }
-        return;
-      }
-      const cantidad = Number(cantidadRaw);
-      const total = Number(totalRaw);
-      const unit = cantidad > 0 ? total / cantidad : 0;
-      items.push({ codigo_producto: producto, cantidad, precio_total: total, precio_unitario: unit });
+  refreshPedidoRowsTypeahead() {
+    const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
+    rows.forEach((row) => {
+      const productoInput = row.querySelector('.pedido-producto');
+      const listEl = row.querySelector('.typeahead-list');
+      this.bindTypeahead(productoInput, listEl, this.catalogos.productos, 'nombre', (item) => {
+        row.dataset.codigoProducto = item.codigo_producto;
+        row.dataset.nombreProducto = item.nombre;
+        productoInput.value = item.nombre;
+        productoInput.classList.remove('is-invalid');
+      });
     });
-    this.state.pedidoItems = items;
-    this.state.pedidoInvalid = invalid;
-    return items;
   }
 
-  buildFacturaGrid() {
-    const pedidoItems = this.collectPedidoItems();
-    this.facturaBody.innerHTML = '';
-    this.state.facturaItems = pedidoItems.map((item) => ({
-      codigo_producto: item.codigo_producto,
-      cantidad_pedido: item.cantidad,
-      cantidad_factura: item.cantidad,
-      precio_unitario: item.precio_unitario,
-      precio_total: item.precio_total
+  storePedidoLines() {
+    const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
+    this.state.vProdPedidos = rows.map((row, index) => {
+      const cantidad = Number(row.querySelector('.pedido-cantidad').value);
+      const precio = Number(row.querySelector('.pedido-precio').value);
+      const precioUnitario = cantidad ? precio / cantidad : 0;
+      return {
+        vProductoCodigo: row.dataset.codigoProducto,
+        vProductoNombre: row.dataset.nombreProducto,
+        vCantidadProducto: cantidad,
+        vPrecioTotal: precio,
+        vOrdinalPedDetalle: index + 1,
+        vPrecioUnitario: precioUnitario
+      };
+    });
+  }
+
+  prepareFactura() {
+    this.state.vProdFactura = this.state.vProdPedidos.map((item, index) => ({
+      vFProducto: item.vProductoCodigo,
+      vFProductoNombre: item.vProductoNombre,
+      vFCantidadProducto: item.vCantidadProducto,
+      vFPrecioTotal: item.vPrecioTotal,
+      vPrecioUnitario: item.vPrecioUnitario,
+      vMaxCantidad: item.vCantidadProducto,
+      vOrdinalDetMovCont: index + 1
     }));
+    this.renderFacturaTable();
+    this.updateMontoPendiente();
+  }
 
-    if (this.state.facturaItems.length === 0) {
-      this.facturaBody.innerHTML = `<tr><td colspan="4" class="text-muted">${this.dict.emptyRows}</td></tr>`;
-      return;
-    }
-
-    this.state.facturaItems.forEach((item, index) => {
-      const productoLabel = this.getProductoLabel(item.codigo_producto);
+  renderFacturaTable() {
+    this.facturaBody.innerHTML = '';
+    this.state.vProdFactura.forEach((item, index) => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td>${productoLabel}</td>
-        <td><input type="text" class="form-control form-control-sm factura-cantidad" value="${item.cantidad_factura}" /></td>
-        <td><input type="text" class="form-control form-control-sm factura-total" value="${item.precio_total.toFixed(2)}" disabled /></td>
-        <td><button type="button" class="btn btn-sm btn-outline-light delete-factura">×</button></td>
+        <td>${item.vFProductoNombre}</td>
+        <td><input class="form-control factura-cantidad" type="text" value="${item.vFCantidadProducto}" /></td>
+        <td><input class="form-control" type="text" value="${item.vFPrecioTotal.toFixed(2)}" readonly /></td>
+        <td><button class="btn btn-outline-light btn-sm remove-factura" type="button">${this.dict.remove}</button></td>
       `;
-      row.querySelector('.factura-cantidad').addEventListener('input', (e) => this.updateFacturaRow(e, index));
-      row.querySelector('.delete-factura').addEventListener('click', () => this.deleteFacturaRow(index));
+
+      if (this.state.vProdFactura.length <= 1) {
+        row.querySelector('.remove-factura').disabled = true;
+      }
+
+      row.querySelector('.remove-factura').addEventListener('click', () => {
+        if (this.state.vProdFactura.length > 1) {
+          this.state.vProdFactura.splice(index, 1);
+          this.renderFacturaTable();
+        }
+      });
+
+      row.querySelector('.factura-cantidad').addEventListener('input', (event) => {
+        const value = Number(event.target.value || 0);
+        item.vFCantidadProducto = value;
+        item.vFPrecioTotal = item.vPrecioUnitario * value;
+        row.querySelector('td:nth-child(3) input').value = item.vFPrecioTotal.toFixed(2);
+        this.updateMontoPendiente();
+      });
+
       this.facturaBody.appendChild(row);
     });
-
-    this.toggleFacturaDeleteButtons();
-    this.calculateSaldo();
   }
 
-  updateFacturaRow(event, index) {
-    const decimalRegex = /^\d+(\.\d{1,2})?$/;
-    const value = event.target.value.trim();
-    if (!decimalRegex.test(value)) {
-      return;
-    }
-    const cantidad = Number(value);
-    const item = this.state.facturaItems[index];
-    item.cantidad_factura = cantidad;
-    item.precio_total = item.precio_unitario * cantidad;
-    const row = this.facturaBody.children[index];
-    const totalInput = row.querySelector('.factura-total');
-    totalInput.value = item.precio_total.toFixed(2);
-    this.calculateSaldo();
-  }
-
-  deleteFacturaRow(index) {
-    if (this.state.facturaItems.length <= 1) {
-      return;
-    }
-    this.state.facturaItems.splice(index, 1);
-    this.buildFacturaGrid();
-  }
-
-  toggleFacturaDeleteButtons() {
-    const canDelete = this.state.facturaItems.length > 1;
-    this.facturaBody.querySelectorAll('.delete-factura').forEach((btn) => {
-      btn.disabled = !canDelete;
-    });
-  }
-
-  validateFacturaItems() {
-    const decimalRegex = /^\d+(\.\d{1,2})?$/;
-    const rows = Array.from(this.facturaBody.querySelectorAll('tr'));
-    for (let i = 0; i < rows.length; i += 1) {
-      const input = rows[i].querySelector('.factura-cantidad');
-      const value = input ? input.value.trim() : '';
-      if (!decimalRegex.test(value)) {
-        this.showAlert('warning', this.dict.errors.cantidad);
-        return false;
-      }
-      const cantidad = Number(value);
-      const item = this.state.facturaItems[i];
-      item.cantidad_factura = cantidad;
-      item.precio_total = item.precio_unitario * cantidad;
-      if (cantidad > item.cantidad_pedido) {
-        this.showAlert('warning', this.dict.errors.facturaCantidad);
-        return false;
-      }
-    }
-    return true;
-  }
-
-  async handleClienteChange(e) {
-    const cliente = e.target.value;
-    if (!cliente) {
-      return;
-    }
-    await Promise.all([this.loadPuntosEntrega(cliente), this.loadNumRecibe(cliente)]);
-  }
-
-  async loadPuntosEntrega(cliente) {
-    try {
-      const response = await fetch(`/api/puntos-entrega?cliente=${encodeURIComponent(cliente)}`);
-      const data = await response.json();
-      this.state.puntosEntrega = data || [];
-      this.fillPuntosEntrega();
-    } catch (error) {
-      this.state.puntosEntrega = [];
-      this.fillPuntosEntrega();
-    }
-  }
-
-  fillPuntosEntrega() {
-    const select = document.getElementById('puntoEntregaSelect');
-    select.innerHTML = '<option value="">--</option>';
-    this.state.puntosEntrega.forEach((item) => {
-      const value = this.getField(item, ['codigo_puntoentrega', 'vcodigo_puntoentrega', 'codigo']);
-      const label = this.getField(item, ['concatenarpuntoentrega', 'vconcatenarpuntoentrega', 'descripcion']);
-      const option = document.createElement('option');
-      option.value = value || '';
-      option.textContent = label || value || '--';
-      select.appendChild(option);
-    });
-    if (this.state.puntosEntrega.length === 0) {
-      document.getElementById('entregaExiste').disabled = true;
-      document.getElementById('entregaNuevo').checked = true;
+  toggleEntrega() {
+    this.state.vEntregaExiste = this.entregaExisteRadio.checked;
+    if (this.state.vEntregaExiste) {
+      this.entregaExistenteCard.classList.remove('d-none');
+      this.entregaNuevoCard.classList.add('d-none');
     } else {
-      document.getElementById('entregaExiste').disabled = false;
-      document.getElementById('entregaExiste').checked = true;
+      this.entregaExistenteCard.classList.add('d-none');
+      this.entregaNuevoCard.classList.remove('d-none');
+      this.state.vPuntoEntrega = null;
+      this.state.vPuntoEntregaTexto = '';
+      this.entregaExistenteInfo.innerHTML = '';
     }
-    this.toggleEntregaMode();
-    this.updateRegionFromExisting();
+    this.updateRegionUI();
   }
 
-  async loadNumRecibe(cliente) {
-    try {
-      const response = await fetch(`/api/numrecibe?cliente=${encodeURIComponent(cliente)}`);
-      const data = await response.json();
-      this.state.numRecibe = data || [];
-      this.fillNumRecibe();
-    } catch (error) {
-      this.state.numRecibe = [];
-      this.fillNumRecibe();
-    }
-  }
-
-  fillNumRecibe() {
-    const select = document.getElementById('numRecibeSelect');
-    select.innerHTML = '<option value="">--</option>';
-    this.state.numRecibe.forEach((item) => {
-      const value = this.getField(item, ['ordinal_numrecibe', 'vordinal_numrecibe', 'codigo']);
-      const label = this.getField(item, ['concatenarnumrecibe', 'vconcatenarnumrecibe', 'descripcion']);
-      const option = document.createElement('option');
-      option.value = value || '';
-      option.textContent = label || value || '--';
-      select.appendChild(option);
-    });
-    if (this.state.numRecibe.length === 0) {
-      document.getElementById('recibeExiste').disabled = true;
-      document.getElementById('recibeNuevo').checked = true;
+  toggleRecibe() {
+    this.state.vRecibeExiste = this.recibeExisteRadio.checked;
+    if (this.state.vRecibeExiste) {
+      this.recibeExistenteCard.classList.remove('d-none');
+      this.recibeNuevoCard.classList.add('d-none');
     } else {
-      document.getElementById('recibeExiste').disabled = false;
-      document.getElementById('recibeExiste').checked = true;
-    }
-    this.toggleRecibeMode();
-  }
-
-  toggleEntregaMode() {
-    const mode = document.querySelector('input[name="entregaMode"]:checked').value;
-    document.getElementById('entregaExistePanel').style.display = mode === 'existe' ? 'block' : 'none';
-    document.getElementById('entregaNuevoPanel').style.display = mode === 'nuevo' ? 'block' : 'none';
-    if (mode === 'existe') {
-      this.updateRegionFromExisting();
+      this.recibeExistenteCard.classList.add('d-none');
+      this.recibeNuevoCard.classList.remove('d-none');
     }
   }
 
-  toggleRecibeMode() {
-    const mode = document.querySelector('input[name="recibeMode"]:checked').value;
-    document.getElementById('recibeExistePanel').style.display = mode === 'existe' ? 'block' : 'none';
-    document.getElementById('recibeNuevoPanel').style.display = mode === 'nuevo' ? 'block' : 'none';
+  defineRegion() {
+    if (this.state.vCod_Dep === '15' && this.state.vCod_Prov === '01') {
+      this.state.vRegion_Entrega = 'LIMA';
+    } else {
+      this.state.vRegion_Entrega = 'PROV';
+    }
+    this.state.Vubigeo = `${this.state.vCod_Dep}${this.state.vCod_Prov}${this.state.vCod_Dist}`;
+    this.updateRegionUI();
   }
 
-  async loadUbigeoDepartamentos() {
-    try {
-      const response = await fetch('/api/ubigeo/departamentos');
-      const data = await response.json();
-      const depSelect = document.getElementById('depSelect');
-      depSelect.innerHTML = '<option value="">--</option>';
-      data.forEach((item) => {
-        const value = this.getField(item, ['codigo_departamento', 'cod_dep', 'vCod_Dep', 'codigo']);
-        const label = this.getField(item, ['descripcion', 'departamento', 'vdescripcion', 'nombre']);
-        const option = document.createElement('option');
-        option.value = value || '';
-        option.textContent = label ? `${value} - ${label}` : value;
-        depSelect.appendChild(option);
+  updateRegionUI() {
+    if (this.state.vRegion_Entrega === 'LIMA') {
+      this.entregaLimaFields.classList.remove('d-none');
+      this.entregaProvFields.classList.add('d-none');
+    } else if (this.state.vRegion_Entrega === 'PROV') {
+      this.entregaLimaFields.classList.add('d-none');
+      this.entregaProvFields.classList.remove('d-none');
+    }
+    this.updateButtons();
+  }
+
+  updateEntregaUI() {
+    if (this.state.vEntregaExiste && this.state.vPuntoEntrega) {
+      this.entregaExistenteInfo.innerHTML = this.renderEntregaInfo(this.state.vPuntoEntrega);
+      this.state.vRegion_Entrega = this.state.vPuntoEntrega.region_entrega;
+      this.updateRegionUI();
+    }
+  }
+
+  renderEntregaInfo(item) {
+    return `
+      <div><strong>${this.dict.region}:</strong> ${item.region_entrega}</div>
+      <div><strong>${this.dict.direccion}:</strong> ${item.direccion_linea || '-'}</div>
+      <div><strong>${this.dict.referencia}:</strong> ${item.referencia || '-'}</div>
+      <div><strong>${this.dict.nombre}:</strong> ${item.nombre || '-'}</div>
+      <div><strong>${this.dict.dni}:</strong> ${item.dni || '-'}</div>
+      <div><strong>${this.dict.agencia}:</strong> ${item.agencia || '-'}</div>
+    `;
+  }
+
+  updateMontoPendiente() {
+    const total = this.getFacturaTotal();
+    if (this.state.vPagos.length > 0) {
+      this.recalculatePagos();
+    } else {
+      this.state.vMontoPendiente = Number(total.toFixed(2));
+      this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
+      this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
+    }
+    this.saldoFactura.textContent = total.toFixed(2);
+    this.addPagoBtn.disabled = this.state.vMontoPendiente <= 0;
+  }
+
+  addPago() {
+    const decimalRegex = /^\d+(\.\d{1,2})?$/;
+    const pago = Number(this.montoPagoInput.value || 0);
+    if (!decimalRegex.test(String(this.montoPagoInput.value || '0'))) {
+      this.showAlert('warning', this.dict.errors.pagoFormato);
+      return;
+    }
+    if (pago <= 0) {
+      this.showAlert('warning', this.dict.errors.pagoVacio);
+      return;
+    }
+    if (!this.state.vCuentaBancaria) {
+      this.showAlert('warning', this.dict.errors.cuenta);
+      return;
+    }
+    if (pago > this.state.vMontoPendiente) {
+      this.showAlert('warning', this.dict.errors.pagoMayor);
+      return;
+    }
+
+    const pagoItem = {
+      vCuentaBancaria: this.state.vCuentaBancaria,
+      vCuentaNombre: this.state.vCuentaNombre,
+      monto: Number(pago.toFixed(2))
+    };
+    this.state.vPagos.push(pagoItem);
+    this.state.vMontoPendiente = Number((this.state.vMontoPendiente - pago).toFixed(2));
+    this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
+    this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
+    this.renderPagos();
+    this.addPagoBtn.disabled = this.state.vMontoPendiente <= 0;
+  }
+
+  renderPagos() {
+    this.pagosBody.innerHTML = '';
+    this.state.vPagos.forEach((pago, index) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${pago.vCuentaNombre}</td>
+        <td>${pago.monto.toFixed(2)}</td>
+        <td><button class="btn btn-outline-light btn-sm" type="button">${this.dict.remove}</button></td>
+      `;
+      row.querySelector('button').addEventListener('click', () => {
+        this.state.vPagos.splice(index, 1);
+        this.recalculatePagos();
       });
-    } catch (error) {
-      return;
-    }
+      this.pagosBody.appendChild(row);
+    });
   }
 
-  async loadProvincias() {
-    const dep = document.getElementById('depSelect').value;
-    if (!dep) return;
-    try {
-      const response = await fetch(`/api/ubigeo/provincias?dep=${encodeURIComponent(dep)}`);
-      const data = await response.json();
-      const provSelect = document.getElementById('provSelect');
-      provSelect.innerHTML = '<option value="">--</option>';
-      data.forEach((item) => {
-        const value = this.getField(item, ['codigo_provincia', 'cod_prov', 'vCod_Prov', 'codigo']);
-        const label = this.getField(item, ['descripcion', 'provincia', 'nombre']);
-        const option = document.createElement('option');
-        option.value = value || '';
-        option.textContent = label ? `${value} - ${label}` : value;
-        provSelect.appendChild(option);
-      });
-    } catch (error) {
-      return;
-    }
+  recalculatePagos() {
+    const totalPagos = this.state.vPagos.reduce((sum, pago) => sum + pago.monto, 0);
+    const totalFactura = this.getFacturaTotal();
+    this.state.vMontoPendiente = Number((totalFactura - totalPagos).toFixed(2));
+    this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
+    this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
+    this.renderPagos();
   }
 
-  async loadDistritos() {
-    const dep = document.getElementById('depSelect').value;
-    const prov = document.getElementById('provSelect').value;
-    if (!dep || !prov) return;
-    try {
-      const response = await fetch(`/api/ubigeo/distritos?dep=${encodeURIComponent(dep)}&prov=${encodeURIComponent(prov)}`);
-      const data = await response.json();
-      const distSelect = document.getElementById('distSelect');
-      distSelect.innerHTML = '<option value="">--</option>';
-      data.forEach((item) => {
-        const value = this.getField(item, ['codigo_distrito', 'cod_dist', 'vCod_Dist', 'codigo']);
-        const label = this.getField(item, ['descripcion', 'distrito', 'nombre']);
-        const option = document.createElement('option');
-        option.value = value || '';
-        option.textContent = label ? `${value} - ${label}` : value;
-        distSelect.appendChild(option);
-      });
-      this.updateRegionEntrega();
-    } catch (error) {
-      return;
-    }
+  getFacturaTotal() {
+    return this.state.vProdFactura.reduce((sum, item) => sum + Number(item.vFPrecioTotal || 0), 0);
   }
 
-  updateRegionEntrega() {
-    const dep = document.getElementById('depSelect').value;
-    const prov = document.getElementById('provSelect').value;
-    this.state.regionEntrega = dep === '15' && prov === '01' ? 'LIMA' : 'PROV';
-    document.getElementById('limaFields').style.display = this.state.regionEntrega === 'LIMA' ? 'block' : 'none';
-    document.getElementById('provFields').style.display = this.state.regionEntrega === 'PROV' ? 'block' : 'none';
-    document.getElementById('regionEntregaChip').textContent = this.state.regionEntrega;
-    this.refreshSteps();
+  updateJsonDetalle() {
+    const json = this.state.vProdFactura.map((item) => ({
+      vFProducto: item.vFProducto,
+      vFCantidadProducto: item.vFCantidadProducto,
+      vFPrecioTotal: Number(item.vFPrecioTotal.toFixed(2))
+    }));
+    this.jsonDetalle.textContent = JSON.stringify(json, null, 2);
   }
 
-  updateRegionFromExisting() {
-    if (document.querySelector("input[name=\"entregaMode\"]:checked").value !== "existe") {
-      return;
-    }
-    const selected = document.getElementById("puntoEntregaSelect").value;
-    const item = this.state.puntosEntrega.find((entry) =>
-      String(this.getField(entry, ["codigo_puntoentrega", "vcodigo_puntoentrega", "codigo"])) === String(selected)
-    );
-    if (item && item.region_entrega) {
-      this.state.regionEntrega = item.region_entrega;
-      document.getElementById("limaFields").style.display = this.state.regionEntrega === "LIMA" ? "block" : "none";
-      document.getElementById("provFields").style.display = this.state.regionEntrega === "PROV" ? "block" : "none";
-      document.getElementById("regionEntregaChip").textContent = this.state.regionEntrega;
-      this.refreshSteps();
-    }
-  }
+  renderResumen() {
+    const pedidoItems = this.state.vProdPedidos
+      .map((item) => `${item.vProductoNombre}: ${item.vCantidadProducto} (${item.vPrecioTotal.toFixed(2)})`)
+      .join('<br>');
 
-  validateEntrega() {
-    const mode = document.querySelector('input[name="entregaMode"]:checked').value;
-    if (mode === 'existe') {
-      return !!document.getElementById('puntoEntregaSelect').value;
-    }
-    const dep = document.getElementById('depSelect').value;
-    const prov = document.getElementById('provSelect').value;
-    const dist = document.getElementById('distSelect').value;
-    if (!dep || !prov || !dist) return false;
-    if (this.state.regionEntrega === 'LIMA') {
-      return !!document.getElementById('direccionInput').value.trim();
-    }
-    const nombre = document.getElementById('nombreInput').value.trim();
-    const dni = document.getElementById('dniInput').value.trim();
-    const dniRegex = /^\d{8}$/;
-    return nombre.length > 1 && dniRegex.test(dni);
-  }
+    const facturaItems = this.state.vProdFactura
+      .map((item) => `${item.vFProductoNombre}: ${item.vFCantidadProducto} (${item.vFPrecioTotal.toFixed(2)})`)
+      .join('<br>');
 
-  validateRecibe() {
-    const mode = document.querySelector('input[name="recibeMode"]:checked').value;
-    if (mode === 'existe') {
-      return !!document.getElementById('numRecibeSelect').value;
-    }
-    const numero = document.getElementById('numeroRecibeInput').value.trim();
-    const nombre = document.getElementById('nombreRecibeInput').value.trim();
-    return numero.length > 0 && nombre.length > 1;
-  }
+    const entregaTipo = this.state.vEntregaExiste ? this.dict.existente : this.dict.nuevo;
+    const recibeTipo = this.state.vRecibeExiste ? this.dict.existente : this.dict.nuevo;
+    const totalFactura = this.getFacturaTotal();
 
-  calculateSaldo() {
-    const saldo = this.state.facturaItems.reduce((sum, item) => sum + (item.precio_total || 0), 0);
-    this.saldoBadge.textContent = this.formatMoney(saldo);
-    document.getElementById('metricSaldo').textContent = this.formatMoney(saldo);
-    return saldo;
-  }
-
-  formatMoney(value) {
-    if (!value || Number.isNaN(value)) {
-      return `${this.state.moneda} 0.00`;
-    }
-    return `${this.state.moneda} ${value.toFixed(2)}`;
-  }
-
-  parseNumber(value) {
-    const num = Number(String(value || '').replace(',', '.'));
-    return Number.isNaN(num) ? 0 : num;
-  }
-
-  renderSummary() {
-    const clienteText = document.getElementById('clienteSelect').selectedOptions[0]?.textContent || '--';
-    const fecha = document.getElementById('fechaPedido').value;
-    const hora = document.getElementById('horaPedido').value;
-    const base = document.getElementById('baseSelect').value;
-    const resumenPedido = document.getElementById('resumenPedido');
-    resumenPedido.innerHTML = `
-      <h4>${this.dict.resumenPedido}</h4>
-      <p>${clienteText}</p>
-      <p>${fecha} ${hora}</p>
-      <p>${this.state.pedidoItems.length} ${this.dict.items}</p>
+    this.resumenPedido.innerHTML = `
+      <div><strong>${this.dict.codigoPedido}:</strong> ${this.state.vcodigo_pedido}</div>
+      <div><strong>${this.dict.cliente}:</strong> ${this.state.vClienteNombre}</div>
+      <div>${pedidoItems}</div>
     `;
 
-    const resumenFactura = document.getElementById('resumenFactura');
-    resumenFactura.innerHTML = `
-      <h4>${this.dict.resumenFactura}</h4>
-      <p>${this.state.numeroDocumento || '--'}</p>
-      <p>${base || '--'}</p>
-      <p>${this.formatMoney(this.calculateSaldo())}</p>
+    this.resumenFactura.innerHTML = `
+      <div><strong>${this.dict.numeroDoc}:</strong> ${this.state.vNumero_documento}</div>
+      <div><strong>${this.dict.saldoFactura}:</strong> ${totalFactura.toFixed(2)}</div>
+      <div>${facturaItems}</div>
     `;
 
-    const entregaMode = document.querySelector('input[name="entregaMode"]:checked').value;
-    const entregaStatus = entregaMode === 'existe' ? this.dict.existente : this.dict.nuevoRegistro;
-    const resumenEntrega = document.getElementById('resumenEntrega');
-    resumenEntrega.innerHTML = `
-      <h4>${this.dict.resumenEntrega}</h4>
-      <p>${entregaStatus}</p>
-      <p>${this.state.regionEntrega === 'LIMA' ? this.dict.regionLima : this.dict.regionProv}</p>
+    this.resumenEntrega.innerHTML = `
+      <div><strong>${this.dict.tipoPunto}:</strong> ${entregaTipo}</div>
+      <div>${this.state.vPuntoEntregaTexto || this.buildConcatenarPuntoEntrega()}</div>
     `;
 
-    const recibeMode = document.querySelector('input[name="recibeMode"]:checked').value;
-    const recibeStatus = recibeMode === 'existe' ? this.dict.existente : this.dict.nuevoRegistro;
-    const resumenRecibe = document.getElementById('resumenRecibe');
-    resumenRecibe.innerHTML = `
-      <h4>${this.dict.resumenRecibe}</h4>
-      <p>${this.state.regionEntrega === 'LIMA' ? recibeStatus : '--'}</p>
-      <p>${this.state.regionEntrega === 'LIMA' ? this.dict.regionLima : '--'}</p>
+    this.resumenRecibe.innerHTML = `
+      <div><strong>${this.dict.tipoRecibe}:</strong> ${this.state.vRegion_Entrega === 'LIMA' ? recibeTipo : this.dict.noAplica}</div>
+      <div>${this.state.vRegion_Entrega === 'LIMA' ? (this.state.vConcatenarnumrecibe || this.buildConcatenarNumRecibe()) : this.dict.noAplica}</div>
     `;
+  }
+
+  buildConcatenarPuntoEntrega() {
+    if (this.state.vRegion_Entrega === 'LIMA') {
+      const parts = [this.direccionInput.value.trim(), this.distritoInput.value.trim(), this.referenciaInput.value.trim()].filter(Boolean);
+      return parts.join(' | ');
+    }
+    const parts = [
+      this.nombreProvInput.value.trim(),
+      this.dniProvInput.value.trim(),
+      this.agenciaProvInput.value.trim(),
+      this.observacionesProvInput.value.trim()
+    ].filter(Boolean);
+    return parts.join(' | ');
+  }
+
+  buildConcatenarNumRecibe() {
+    const parts = [this.numeroRecibeInput.value.trim(), this.nombreRecibeInput.value.trim()].filter(Boolean);
+    return parts.join(' | ');
   }
 
   async handleEmitir() {
-    if (this.steps[this.currentStep].id !== 'step-resumen') {
-      this.goToStep(this.steps.length - 1);
-      this.renderSummary();
-    }
-    if (!document.getElementById('confirmEmit').checked) {
-      this.showAlert('warning', this.dict.errors.confirm);
-      return;
-    }
-    const payload = this.buildPayload();
+    this.clearAlert();
+    if (!this.validateStep()) return;
+
+    this.setLoading(this.dict.emitiendo);
     try {
-      this.setLoading(this.dict.loading);
-      const response = await fetch('/api/emitir', {
+      const payload = this.buildPayload();
+      const response = await fetch('/api/emitir-factura', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Error');
+        throw new Error(data.message || this.dict.errors.general);
       }
-      this.showAlert('success', data.message || 'OK');
+      this.showAlert('success', this.dict.success);
     } catch (error) {
-      this.showAlert('danger', this.dict.errors.api);
+      this.showAlert('danger', error.message || this.dict.errors.general);
     } finally {
       this.setLoading('');
     }
   }
 
   buildPayload() {
-    const cliente = document.getElementById('clienteSelect').value;
-    const fecha = document.getElementById('fechaPedido').value;
-    const hora = document.getElementById('horaPedido').value;
-    const fechaP = `${fecha} ${hora}:00`;
+    const entregaNuevo = !this.state.vEntregaExiste;
+    const recibeNuevo = this.state.vRegion_Entrega === 'LIMA' && !this.state.vRecibeExiste;
 
-    const pedidoItems = this.collectPedidoItems();
-    const facturaItems = this.state.facturaItems.map((item) => ({
-      codigo_producto: item.codigo_producto,
-      cantidad: item.cantidad_factura,
-      precio_total: Number(item.precio_total.toFixed(2)),
-      cantidad_pedido: item.cantidad_pedido
-    }));
-
-    const entregaMode = document.querySelector('input[name="entregaMode"]:checked').value;
-    const recibeMode = document.querySelector('input[name="recibeMode"]:checked').value;
-
-    const entrega = {
-      modo: entregaMode,
-      codigo_puntoentrega: document.getElementById('puntoEntregaSelect').value || null,
-      dep: document.getElementById('depSelect').value,
-      prov: document.getElementById('provSelect').value,
-      dist: document.getElementById('distSelect').value,
-      direccion_linea: document.getElementById('direccionInput').value.trim(),
-      referencia: document.getElementById('referenciaInput').value.trim(),
-      nombre: document.getElementById('nombreInput').value.trim(),
-      dni: document.getElementById('dniInput').value.trim(),
-      agencia: document.getElementById('agenciaInput').value.trim(),
-      observaciones: document.getElementById('observacionesInput').value.trim(),
-      region: this.state.regionEntrega
+    const payload = {
+      vcodigo_pedido: this.state.vcodigo_pedido,
+      vFechaP: this.state.vFechaP,
+      vClienteSeleted: this.state.vClienteSeleted,
+      vProdPedidos: this.state.vProdPedidos,
+      vTipo_documento: this.state.vTipo_documento,
+      vNumero_documento: this.state.vNumero_documento,
+      vProdFactura: this.state.vProdFactura,
+      vRegion_Entrega: this.state.vRegion_Entrega,
+      vEntregaNuevo: entregaNuevo,
+      vPuntoEntrega: this.state.vPuntoEntrega,
+      vDireccionLinea: this.direccionInput.value.trim(),
+      vReferencia: this.referenciaInput.value.trim(),
+      vNombre: this.nombreProvInput.value.trim(),
+      vDni: this.dniProvInput.value.trim(),
+      vAgencia: this.agenciaProvInput.value.trim(),
+      vObservaciones: this.observacionesProvInput.value.trim(),
+      vCod_Dep: this.state.vCod_Dep,
+      vCod_Prov: this.state.vCod_Prov,
+      vCod_Dist: this.state.vCod_Dist,
+      Vubigeo: this.state.Vubigeo,
+      Vcodigo_puntoentrega: this.state.Vcodigo_puntoentrega,
+      vConcatenarpuntoentrega: this.state.vPuntoEntregaTexto || this.buildConcatenarPuntoEntrega(),
+      vRecibeNuevo: recibeNuevo,
+      vConcatenarnumrecibe: this.state.vConcatenarnumrecibe || this.buildConcatenarNumRecibe(),
+      vNumeroRecibe: this.state.vNumeroRecibe || this.numeroRecibeInput.value.trim(),
+      vNombreRecibe: this.state.vNombreRecibe || this.nombreRecibeInput.value.trim(),
+      vOrdinal_numrecibe: this.state.vOrdinal_numrecibe,
+      vTipo_documento_pago: this.state.vTipo_documento_pago,
+      vNumero_documento_pago: this.state.vNumero_documento_pago,
+      vCuentaBancaria: this.state.vCuentaBancaria,
+      vPagos: this.state.vPagos,
+      vCodigo_base: this.state.vCodigo_base
     };
 
-    const recibe = {
-      modo: recibeMode,
-      ordinal_numrecibe: document.getElementById('numRecibeSelect').value || null,
-      numero: document.getElementById('numeroRecibeInput').value.trim(),
-      nombre: document.getElementById('nombreRecibeInput').value.trim()
-    };
+    return payload;
+  }
 
-    return {
-      codigo_pedido: this.state.codigoPedido,
-      cliente,
-      fecha,
-      hora,
-      fechaP,
-      pedidoItems,
-      facturaItems,
-      factura: {
-        tipo_documento: 'FAC',
-        numero_documento: this.state.numeroDocumento,
-        codigo_base: document.getElementById('baseSelect').value
-      },
-      entrega,
-      recibe
-    };
+  clearInvalid(input) {
+    input.classList.remove('is-invalid');
   }
 }
+
+const translations = {
+  es: {
+    tag: 'IaaS + PaaS Global',
+    title: 'Pedidos',
+    subtitle: 'Wizard multi-paso para crear pedidos, facturas y entregas con trazabilidad total.',
+    status: 'Estado del flujo',
+    statusHint: 'Completa el pedido para continuar.',
+    steps: '7 pasos',
+    step1Title: '1. Crear Pedido',
+    step1Subtitle: 'Registra cliente, fecha y detalle del pedido.',
+    required: 'Campos obligatorios marcados',
+    fechaPedido: 'Fecha pedido',
+    horaPedido: 'Hora pedido',
+    cliente: 'Cliente',
+    detallePedido: 'Detalle del pedido',
+    producto: 'Producto',
+    cantidad: 'Cantidad',
+    precioTotal: 'Precio total',
+    agregarLinea: 'Agregar linea',
+    step2Title: '2. Crear Factura',
+    step2Subtitle: 'Ajusta cantidades a facturar y verifica totales.',
+    auto: 'Generado automaticamente',
+    fechaEmision: 'Fecha emision',
+    horaEmision: 'Hora emision',
+    tipoDoc: 'Tipo documento',
+    numeroDoc: 'Numero documento',
+    cantidadFactura: 'Cantidad factura',
+    saldoFactura: 'Saldo factura',
+    step3Title: '3. Datos Entrega',
+    step3Subtitle: 'Selecciona un punto existente o registra uno nuevo.',
+    entrega: 'Entrega',
+    existe: 'Existe',
+    nuevo: 'Nuevo',
+    puntoEntrega: 'Punto de entrega',
+    departamento: 'Departamento',
+    provincia: 'Provincia',
+    distrito: 'Distrito',
+    direccion: 'Direccion',
+    referencia: 'Referencia',
+    nombre: 'Nombre',
+    dni: 'DNI',
+    agencia: 'Agencia',
+    observaciones: 'Observaciones',
+    step4Title: '4. Datos Recibe (solo LIMA)',
+    step4Subtitle: 'Define quien recibe en Lima Metropolitana.',
+    recibe: 'Recibe',
+    numero: 'Numero',
+    step5Title: '5. Registro de Pago (Recibo)',
+    step5Subtitle: 'Registra pagos parciales o deja pendiente.',
+    cuenta: 'Cuenta bancaria',
+    montoPendiente: 'Monto pendiente',
+    montoPago: 'Monto pago',
+    agregarPago: 'Agregar pago',
+    pagoHint: 'Puedes dejar el monto en 0 si no deseas registrar pago.',
+    monto: 'Monto',
+    step6Title: '6. Asignar Base',
+    step6Subtitle: 'Define la base operativa y prepara el JSON del detalle.',
+    base: 'Base',
+    jsonDetalle: 'JSON detalle',
+    step7Title: '7. Resumen y Emitir Factura',
+    step7Subtitle: 'Confirma la operacion y emite la factura.',
+    resumen: 'Resumen',
+    resumenPedido: 'Pedido',
+    resumenFactura: 'Factura',
+    resumenEntrega: 'Entrega',
+    resumenRecibe: 'Recibe',
+    confirm: 'Confirmo la operacion.',
+    emitir: 'Emitir Factura',
+    prev: 'Anterior',
+    next: 'Siguiente',
+    finish: 'Finalizar',
+    remove: 'Eliminar',
+    region: 'Region',
+    banco: 'Banco',
+    numeroCliente: 'Numero cliente',
+    codigoPedido: 'Codigo pedido',
+    tipoPunto: 'Punto',
+    tipoRecibe: 'Recibe',
+    existente: 'EXISTENTE',
+    noAplica: 'No aplica',
+    loading: 'Cargando datos...',
+    emitiendo: 'Emitendo factura...',
+    success: 'Factura emitida correctamente.',
+    errors: {
+      general: 'Ocurrio un error inesperado.',
+      cliente: 'Selecciona un cliente valido.',
+      detallePedido: 'Agrega al menos una linea de pedido.',
+      producto: 'Selecciona un producto valido.',
+      cantidad: 'Cantidad invalida. Use hasta 2 decimales.',
+      precio: 'Precio invalido. Use hasta 2 decimales.',
+      cantidadFactura: 'Cantidad de factura invalida.',
+      cantidadFacturaExcede: 'La cantidad de factura excede el pedido.',
+      puntoEntrega: 'Selecciona un punto de entrega.',
+      ubigeo: 'Selecciona departamento, provincia y distrito.',
+      direccion: 'Direccion requerida para Lima.',
+      nombre: 'Nombre invalido.',
+      dni: 'DNI invalido.',
+      recibe: 'Selecciona un registro de recibe.',
+      recibeNuevo: 'Completa numero y nombre de recibe.',
+      pago: 'Completa cuenta y monto valido.',
+      pagoFormato: 'Monto invalido.',
+      pagoVacio: 'El monto debe ser mayor a 0.',
+      pagoMayor: 'El pago no puede superar el pendiente.',
+      cuenta: 'Selecciona una cuenta bancaria.',
+      base: 'Selecciona una base.',
+      confirm: 'Debes confirmar la operacion.'
+    }
+  },
+  en: {
+    tag: 'Global IaaS + PaaS',
+    title: 'Orders',
+    subtitle: 'Multi-step wizard to create orders, invoices, and deliveries with full traceability.',
+    status: 'Flow status',
+    statusHint: 'Complete the order to continue.',
+    steps: '7 steps',
+    step1Title: '1. Create Order',
+    step1Subtitle: 'Capture client, date, and order details.',
+    required: 'Required fields marked',
+    fechaPedido: 'Order date',
+    horaPedido: 'Order time',
+    cliente: 'Client',
+    detallePedido: 'Order detail',
+    producto: 'Product',
+    cantidad: 'Quantity',
+    precioTotal: 'Total price',
+    agregarLinea: 'Add line',
+    step2Title: '2. Create Invoice',
+    step2Subtitle: 'Adjust quantities and verify totals.',
+    auto: 'Auto generated',
+    fechaEmision: 'Issue date',
+    horaEmision: 'Issue time',
+    tipoDoc: 'Document type',
+    numeroDoc: 'Document number',
+    cantidadFactura: 'Invoice quantity',
+    saldoFactura: 'Invoice balance',
+    step3Title: '3. Delivery Data',
+    step3Subtitle: 'Select an existing delivery point or register a new one.',
+    entrega: 'Delivery',
+    existe: 'Existing',
+    nuevo: 'New',
+    puntoEntrega: 'Delivery point',
+    departamento: 'Department',
+    provincia: 'Province',
+    distrito: 'District',
+    direccion: 'Address',
+    referencia: 'Reference',
+    nombre: 'Name',
+    dni: 'ID',
+    agencia: 'Agency',
+    observaciones: 'Notes',
+    step4Title: '4. Receiver (LIMA only)',
+    step4Subtitle: 'Define who receives in Lima.',
+    recibe: 'Receiver',
+    numero: 'Number',
+    step5Title: '5. Payment Receipt',
+    step5Subtitle: 'Register partial payments or leave pending.',
+    cuenta: 'Bank account',
+    montoPendiente: 'Pending amount',
+    montoPago: 'Payment amount',
+    agregarPago: 'Add payment',
+    pagoHint: 'Set to 0 if you do not want to register a payment.',
+    monto: 'Amount',
+    step6Title: '6. Assign Base',
+    step6Subtitle: 'Define the operational base and JSON detail.',
+    base: 'Base',
+    jsonDetalle: 'JSON detail',
+    step7Title: '7. Summary and Issue Invoice',
+    step7Subtitle: 'Confirm the operation and issue the invoice.',
+    resumen: 'Summary',
+    resumenPedido: 'Order',
+    resumenFactura: 'Invoice',
+    resumenEntrega: 'Delivery',
+    resumenRecibe: 'Receiver',
+    confirm: 'I confirm the operation.',
+    emitir: 'Issue Invoice',
+    prev: 'Previous',
+    next: 'Next',
+    finish: 'Finish',
+    remove: 'Remove',
+    region: 'Region',
+    banco: 'Bank',
+    numeroCliente: 'Client number',
+    codigoPedido: 'Order code',
+    tipoPunto: 'Delivery point',
+    tipoRecibe: 'Receiver',
+    existente: 'EXISTING',
+    noAplica: 'Not applicable',
+    loading: 'Loading data...',
+    emitiendo: 'Issuing invoice...',
+    success: 'Invoice issued successfully.',
+    errors: {
+      general: 'Unexpected error occurred.',
+      cliente: 'Select a valid client.',
+      detallePedido: 'Add at least one order line.',
+      producto: 'Select a valid product.',
+      cantidad: 'Invalid quantity. Use up to 2 decimals.',
+      precio: 'Invalid price. Use up to 2 decimals.',
+      cantidadFactura: 'Invalid invoice quantity.',
+      cantidadFacturaExcede: 'Invoice quantity exceeds the order.',
+      puntoEntrega: 'Select a delivery point.',
+      ubigeo: 'Select department, province, and district.',
+      direccion: 'Address required for Lima.',
+      nombre: 'Invalid name.',
+      dni: 'Invalid ID.',
+      recibe: 'Select a receiver entry.',
+      recibeNuevo: 'Complete receiver number and name.',
+      pago: 'Provide a valid account and amount.',
+      pagoFormato: 'Invalid amount format.',
+      pagoVacio: 'Amount must be greater than 0.',
+      pagoMayor: 'Payment cannot exceed pending amount.',
+      cuenta: 'Select a bank account.',
+      base: 'Select a base.',
+      confirm: 'You must confirm the operation.'
+    }
+  }
+};
 
 new FormWizard();

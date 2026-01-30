@@ -11,6 +11,49 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!--
+  vPaquetesPendientes = Llamada SP: get_paquetes_por_estado(p_estado="pendiente empacar") (devuelve campo_visible)
+  Campos devueltos
+  vcodigo_paquete
+  vfecha_actualizado
+  vcodigo_cliente
+  vnombre_cliente
+  vnum_cliente
+  vcodigo_puntoentrega
+  vordinal_numrecibe
+  vconcatenarpuntoentrega
+  vconcatenarnumrecibe
+  Variables
+  vcodigo_paquete visible no editable
+  vfecha_actualizado visible no editable
+  vcodigo_cliente no visible no editable
+  vnombre_cliente visible no editable
+  vnum_cliente visible no editable
+  vcodigo_puntoentrega no visible no editable
+  vordinal_numrecibe no visible no editable
+  vconcatenarpuntoentrega visible no editable
+  vconcatenarnumrecibe visible no editable
+
+  vDetalleDocumento = Llamada SP: get_mov_contable_detalle(p_tipo_documento, p_numero_documento) (devuelve campo_visible)
+  Campos devueltos
+  vtipo_documento
+  vnumero_documento
+  vordinal
+  vcodigo_producto
+  vnombre_producto
+  vcantidad
+  vsaldo
+  vprecio_total
+  Variables
+  vtipo_documento no visible no editable
+  vnumero_documento no visible no editable
+  vordinal no visible no editable
+  vcodigo_producto no visible no editable
+  vnombre_producto visible no editable
+  vcantidad visible no editable
+  vsaldo no visible no editable
+  vprecio_total no visible no editable
+  -->
   <div class="page">
     <header class="app-header">
       <div>
@@ -40,7 +83,10 @@
             <h2 data-i18n="step1Title">1. Seleccionar paquete pendiente</h2>
             <p class="text-muted" data-i18n="step1Subtitle">Selecciona un paquete con estado pendiente de empacar.</p>
           </div>
-          <span id="selectedBadge" class="badge badge-soft" data-i18n="noneSelected">Sin seleccion</span>
+          <div class="d-flex flex-column align-items-end gap-2">
+            <span class="badge badge-soft">vPaquetesPendientes</span>
+            <span id="selectedBadge" class="badge badge-soft" data-i18n="noneSelected">Sin seleccion</span>
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">

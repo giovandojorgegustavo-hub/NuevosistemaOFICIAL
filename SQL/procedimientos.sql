@@ -679,8 +679,8 @@ BEGIN
   DECLARE v_delta numeric(12,2);
 
   SET v_delta = CASE
-    WHEN p_tipo_documento IN ('F','FAC') THEN p_monto
-    WHEN p_tipo_documento IN ('RCP','RCC') THEN -p_monto
+    WHEN p_tipo_documento IN ('F','FAC') THEN -p_monto
+    WHEN p_tipo_documento IN ('RCP','RCC') THEN p_monto
     ELSE p_monto
   END;
 

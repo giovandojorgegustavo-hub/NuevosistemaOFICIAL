@@ -1,3 +1,35 @@
+/*
+SPs de lectura y variables (campos con prefijo v)
+
+vFacturasPendientes = Llamada SP: get_facturascompras_pendientes() (devuelve tipo_documento_compra, num_documento_compra, codigo_provedor, nombre_provedor, fecha)
+Campos devueltos
+vfecha = fecha
+vtipo_documento_compra = tipo_documento_compra
+vnum_documento_compra = num_documento_compra
+vcodigo_provedor = codigo_provedor
+vnombre_provedor = nombre_provedor
+Variables
+vfecha: visible / no editable
+vtipo_documento_compra: visible / no editable
+vnum_documento_compra: visible / no editable
+vcodigo_provedor: no visible / no editable
+vnombre_provedor: visible / no editable
+
+vDetalleRemitoCompra = Llamada SP: get_detalle_compra_por_documento(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor) (devuelve ordinal, codigo_producto, nombre_producto, cantidad, cantidad_entregada, saldo)
+Campos devueltos
+vOrdinalCompra = ordinal
+vcodigo_producto = codigo_producto
+vnombre_producto = nombre_producto
+vCantidad = cantidad
+vCantidadEntregada = cantidad_entregada
+vSaldo = saldo
+Variables
+vnombre_producto: visible / no editable
+vCantidadDisponible: visible / editable
+vcodigo_producto: no visible / no editable
+vOrdinalCompra: no visible / no editable
+*/
+
 class FormWizard {
   constructor() {
     this.currentStep = 0;
@@ -9,21 +41,41 @@ class FormWizard {
     this.registrarBtn = document.getElementById('registrarBtn');
     this.errorAlert = document.getElementById('errorAlert');
     this.successAlert = document.getElementById('successAlert');
-    this.facturasTableBody = document.querySelector('#facturasTable tbody');
-    this.detalleTableBody = document.querySelector('#detalleRemitoTable tbody');
-    this.summaryTableBody = document.querySelector('#detalleRemitoSummary tbody');
     this.loadingState = document.getElementById('loadingState');
+    this.facturasBody = document.querySelector('#facturasTable tbody');
+    this.detalleBody = document.querySelector('#detalleRemitoTable tbody');
+    this.summaryBody = document.querySelector('#detalleRemitoSummary tbody');
+    this.refreshFacturas = document.getElementById('refreshFacturas');
+    this.emptyFacturas = document.getElementById('emptyFacturas');
+
+    this.vFecha = document.getElementById('vfecha');
+    this.vTipoRemito = document.getElementById('vTipo_documento_compra_remito');
+    this.vNumRemito = document.getElementById('vNum_documento_compra_remito');
+    this.vOrdinal = document.getElementById('vOrdinal');
+    this.vBaseNombre = document.getElementById('vCodigo_base_nombre');
+    this.vBaseCodigo = document.getElementById('vCodigo_base');
+
+    this.facturaSummary = document.getElementById('facturaSummary');
+
+    this.summaryFecha = document.getElementById('summaryFecha');
+    this.summaryNumero = document.getElementById('summaryNumero');
+    this.summaryBase = document.getElementById('summaryBase');
+    this.summaryFactura = document.getElementById('summaryFactura');
+
+    this.confirmacion = document.getElementById('confirmacion');
+
     this.facturas = [];
     this.bases = [];
     this.selectedFactura = null;
-    this.decimalRegex = /^\d+(?:[.,]\d{1,2})?$/;
+    this.detalleItems = [];
+
+    this.decimalRegex = /^\d+(?:\.\d{1,2})?$/;
   }
 
   async init() {
     this.applyLocale();
     this.bindEvents();
     await this.loadInitialData();
-    await this.loadFacturas();
     this.goStep(0);
   }
 
@@ -33,86 +85,87 @@ class FormWizard {
     const translations = {
       es: {
         eyebrow: 'IaaS + PaaS Global Core',
-        title: 'Gestion de Compras - Remitos',
-        subtitle: 'Orquesta remitos de compra con trazabilidad y validaciones en tiempo real.',
+        title: 'Gestion Compras',
+        subtitle: 'Gestiona remitos de compra con trazabilidad completa y sincronizacion inmediata.',
         status: 'Operativo',
-        step1Title: '1. Seleccionar factura',
+        step1Title: '1. Factura pendiente',
         step2Title: '2. Definir remito',
-        step3Title: '3. Confirmar y registrar',
-        facturasTitle: 'Facturas pendientes (FCC)',
-        facturasHelp: 'Seleccione una factura para generar el remito.',
+        step3Title: '3. Confirmar registro',
+        facturasTitle: 'Facturas de compra pendientes',
+        facturasHelp: 'Seleccione una factura FCC con items pendientes para generar el remito de compra.',
+        refresh: 'Actualizar',
+        colSelect: 'Seleccionar',
         colFecha: 'Fecha',
         colTipo: 'Tipo',
         colNumero: 'Numero',
         colProveedor: 'Proveedor',
-        fecha: 'Fecha',
+        facturasEmpty: 'No hay facturas pendientes disponibles.',
+        fecha: 'Fecha remito',
         tipoRemito: 'Tipo remito',
         numeroRemito: 'Numero remito',
-        ordinalRemito: 'Ordinal base',
+        ordinal: 'Ordinal inicial',
         base: 'Base destino',
-        seleccione: 'Seleccione...',
-        baseError: 'Seleccione una base.',
-        detalleTitle: 'Detalle remito',
-        detalleHelp: 'Defina cantidades a entregar.',
+        baseError: 'Seleccione una base valida.',
+        facturaSeleccionada: 'Factura seleccionada',
+        detalleTitle: 'Detalle remito de compra',
         colProducto: 'Producto',
-        colDisponible: 'Disponible',
-        colCantidad: 'Cantidad remito',
-        step2Help: 'Ajuste las cantidades sin superar el disponible.',
+        colCantidad: 'Cantidad a entregar',
+        detalleHelp: 'Ajuste la cantidad a entregar, sin superar el saldo pendiente de cada item.',
         summaryTitle: 'Resumen del remito',
         factura: 'Factura',
-        proveedor: 'Proveedor',
-        remito: 'Remito',
         confirmacion: 'Confirmo que la informacion es correcta.',
         confirmacionError: 'Debe confirmar la operacion.',
-        step3Help: 'Confirma para registrar el remito en el ERP.',
+        step3Help: 'Confirme para registrar el remito y actualizar el stock.',
         prev: 'Anterior',
         next: 'Siguiente',
-        registrar: 'Registrar Remito'
+        registrar: 'Registrar Remito',
+        loading: 'Procesando...'
       },
       en: {
         eyebrow: 'IaaS + PaaS Global Core',
-        title: 'Purchasing Management - Remits',
-        subtitle: 'Orchestrate purchase remits with real-time traceability and validations.',
+        title: 'Purchasing Management',
+        subtitle: 'Manage purchase delivery notes with full traceability and real-time sync.',
         status: 'Operational',
-        step1Title: '1. Select invoice',
-        step2Title: '2. Define remit',
-        step3Title: '3. Confirm & register',
-        facturasTitle: 'Pending invoices (FCC)',
-        facturasHelp: 'Select an invoice to generate the remit.',
+        step1Title: '1. Pending invoice',
+        step2Title: '2. Define delivery note',
+        step3Title: '3. Confirm registration',
+        facturasTitle: 'Pending purchase invoices',
+        facturasHelp: 'Select an FCC invoice with pending items to generate the delivery note.',
+        refresh: 'Refresh',
+        colSelect: 'Select',
         colFecha: 'Date',
         colTipo: 'Type',
         colNumero: 'Number',
         colProveedor: 'Supplier',
-        fecha: 'Date',
-        tipoRemito: 'Remit type',
-        numeroRemito: 'Remit number',
-        ordinalRemito: 'Base ordinal',
+        facturasEmpty: 'No pending invoices available.',
+        fecha: 'Delivery note date',
+        tipoRemito: 'Delivery note type',
+        numeroRemito: 'Delivery note number',
+        ordinal: 'Starting ordinal',
         base: 'Destination base',
-        seleccione: 'Select...',
-        baseError: 'Select a base.',
-        detalleTitle: 'Remit details',
-        detalleHelp: 'Define quantities to deliver.',
+        baseError: 'Select a valid base.',
+        facturaSeleccionada: 'Selected invoice',
+        detalleTitle: 'Delivery note detail',
         colProducto: 'Product',
-        colDisponible: 'Available',
-        colCantidad: 'Remit quantity',
-        step2Help: 'Adjust quantities without exceeding available.',
-        summaryTitle: 'Remit summary',
+        colCantidad: 'Quantity to deliver',
+        detalleHelp: 'Adjust the quantity to deliver without exceeding the pending balance.',
+        summaryTitle: 'Delivery note summary',
         factura: 'Invoice',
-        proveedor: 'Supplier',
-        remito: 'Remit',
         confirmacion: 'I confirm the information is correct.',
         confirmacionError: 'You must confirm the operation.',
-        step3Help: 'Confirm to register the remit in the ERP.',
+        step3Help: 'Confirm to register the delivery note and update stock.',
         prev: 'Back',
         next: 'Next',
-        registrar: 'Register Remit'
+        registrar: 'Register Delivery Note',
+        loading: 'Processing...'
       }
     };
 
+    this.localeStrings = translations[locale];
     document.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n');
-      if (translations[locale][key]) {
-        el.textContent = translations[locale][key];
+      if (this.localeStrings[key]) {
+        el.textContent = this.localeStrings[key];
       }
     });
   }
@@ -121,263 +174,360 @@ class FormWizard {
     this.prevBtn.addEventListener('click', () => this.goStep(this.currentStep - 1));
     this.nextBtn.addEventListener('click', () => this.handleNext());
     this.registrarBtn.addEventListener('click', () => this.handleRegistrar());
+    this.refreshFacturas.addEventListener('click', () => this.loadFacturas());
 
-    this.facturasTableBody.addEventListener('change', (event) => {
-      if (event.target.matches('input[type="radio"]')) {
-        const index = Number(event.target.value);
-        this.selectedFactura = this.facturas[index] || null;
-        this.clearAlerts();
+    this.facturasBody.addEventListener('click', (event) => {
+      const row = event.target.closest('tr');
+      if (!row) return;
+      const idx = Number(row.dataset.index);
+      if (!Number.isFinite(idx)) return;
+      this.selectFactura(idx);
+    });
+
+    this.vBaseNombre.addEventListener('input', () => this.handleBaseInput());
+    this.vBaseNombre.addEventListener('blur', () => this.handleBaseInput(true));
+
+    this.detalleBody.addEventListener('input', (event) => {
+      if (event.target.matches('input[data-field="vCantidadDisponible"]')) {
+        this.clearFieldError(event.target);
+        this.validateCantidad(event.target);
       }
     });
 
-    this.detalleTableBody.addEventListener('input', (event) => {
-      if (event.target.matches('input')) {
-        this.validateCantidadInput(event.target);
-        this.updateSummary();
+    this.confirmacion.addEventListener('change', (event) => {
+      if (event.target.checked) {
+        event.target.classList.remove('is-invalid');
       }
-    });
-
-    document.getElementById('vCodigo_base').addEventListener('change', (event) => {
-      this.clearFieldError(event.target);
-      this.updateSummary();
     });
   }
 
   async loadInitialData() {
     try {
-      const [now, bases] = await Promise.all([this.fetchJson('/api/now'), this.fetchJson('/api/bases')]);
+      this.setLoading(true);
+      const [now, bases, remitoNum] = await Promise.all([
+        this.fetchJson('/api/now'),
+        this.fetchJson('/api/bases'),
+        this.fetchJson('/api/remito/next-num')
+      ]);
+
       this.bases = bases;
-      document.getElementById('vFecha').value = now.fecha;
-      this.populateSelect('vCodigo_base', bases);
+      this.populateBases();
+
+      this.vFecha.value = now.fecha;
+      this.vTipoRemito.value = 'REM';
+      this.vNumRemito.value = remitoNum.next;
+
+      const ordinal = await this.fetchJson(`/api/remito/next-ordinal?num=${remitoNum.next}`);
+      this.vOrdinal.value = ordinal.next;
+
+      await this.loadFacturas();
     } catch (error) {
       this.showError(error.message || 'Error al cargar datos iniciales.');
+    } finally {
+      this.setLoading(false);
     }
-  }
-
-  populateSelect(selectId, items) {
-    const select = document.getElementById(selectId);
-    select.innerHTML = '<option value="">Seleccione...</option>';
-    items.forEach((item) => {
-      const option = document.createElement('option');
-      option.value = item.codigo_base || item.codigo || item.id || item.value || '';
-      option.textContent = item.nombre || item.nombre_base || item.descripcion || item.label || option.value;
-      select.appendChild(option);
-    });
   }
 
   async loadFacturas() {
     try {
-      const rows = await this.fetchJson('/api/facturas-pendientes');
-      this.facturas = rows;
+      this.setLoading(true);
+      const facturas = await this.fetchJson('/api/facturas-pendientes');
+      this.facturas = facturas;
       this.renderFacturas();
     } catch (error) {
-      this.showError(error.message || 'Error al cargar facturas.');
+      this.showError(error.message || 'Error al cargar facturas pendientes.');
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  populateBases() {
+    const datalist = document.getElementById('basesList');
+    datalist.innerHTML = '';
+    this.bases.forEach((base) => {
+      const option = document.createElement('option');
+      const name = base.nombre || base.nombre_base || base.descripcion || base.codigo_base;
+      option.value = name;
+      option.dataset.codigo = base.codigo_base || base.codigo || base.id || '';
+      datalist.appendChild(option);
+    });
+  }
+
+  handleBaseInput(forceValidate = false) {
+    const value = this.vBaseNombre.value.trim();
+    if (!value) {
+      this.vBaseCodigo.value = '';
+      if (forceValidate) {
+        this.markFieldInvalid(this.vBaseNombre);
+      }
+      return;
+    }
+
+    const match = this.bases.find((base) => {
+      const nombre = (base.nombre || base.nombre_base || base.descripcion || '').toLowerCase();
+      const codigo = String(base.codigo_base || base.codigo || base.id || '').toLowerCase();
+      return nombre === value.toLowerCase() || codigo === value.toLowerCase();
+    });
+
+    if (match) {
+      const codigo = match.codigo_base || match.codigo || match.id || '';
+      const nombre = match.nombre || match.nombre_base || match.descripcion || codigo;
+      this.vBaseCodigo.value = codigo;
+      if (value !== nombre) {
+        this.vBaseNombre.value = nombre;
+      }
+      this.clearFieldError(this.vBaseNombre);
+    } else if (forceValidate) {
+      this.vBaseCodigo.value = '';
+      this.markFieldInvalid(this.vBaseNombre);
     }
   }
 
   renderFacturas() {
-    this.facturasTableBody.innerHTML = '';
+    this.facturasBody.innerHTML = '';
     if (!this.facturas.length) {
-      const emptyRow = document.createElement('tr');
-      emptyRow.innerHTML = `<td colspan="5" class="text-center text-muted">Sin facturas pendientes.</td>`;
-      this.facturasTableBody.appendChild(emptyRow);
+      this.emptyFacturas.classList.remove('d-none');
       return;
     }
-
+    this.emptyFacturas.classList.add('d-none');
     this.facturas.forEach((factura, index) => {
       const row = document.createElement('tr');
-      const fecha = factura.fecha || factura.vfecha || '';
-      const tipo = factura.tipo_documento_compra || factura.vtipo_documento_compra || '';
-      const numero = factura.num_documento_compra || factura.vnum_documento_compra || '';
-      const proveedor = factura.nombre_provedor || factura.vnombre_provedor || '';
+      row.dataset.index = index;
+      const isSelected =
+        this.selectedFactura && this.selectedFactura.num_documento_compra === factura.num_documento_compra;
       row.innerHTML = `
         <td>
-          <input class="form-check-input" type="radio" name="factura" value="${index}" />
+          <input class="form-check-input" type="radio" name="facturaSelect" ${isSelected ? 'checked' : ''} />
         </td>
-        <td>${fecha}</td>
-        <td>${tipo}</td>
-        <td>${numero}</td>
-        <td>${proveedor}</td>
+        <td>${factura.fecha || '-'}</td>
+        <td>${factura.tipo_documento_compra || '-'}</td>
+        <td>${factura.num_documento_compra || '-'}</td>
+        <td>${factura.nombre_provedor || '-'} </td>
       `;
-      this.facturasTableBody.appendChild(row);
+      if (isSelected) {
+        row.classList.add('selected');
+      }
+      this.facturasBody.appendChild(row);
     });
   }
 
-  async loadRemitoData() {
-    if (!this.selectedFactura) return;
-    this.detalleTableBody.innerHTML = '';
-    const tipoOrigen = this.selectedFactura.tipo_documento_compra || this.selectedFactura.vtipo_documento_compra || '';
-    const numOrigen = this.selectedFactura.num_documento_compra || this.selectedFactura.vnum_documento_compra || '';
-    const codigoProveedor = this.selectedFactura.codigo_provedor || this.selectedFactura.vcodigo_provedor || '';
-
-    try {
-      const numData = await this.fetchJson('/api/next-numdocumento?tipo=RMP');
-      const numRemito = numData.next;
-      document.getElementById('vTipo_documento_compra_remito').value = 'RMP';
-      document.getElementById('vNum_documento_compra_remito').value = numRemito;
-      const ordinalData = await this.fetchJson(`/api/next-ordinal?tipo=RMP&num=${encodeURIComponent(numRemito)}`);
-      document.getElementById('vOrdinal').value = ordinalData.next;
-
-      const detalle = await this.fetchJson(
-        `/api/detalle-compra?tipo=${encodeURIComponent(tipoOrigen)}&num=${encodeURIComponent(
-          numOrigen
-        )}&proveedor=${encodeURIComponent(codigoProveedor)}`
-      );
-      this.renderDetalle(detalle || []);
-    } catch (error) {
-      this.showError(error.message || 'Error al cargar detalle de remito.');
-    }
+  selectFactura(index) {
+    this.selectedFactura = this.facturas[index];
+    this.renderFacturas();
+    this.updateFacturaSummary();
   }
 
-  renderDetalle(detalle) {
-    this.detalleTableBody.innerHTML = '';
-    if (!detalle.length) {
-      const emptyRow = document.createElement('tr');
-      emptyRow.innerHTML = `<td colspan="3" class="text-center text-muted">Sin detalles disponibles.</td>`;
-      this.detalleTableBody.appendChild(emptyRow);
+  updateFacturaSummary() {
+    if (!this.selectedFactura) {
+      this.facturaSummary.textContent = '-';
+      return;
+    }
+    const factura = this.selectedFactura;
+    const label = `${factura.tipo_documento_compra} ${factura.num_documento_compra} - ${factura.nombre_provedor}`;
+    this.facturaSummary.textContent = label;
+  }
+
+  async handleNext() {
+    if (this.currentStep === 0) {
+      if (!this.selectedFactura) {
+        this.showError('Seleccione una factura pendiente para continuar.');
+        return;
+      }
+      await this.loadDetalleRemito();
+      this.goStep(1);
       return;
     }
 
-    detalle.forEach((item) => {
-      const nombre = item.nombre_producto || item.vnombre_producto || '';
-      const cantidad = this.parseNumber(item.cantidad || item.vcantidad || 0);
-      const entregada = this.parseNumber(item.cantidad_entregada || item.vcantidad_entregada || 0);
-      const disponible = Math.max(0, cantidad - entregada);
+    if (this.currentStep === 1) {
+      if (!this.validateStep2()) {
+        return;
+      }
+      this.buildSummary();
+      this.goStep(2);
+    }
+  }
+
+  async loadDetalleRemito() {
+    if (!this.selectedFactura) return;
+    try {
+      this.setLoading(true);
+      const { tipo_documento_compra, num_documento_compra, codigo_provedor } = this.selectedFactura;
+      const detalle = await this.fetchJson(
+        `/api/detalle-compra?tipo=${encodeURIComponent(tipo_documento_compra)}&num=${encodeURIComponent(
+          num_documento_compra
+        )}&proveedor=${encodeURIComponent(codigo_provedor)}`
+      );
+
+      this.detalleItems = detalle.map((item) => {
+        const cantidad = Number(item.cantidad || 0);
+        const entregada = Number(item.cantidad_entregada || 0);
+        const disponible = Math.max(cantidad - entregada, 0);
+        return {
+          vnombre_producto: item.nombre_producto,
+          vcodigo_producto: item.codigo_producto,
+          vOrdinalCompra: item.ordinal,
+          vCantidadDisponible: disponible,
+          vCantidadMax: disponible
+        };
+      });
+
+      this.renderDetalle();
+      this.updateFacturaSummary();
+    } catch (error) {
+      this.showError(error.message || 'Error al cargar detalle de compra.');
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  renderDetalle() {
+    this.detalleBody.innerHTML = '';
+    this.detalleItems.forEach((item, index) => {
       const row = document.createElement('tr');
-      row.dataset.codigoProducto = item.codigo_producto || item.vcodigo_producto || '';
-      row.dataset.ordinalCompra = item.ordinal || item.vordinal || item.vOrdinalCompra || '';
-      row.dataset.disponible = disponible;
+      row.dataset.index = index;
       row.innerHTML = `
-        <td>${nombre}</td>
-        <td>${this.formatNumber(disponible)}</td>
+        <td>${item.vnombre_producto}</td>
         <td>
           <input
             type="text"
             class="form-control"
             data-field="vCantidadDisponible"
-            placeholder="0.00"
-            value="${this.formatNumber(disponible)}"
+            value="${item.vCantidadDisponible}"
+            data-max="${item.vCantidadMax}"
           />
           <div class="invalid-feedback">Cantidad invalida.</div>
         </td>
       `;
-      this.detalleTableBody.appendChild(row);
+      this.detalleBody.appendChild(row);
     });
-  }
-
-  handleNext() {
-    if (this.currentStep === 0 && !this.validateStep1()) {
-      return;
-    }
-    if (this.currentStep === 1 && !this.validateStep2()) {
-      return;
-    }
-    if (this.currentStep === 1) {
-      this.updateSummary();
-    }
-    this.goStep(this.currentStep + 1);
-  }
-
-  goStep(step) {
-    if (step < 0 || step >= this.steps.length) return;
-    this.currentStep = step;
-    this.steps.forEach((el, index) => el.classList.toggle('active', index === step));
-    this.stepBadges.forEach((badge, index) => badge.classList.toggle('active', index === step));
-    this.prevBtn.disabled = step === 0;
-    this.nextBtn.classList.toggle('d-none', step === this.steps.length - 1);
-    this.registrarBtn.classList.toggle('d-none', step !== this.steps.length - 1);
-    if (step === 1) {
-      this.loadRemitoData();
-    }
-    if (step === 2) {
-      this.updateSummary();
-    }
-    this.updateProgress();
-  }
-
-  updateProgress() {
-    const percentage = ((this.currentStep + 1) / this.steps.length) * 100;
-    this.progressBar.style.width = `${percentage}%`;
-  }
-
-  validateStep1() {
-    this.clearAlerts();
-    if (!this.selectedFactura) {
-      this.showError('Debe seleccionar una factura pendiente.');
-      return false;
-    }
-    return true;
   }
 
   validateStep2() {
     let valid = true;
-    this.clearAlerts();
-    const baseSelect = document.getElementById('vCodigo_base');
-    if (!baseSelect.value) {
-      baseSelect.classList.add('is-invalid');
+    this.handleBaseInput(true);
+    if (!this.vBaseCodigo.value) {
       valid = false;
     }
 
-    const rows = Array.from(this.detalleTableBody.querySelectorAll('tr'));
-    if (!rows.length) {
-      this.showError('Debe cargar el detalle del remito.');
+    if (!this.detalleItems.length) {
+      this.showError('No hay detalle de remito disponible.');
       return false;
     }
 
-    let anyPositive = false;
-    rows.forEach((row) => {
-      const input = row.querySelector('[data-field="vCantidadDisponible"]');
-      if (!input || !input.value || !this.decimalRegex.test(input.value)) {
-        input.classList.add('is-invalid');
+    this.detalleBody.querySelectorAll('input[data-field="vCantidadDisponible"]').forEach((input) => {
+      if (!this.validateCantidad(input)) {
         valid = false;
-        return;
-      }
-      const value = this.parseNumber(input.value);
-      const disponible = this.parseNumber(row.dataset.disponible);
-      if (Number.isNaN(value) || value < 0 || value > disponible) {
-        input.classList.add('is-invalid');
-        valid = false;
-      }
-      if (!Number.isNaN(value) && value > 0) {
-        anyPositive = true;
       }
     });
 
-    if (!anyPositive) {
-      this.showError('Debe ingresar al menos una cantidad mayor a cero.');
-      valid = false;
-    } else if (!valid) {
-      this.showError('Revise las cantidades del remito.');
+    if (!valid) {
+      this.showError('Verifique los datos del remito antes de continuar.');
     }
 
     return valid;
   }
 
-  validateStep3() {
-    const checkbox = document.getElementById('confirmacion');
-    if (!checkbox.checked) {
-      checkbox.classList.add('is-invalid');
-      this.showError('Debe confirmar la operacion.');
+  validateCantidad(input) {
+    const value = input.value.trim();
+    const max = Number(input.dataset.max || 0);
+    const numeric = Number(value);
+    if (!value || !this.decimalRegex.test(value) || Number.isNaN(numeric) || numeric < 0 || numeric > max) {
+      this.markFieldInvalid(input);
       return false;
     }
-    checkbox.classList.remove('is-invalid');
+    this.clearFieldError(input);
     return true;
   }
 
+  buildSummary() {
+    const base = this.resolveBase();
+    this.summaryFecha.textContent = this.vFecha.value || '-';
+    this.summaryNumero.textContent = this.vNumRemito.value || '-';
+    this.summaryBase.textContent = base ? `${base.nombre} (${base.codigo})` : '-';
+    if (this.selectedFactura) {
+      this.summaryFactura.textContent = `${this.selectedFactura.tipo_documento_compra} ${
+        this.selectedFactura.num_documento_compra
+      }`;
+    }
+
+    this.summaryBody.innerHTML = '';
+    this.detalleBody.querySelectorAll('tr').forEach((row, idx) => {
+      const input = row.querySelector('input[data-field="vCantidadDisponible"]');
+      const cantidad = input ? input.value : '0';
+      const item = this.detalleItems[idx];
+      if (!item) return;
+      const summaryRow = document.createElement('tr');
+      summaryRow.innerHTML = `
+        <td>${item.vnombre_producto}</td>
+        <td>${cantidad}</td>
+      `;
+      this.summaryBody.appendChild(summaryRow);
+    });
+  }
+
+  resolveBase() {
+    const code = this.vBaseCodigo.value;
+    const match = this.bases.find((base) => String(base.codigo_base || base.codigo || base.id) === String(code));
+    if (!match) return null;
+    return {
+      codigo: match.codigo_base || match.codigo || match.id,
+      nombre: match.nombre || match.nombre_base || match.descripcion || code
+    };
+  }
+
   async handleRegistrar() {
-    if (!this.validateStep3()) {
+    if (!this.confirmacion.checked) {
+      this.confirmacion.classList.add('is-invalid');
       return;
     }
-    this.setLoading(true);
-    this.clearAlerts();
+
+    const base = this.resolveBase();
+    if (!base || !this.selectedFactura) {
+      this.showError('Falta informacion para registrar el remito.');
+      return;
+    }
+
+    const detalle = this.detalleBody.querySelectorAll('tr');
+    const detallePayload = [];
+    detalle.forEach((row, idx) => {
+      const input = row.querySelector('input[data-field="vCantidadDisponible"]');
+      const cantidad = input ? Number(input.value) : 0;
+      const item = this.detalleItems[idx];
+      if (item && cantidad > 0) {
+        detallePayload.push({
+          vcodigo_producto: item.vcodigo_producto,
+          vCantidadDisponible: cantidad,
+          vOrdinalCompra: item.vOrdinalCompra,
+          vnombre_producto: item.vnombre_producto
+        });
+      }
+    });
+
+    if (!detallePayload.length) {
+      this.showError('Debe ingresar al menos una linea con cantidad mayor a cero.');
+      return;
+    }
+
+    const payload = {
+      vTipo_documento_compra_remito: 'REM',
+      vNum_documento_compra_remito: this.vNumRemito.value,
+      vFecha: this.vFecha.value,
+      vCodigo_base: base.codigo,
+      vTipo_documento_compra_origen: this.selectedFactura.tipo_documento_compra,
+      vNum_documento_compra_origen: this.selectedFactura.num_documento_compra,
+      vCodigo_provedor: this.selectedFactura.codigo_provedor,
+      vDetalleRemitoCompra: detallePayload
+    };
+
     try {
-      const payload = this.collectPayload();
-      const response = await this.fetchJson('/api/remitos', {
+      this.setLoading(true);
+      const response = await this.fetchJson('/api/registrar-remito', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       this.showSuccess(response.message || 'Remito registrado correctamente.');
+      this.resetWizard();
     } catch (error) {
       this.showError(error.message || 'Error al registrar el remito.');
     } finally {
@@ -385,123 +535,68 @@ class FormWizard {
     }
   }
 
-  collectPayload() {
-    const detalles = Array.from(this.detalleTableBody.querySelectorAll('tr'))
-      .map((row) => {
-        const input = row.querySelector('[data-field="vCantidadDisponible"]');
-        return {
-          vcodigo_producto: row.dataset.codigoProducto,
-          vOrdinalCompra: row.dataset.ordinalCompra,
-          vCantidadDisponible: input ? input.value : '0'
-        };
-      })
-      .filter((item) => this.parseNumber(item.vCantidadDisponible) > 0);
-
-    return {
-      vFecha: document.getElementById('vFecha').value,
-      vTipo_documento_compra_remito: document.getElementById('vTipo_documento_compra_remito').value,
-      vNum_documento_compra_remito: document.getElementById('vNum_documento_compra_remito').value,
-      vCodigo_base: document.getElementById('vCodigo_base').value,
-      vTipo_documento_compra_origen:
-        this.selectedFactura?.tipo_documento_compra || this.selectedFactura?.vtipo_documento_compra || '',
-      vNum_documento_compra_origen:
-        this.selectedFactura?.num_documento_compra || this.selectedFactura?.vnum_documento_compra || '',
-      vCodigo_provedor: this.selectedFactura?.codigo_provedor || this.selectedFactura?.vcodigo_provedor || '',
-      vDetalleRemitoCompra: detalles
-    };
+  resetWizard() {
+    this.confirmacion.checked = false;
+    this.selectedFactura = null;
+    this.detalleItems = [];
+    this.facturaSummary.textContent = '-';
+    this.detalleBody.innerHTML = '';
+    this.summaryBody.innerHTML = '';
+    this.goStep(0);
+    this.loadInitialData();
   }
 
-  updateSummary() {
-    if (!this.selectedFactura) return;
-    const facturaTipo = this.selectedFactura.tipo_documento_compra || this.selectedFactura.vtipo_documento_compra || '';
-    const facturaNum = this.selectedFactura.num_documento_compra || this.selectedFactura.vnum_documento_compra || '';
-    const proveedor = this.selectedFactura.nombre_provedor || this.selectedFactura.vnombre_provedor || '';
-    const baseSelect = document.getElementById('vCodigo_base');
-    const baseLabel = baseSelect.options[baseSelect.selectedIndex]?.textContent || '-';
-    const remitoTipo = document.getElementById('vTipo_documento_compra_remito').value || '-';
-    const remitoNum = document.getElementById('vNum_documento_compra_remito').value || '-';
-
-    document.getElementById('summaryFactura').textContent = `${facturaTipo} ${facturaNum}`.trim();
-    document.getElementById('summaryProveedor').textContent = proveedor || '-';
-    document.getElementById('summaryRemito').textContent = `${remitoTipo} ${remitoNum}`.trim();
-    document.getElementById('summaryBase').textContent = baseLabel;
-
-    this.summaryTableBody.innerHTML = '';
-    const rows = Array.from(this.detalleTableBody.querySelectorAll('tr'));
-    rows.forEach((row) => {
-      const nombre = row.querySelector('td')?.textContent || '';
-      const input = row.querySelector('[data-field="vCantidadDisponible"]');
-      const cantidad = input ? input.value : '0';
-      const summaryRow = document.createElement('tr');
-      summaryRow.innerHTML = `
-        <td>${nombre}</td>
-        <td>${cantidad}</td>
-      `;
-      this.summaryTableBody.appendChild(summaryRow);
+  goStep(step) {
+    if (step < 0 || step >= this.steps.length) return;
+    this.currentStep = step;
+    this.steps.forEach((el, idx) => {
+      el.classList.toggle('active', idx === step);
     });
+    this.stepBadges.forEach((badge, idx) => {
+      badge.classList.toggle('active', idx === step);
+    });
+    const progress = (step / (this.steps.length - 1)) * 100;
+    this.progressBar.style.width = `${progress}%`;
+
+    this.prevBtn.disabled = step === 0;
+    this.nextBtn.classList.toggle('d-none', step === this.steps.length - 1);
+    this.registrarBtn.classList.toggle('d-none', step !== this.steps.length - 1);
   }
 
-  validateCantidadInput(input) {
-    if (!input.value) {
-      input.classList.remove('is-invalid');
-      return;
-    }
-    const row = input.closest('tr');
-    const disponible = this.parseNumber(row?.dataset.disponible || 0);
-    const value = this.parseNumber(input.value);
-    if (!this.decimalRegex.test(input.value) || Number.isNaN(value) || value < 0 || value > disponible) {
-      input.classList.add('is-invalid');
-    } else {
-      input.classList.remove('is-invalid');
-    }
+  showError(message) {
+    this.errorAlert.textContent = message;
+    this.errorAlert.classList.remove('d-none');
+    this.successAlert.classList.add('d-none');
+  }
+
+  showSuccess(message) {
+    this.successAlert.textContent = message;
+    this.successAlert.classList.remove('d-none');
+    this.errorAlert.classList.add('d-none');
   }
 
   clearFieldError(field) {
     field.classList.remove('is-invalid');
   }
 
-  showError(message) {
-    this.errorAlert.textContent = message;
-    this.errorAlert.classList.remove('d-none');
+  markFieldInvalid(field) {
+    field.classList.add('is-invalid');
   }
 
-  showSuccess(message) {
-    this.successAlert.textContent = message;
-    this.successAlert.classList.remove('d-none');
+  setLoading(state) {
+    this.loadingState.classList.toggle('d-none', !state);
+    this.prevBtn.disabled = state;
+    this.nextBtn.disabled = state;
+    this.registrarBtn.disabled = state;
   }
 
-  clearAlerts() {
-    this.errorAlert.classList.add('d-none');
-    this.successAlert.classList.add('d-none');
-  }
-
-  setLoading(isLoading) {
-    this.registrarBtn.disabled = isLoading;
-    this.prevBtn.disabled = isLoading;
-    this.nextBtn.disabled = isLoading;
-    if (this.loadingState) {
-      this.loadingState.classList.toggle('is-loading', isLoading);
-      this.loadingState.setAttribute('aria-busy', isLoading ? 'true' : 'false');
-    }
-  }
-
-  async fetchJson(url, options = {}) {
+  async fetchJson(url, options) {
     const response = await fetch(url, options);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      throw new Error(data.message || 'Error de red.');
+      throw new Error(data.message || 'Error en la solicitud.');
     }
     return response.json();
-  }
-
-  parseNumber(value) {
-    if (value === null || value === undefined || value === '') return NaN;
-    return Number(String(value).replace(',', '.'));
-  }
-
-  formatNumber(value) {
-    if (value === null || value === undefined || Number.isNaN(value)) return '';
-    return Number(value).toFixed(2);
   }
 }
 

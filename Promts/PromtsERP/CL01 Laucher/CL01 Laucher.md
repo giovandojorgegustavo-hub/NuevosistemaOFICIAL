@@ -2,6 +2,11 @@ CL01: Launcher ERP
 
 # **Prompt AI.
 
+
+## Campos devueltos por SPs de lectura (obligatorio)
+Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
+
+
 Como desarrollador de aplicaciones web, ayúdame a crear un aplicativo web que actúe como Launcher de web apps y páginas web, con look and feel de una empresa tecnológica que ofrece sistemas ERP en modalidad SaaS a nivel global.
 
 El código generado debe guardarse en una sola carpeta por caso de uso: `wizard/CL01`, sobrescribiendo su propio wizard para evitar duplicados. El Launcher debe tener su propia carpeta y un `index.html` como entrada principal. El backend debe iniciar en el puerto `3000`. Priorizar código limpio y eficiente: mientras menos código, mejor, sin sacrificar claridad.
