@@ -385,7 +385,7 @@ Si vMontoPago > 0:
   - descripcion="Recibo cliente" (opcional)
 
 - Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
-  - `CALL aplicar_recibo_a_facturas(vClienteSeleted, "RCP", vNumero_documento_pago, vMontoPago)`
+  - `CALL aplicar_recibo_a_facturas(vClienteSeleted, vNumero_documento_pago, vMontoPago)`
 
 - Actualizar saldo del cliente por el pago:
   - `CALL actualizarsaldosclientes(vClienteSeleted, "RCP", vMontoPago)`

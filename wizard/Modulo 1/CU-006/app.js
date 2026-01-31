@@ -1,926 +1,1130 @@
+/*
+SPs de lectura (segun Promts/PromtsERP/_procedimientos_campos.md)
+
+vPedidosPendientes = Llamada SP: get_pedidospendientes() (devuelve campo_visible)
+Campos devueltos: codigo_pedido, codigo_cliente, nombre_cliente, numero_cliente, fecha, created_at
+Variables (visibilidad/edicion):
+vcodigo_pedido (no visible, no editable)
+vcodigo_cliente (no visible, no editable)
+vnombre_cliente (visible, no editable)
+vnumero_cliente (visible, no editable)
+vfecha (visible, no editable)
+
+vPedidoDetalle = Llamada SP: get_pedido_detalle_por_pedido(p_codigo_pedido) (devuelve campo_visible)
+Campos devueltos: codigo_producto, nombre_producto, saldo, precio_unitario
+Variables (visibilidad/edicion):
+vcodigo_producto (no visible, no editable)
+vnombre_producto (visible, no editable)
+vcantidad_producto (visible, editable)
+vprecio_unitario (no visible, no editable)
+
+vBases = Llamada SP: get_bases() (devuelve campo_visible)
+Campos devueltos: codigo_base, nombre
+Variables (visibilidad/edicion):
+vcodigo_base (visible, editable)
+vnombre_base (visible, no editable)
+
+vPuntosEntrega = Llamada SP: get_puntos_entrega(p_codigo_cliente) (devuelve campo_visible)
+Campos devueltos: cod_dep, cod_prov, cod_dist, departamento, provincia, distrito, ubigeo, codigo_puntoentrega, codigo_cliente, region_entrega, direccion_linea, referencia, nombre, dni, agencia, observaciones, concatenarpuntoentrega, estado
+Variables (visibilidad/edicion):
+vcodigo_puntoentrega (visible, editable)
+vconcatenarpuntoentrega (visible, no editable)
+
+vDepartamentos = Llamada SP: get_ubigeo_departamentos() (devuelve campo_visible)
+Campos devueltos: cod_dep, departamento
+Variables (visibilidad/edicion):
+vcod_dep (visible, editable)
+vdepartamento (visible, no editable)
+
+vProvincias = Llamada SP: get_ubigeo_provincias(p_cod_dep) (devuelve campo_visible)
+Campos devueltos: cod_prov, provincia
+Variables (visibilidad/edicion):
+vcod_prov (visible, editable)
+vprovincia (visible, no editable)
+
+vDistritos = Llamada SP: get_ubigeo_distritos(p_cod_dep, p_cod_prov) (devuelve campo_visible)
+Campos devueltos: cod_dist, distrito
+Variables (visibilidad/edicion):
+vcod_dist (visible, editable)
+vdistrito (visible, no editable)
+
+vNumRecibe = Llamada SP: get_numrecibe(p_codigo_cliente) (devuelve campo_visible)
+Campos devueltos: codigo_cliente_numrecibe, ordinal_numrecibe, numero, nombre, concatenarnumrecibe
+Variables (visibilidad/edicion):
+vcodigo_cliente_numrecibe (no visible, no editable)
+vordinal_numrecibe (no visible, no editable)
+vnumero_recibe (visible, editable)
+vnombre_recibe (visible, editable)
+vconcatenarnumrecibe (visible, no editable)
+
+vCuentasBancarias = Llamada SP: get_cuentasbancarias() (devuelve campo_visible)
+Campos devueltos: codigo_cuentabancaria, nombre, banco
+Variables (visibilidad/edicion):
+vcodigo_cuentabancaria (visible, editable)
+vnombre_cuentabancaria (visible, no editable)
+vbanco_cuentabancaria (visible, no editable)
+*/
+
 class FormWizard {
   constructor() {
-    this.steps = Array.from(document.querySelectorAll('.wizard-step'));
-    this.progress = document.getElementById('wizardProgress');
-    this.stepPills = Array.from(document.querySelectorAll('.step-pill'));
-    this.alertArea = document.getElementById('alertArea');
-    this.loadingOverlay = document.getElementById('loadingOverlay');
-    this.loadingText = document.getElementById('loadingText');
-
-    this.pedidosTableBody = document.querySelector('#pedidosTable tbody');
-    this.detalleTableBody = document.querySelector('#detalleTable tbody');
-
-    this.filterCliente = document.getElementById('filterCliente');
-    this.filterFecha = document.getElementById('filterFecha');
-
-    this.baseSelect = document.getElementById('baseSelect');
-    this.fechaEmision = document.getElementById('fechaEmision');
-    this.horaEmision = document.getElementById('horaEmision');
-    this.tipoDocumento = document.getElementById('tipoDocumento');
-    this.numeroDocumento = document.getElementById('numeroDocumento');
-    this.saldoTotal = document.getElementById('saldoTotal');
-
-    this.puntoEntregaSelect = document.getElementById('puntoEntregaSelect');
-    this.puntoExistenteWrap = document.getElementById('puntoExistenteWrap');
-    this.puntoNuevoWrap = document.getElementById('puntoNuevoWrap');
-    this.entregaExistente = document.getElementById('entregaExistente');
-    this.entregaNuevo = document.getElementById('entregaNuevo');
-
-    this.depSelect = document.getElementById('depSelect');
-    this.provSelect = document.getElementById('provSelect');
-    this.distSelect = document.getElementById('distSelect');
-    this.regionEntregaLabel = document.getElementById('regionEntregaLabel');
-    this.limaFields = document.getElementById('limaFields');
-    this.provFields = document.getElementById('provFields');
-    this.direccionLinea = document.getElementById('direccionLinea');
-    this.referencia = document.getElementById('referencia');
-    this.nombreEntrega = document.getElementById('nombreEntrega');
-    this.dniEntrega = document.getElementById('dniEntrega');
-    this.agencia = document.getElementById('agencia');
-    this.observaciones = document.getElementById('observaciones');
-
-    this.recibeExistente = document.getElementById('recibeExistente');
-    this.recibeNuevo = document.getElementById('recibeNuevo');
-    this.recibeExistenteWrap = document.getElementById('recibeExistenteWrap');
-    this.recibeNuevoWrap = document.getElementById('recibeNuevoWrap');
-    this.recibeSelect = document.getElementById('recibeSelect');
-    this.numeroRecibe = document.getElementById('numeroRecibe');
-    this.nombreRecibe = document.getElementById('nombreRecibe');
-
-    this.summaryPedido = document.getElementById('summaryPedido');
-    this.summaryFactura = document.getElementById('summaryFactura');
-    this.summaryEntrega = document.getElementById('summaryEntrega');
-    this.summaryRecibe = document.getElementById('summaryRecibe');
-    this.summaryRecibeWrap = document.getElementById('summaryRecibeWrap');
-
-    this.confirmCheck = document.getElementById('confirmCheck');
-
-    this.currentStep = 1;
-    this.selectedPedido = null;
-    this.pedidos = [];
-    this.detalleFactura = [];
-    this.bases = [];
-    this.puntosEntrega = [];
-    this.numRecibe = [];
-
-    this.vTipoDocumento = 'FAC';
-    this.vNumeroDocumento = null;
-    this.vOrdinalDetMovCont = 1;
-    this.vCodigoPuntoEntrega = null;
-    this.vOrdinalNumRecibe = null;
-    this.vOrdinalPaqueteDetalle = null;
-    this.vRegionEntrega = 'PROV';
-
-    this.regex = {
-      integer: /^\d+$/,
-      decimal: /^\d+(?:\.\d+)?$/,
-      dni: /^\d{8}$/,
+    this.step = 1;
+    this.totalSteps = 6;
+    this.state = {
+      pedido: null,
+      pedidoDetalle: [],
+      factura: {
+        esNueva: true,
+        vTipo_documento: 'FAC',
+        vNumero_documento: '',
+        vCodigo_base: '',
+        vFecha_emision: '',
+        vHora_emision: '',
+        vFechaP: '',
+      },
+      entrega: {
+        modo: 'existente',
+        vCodigo_puntoentrega: '',
+        vCod_Dep: '',
+        vCod_Prov: '',
+        vCod_Dist: '',
+        vRegion_Entrega: 'PROV',
+        Vdireccion_linea: '',
+        Vreferencia: '',
+        Vnombre: '',
+        Vdni: '',
+        Vagencia: '',
+        Vobservaciones: '',
+        Vconcatenarpuntoentrega: '',
+      },
+      recibe: {
+        modo: 'existente',
+        vCodigoClienteNumrecibe: '',
+        vNumeroRecibe: '',
+        vNombreRecibe: '',
+        Vordinal_numrecibe: null,
+        Vconcatenarnumrecibe: '',
+      },
+      pago: {
+        vTipo_documento_pago: 'RCP',
+        vNumero_documento_pago: '',
+        vCuentaBancaria: '',
+        vMontoPago: '',
+      },
+      totals: {
+        vFsaldo: 0,
+      },
     };
 
-    this.bindEvents();
+    this.cache = {
+      pedidos: [],
+      bases: [],
+      puntosEntrega: [],
+      departamentos: [],
+      provincias: [],
+      distritos: [],
+      numrecibe: [],
+      cuentas: [],
+    };
+
+    this.init();
   }
 
-  bindEvents() {
-    document.getElementById('btnBuscar').addEventListener('click', () => this.loadPedidos());
-    document.getElementById('step1Next').addEventListener('click', () => this.handleStep1());
-    document.getElementById('step2Back').addEventListener('click', () => this.goToStep(1));
-    document.getElementById('step2Next').addEventListener('click', () => this.handleStep2());
-    document.getElementById('step3Back').addEventListener('click', () => this.goToStep(2));
-    document.getElementById('step3Next').addEventListener('click', () => this.handleStep3());
-    document.getElementById('step4Back').addEventListener('click', () => this.goToStep(3));
-    document.getElementById('step4Next').addEventListener('click', () => this.handleStep4());
-    document.getElementById('step5Back').addEventListener('click', () => this.goToPreviousSummary());
-    document.getElementById('emitirBtn').addEventListener('click', () => this.emitirFactura());
-    document.getElementById('btnLogs').addEventListener('click', () => this.openLogs());
-
-    this.entregaExistente.addEventListener('change', () => this.toggleEntregaModo());
-    this.entregaNuevo.addEventListener('change', () => this.toggleEntregaModo());
-    this.depSelect.addEventListener('change', () => this.onDepartamentoChange());
-    this.provSelect.addEventListener('change', () => this.onProvinciaChange());
-    this.distSelect.addEventListener('change', () => this.updateRegionEntrega());
-    this.puntoEntregaSelect.addEventListener('change', () => this.updateRegionFromExisting());
-
-    this.recibeExistente.addEventListener('change', () => this.toggleRecibeModo());
-    this.recibeNuevo.addEventListener('change', () => this.toggleRecibeModo());
+  init() {
+    this.setupI18n();
+    this.bindNav();
+    this.renderStepTrack();
+    this.loadInitialData();
+    this.bindStepEvents();
+    this.showStep(1);
   }
 
-  async init() {
-    this.setLanguage();
-    await this.loadPedidos();
-    this.updateProgress();
-  }
+  setupI18n() {
+    const language = navigator.language || 'es';
+    document.documentElement.lang = language;
 
-  setLanguage() {
-    const lang = (navigator.language || 'es').split('-')[0];
-    document.documentElement.lang = lang;
-    const translations = this.getTranslations();
-    const t = (key) => translations[lang]?.[key] || translations.es[key] || key;
-    this.t = t;
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      el.textContent = t(key);
-    });
-  }
-
-  getTranslations() {
-    const numeroRecibeValue = recibeModo === 'existente' ? this.recibeSelect.value : this.numeroRecibe.value.trim();
-    return {
+    const strings = {
       es: {
-        eyebrow: 'Operaciones Globales IaaS / PaaS',
-        title: 'Gestion Pedido',
-        subtitle: 'Flujo multipaso para emitir facturas y coordinar entregas con trazabilidad completa.',
-        viewLogs: 'Ver logs SQL',
-        case: 'CU-006',
-        step1Pill: 'Pedido',
-        step2Pill: 'Factura',
-        step3Pill: 'Entrega',
-        step4Pill: 'Recibe',
-        step5Pill: 'Resumen',
-        step1Title: 'Seleccionar Pedido',
-        step1Desc: 'Filtra pedidos pendientes y selecciona el pedido a facturar.',
-        filterClient: 'Cliente',
-        filterDate: 'Fecha',
-        filterApply: 'Aplicar filtros',
-        thFecha: 'Fecha',
-        thPedido: 'Codigo',
-        thCliente: 'Cliente',
-        thNumCliente: 'Num. cliente',
+        title: 'Gestión de Pedido y Facturación',
+        subtitle: 'Flujo seguro para seleccionar pedidos pendientes, emitir factura, registrar entrega y pagos.',
+        progressHint: 'Completa los datos solicitados para continuar.',
+        step1Title: '1. Seleccionar Pedido',
+        step1Desc: 'Elige un pedido pendiente para iniciar la factura.',
+        filterClient: 'Filtrar por cliente',
+        filterDate: 'Filtrar por fecha',
+        reloadGrid: 'Recargar pedidos',
+        colFecha: 'Fecha',
+        colCodigo: 'Código pedido',
+        colCliente: 'Cliente',
+        colNumero: 'Número',
+        step2Title: '2. Crear Factura',
+        step2Desc: 'Confirma base, fecha y cantidades facturadas.',
+        baseLabel: 'Base',
+        fechaEmision: 'Fecha emisión',
+        horaEmision: 'Hora emisión',
+        tipoDoc: 'Tipo documento',
+        numDoc: 'Número documento',
+        facturaExistente: '¿Factura existente?',
+        facturaExistenteHint: 'Marcar si ya existe un número',
+        colProducto: 'Producto',
+        colCantidad: 'Cantidad',
+        colTotal: 'Precio total',
+        totalFactura: 'Total factura',
+        step3Title: '3. Datos de Entrega',
+        step3Desc: 'Selecciona un punto de entrega existente o registra uno nuevo.',
+        existing: 'Existe',
+        new: 'Nuevo',
+        puntoEntrega: 'Punto de entrega',
+        departamento: 'Departamento',
+        provincia: 'Provincia',
+        distrito: 'Distrito',
+        direccion: 'Dirección',
+        referencia: 'Referencia',
+        nombre: 'Nombre',
+        dni: 'DNI',
+        agencia: 'Agencia',
+        observaciones: 'Observaciones',
+        step4Title: '4. Datos Recibe',
+        step4Desc: 'Registra quién recibe el pedido (solo Lima).',
+        recibe: 'Recibe',
+        numeroRecibe: 'Número',
+        nombreRecibe: 'Nombre',
+        step5Title: '5. Registro de Pago',
+        step5Desc: 'Registra el recibo de pago (opcional).',
+        tipoDocPago: 'Tipo documento',
+        numDocPago: 'Número documento',
+        cuentaBancaria: 'Cuenta bancaria',
+        montoPago: 'Monto pago',
+        montoPagoHint: 'Dejar vacío o 0 para no registrar pago.',
+        step6Title: '6. Resumen y Emitir Factura',
+        step6Desc: 'Revisa toda la información antes de confirmar.',
+        summaryPedido: 'Resumen Pedido',
+        summaryFactura: 'Resumen Factura',
+        summaryEntrega: 'Resumen Entrega',
+        summaryRecibe: 'Resumen Recibe',
+        summaryPago: 'Resumen Pago',
+        confirmOperacion: 'Confirmo que los datos son correctos y deseo emitir la factura.',
+        emitirFactura: 'Emitir Factura',
+        prev: 'Anterior',
         next: 'Siguiente',
-        back: 'Anterior',
-        step2Title: 'Crear Factura',
-        step2Desc: 'Define datos del documento y ajusta cantidades a facturar.',
-        labelBase: 'Base',
-        labelFechaEmision: 'Fecha emision',
-        labelHoraEmision: 'Hora emision',
-        labelTipoDoc: 'Tipo documento',
-        labelNumeroDoc: 'Numero documento',
-        labelSaldo: 'Saldo total',
-        thProducto: 'Producto',
-        thCantidad: 'Cantidad',
-        thPrecio: 'Precio total',
-        step3Title: 'Datos Entrega',
-        step3Desc: 'Selecciona punto de entrega existente o registra uno nuevo.',
-        labelEntregaModo: 'Punto entrega',
-        existente: 'Existe',
-        nuevo: 'Nuevo',
-        labelPuntoEntrega: 'Punto entrega',
-        labelDepartamento: 'Departamento',
-        labelProvincia: 'Provincia',
-        labelDistrito: 'Distrito',
-        labelDireccion: 'Direccion',
-        labelReferencia: 'Referencia',
-        labelRegion: 'Region',
-        labelNombre: 'Nombre',
-        labelDni: 'DNI',
-        labelAgencia: 'Agencia',
-        labelObservaciones: 'Observaciones',
-        step4Title: 'Datos Recibe',
-        step4Desc: 'Selecciona o registra quien recibe el pedido.',
-        labelRecibeModo: 'Num recibe',
-        labelNumRecibe: 'Num recibe',
-        labelNumeroRecibe: 'Numero',
-        labelNombreRecibe: 'Nombre',
-        step5Title: 'Resumen y emitir factura',
-        step5Desc: 'Verifica la informacion antes de confirmar.',
-        summaryPedido: 'Pedido',
-        summaryFactura: 'Factura',
-        summaryEntrega: 'Entrega',
-        summaryRecibe: 'Recibe',
-        confirmText: 'Confirmo que deseo emitir la factura y registrar los datos.',
-        emit: 'Emitir factura',
         loading: 'Cargando...',
-        noData: 'Sin datos',
-        selectPedido: 'Selecciona un pedido para continuar.',
-        loadPedidosError: 'No se pudo cargar pedidos pendientes.',
-        loadDetalleError: 'No se pudo cargar detalle del pedido.',
-        loadBasesError: 'No se pudieron cargar bases.',
-        validationFactura: 'Completa base, fecha, hora y cantidades validas.',
-        validationEntrega: 'Completa los datos de entrega requeridos.',
-        validationRecibe: 'Completa los datos de recibe requeridos.',
-        confirmRequired: 'Debes confirmar la operacion.',
-        emitSuccess: 'Factura emitida correctamente.',
-        emitError: 'No se pudo emitir la factura.',
-        quantityInvalid: 'Cantidad invalida o mayor al saldo.',
-        selected: 'Seleccionado',
-        select: 'Seleccionar',
-        modeExisting: 'EXISTENTE',
-        modeNew: 'NUEVO',
-        max: 'Max',
       },
       en: {
-        eyebrow: 'Global IaaS / PaaS Operations',
-        title: 'Order Management',
-        subtitle: 'Multi-step flow to emit invoices and coordinate deliveries with full traceability.',
-        viewLogs: 'View SQL logs',
-        case: 'CU-006',
-        step1Pill: 'Order',
-        step2Pill: 'Invoice',
-        step3Pill: 'Delivery',
-        step4Pill: 'Receiver',
-        step5Pill: 'Summary',
-        step1Title: 'Select Order',
-        step1Desc: 'Filter pending orders and select the order to invoice.',
-        filterClient: 'Client',
-        filterDate: 'Date',
-        filterApply: 'Apply filters',
-        thFecha: 'Date',
-        thPedido: 'Code',
-        thCliente: 'Client',
-        thNumCliente: 'Client no.',
-        next: 'Next',
-        back: 'Back',
-        step2Title: 'Create Invoice',
-        step2Desc: 'Define document data and adjust invoiced quantities.',
-        labelBase: 'Base',
-        labelFechaEmision: 'Issue date',
-        labelHoraEmision: 'Issue time',
-        labelTipoDoc: 'Document type',
-        labelNumeroDoc: 'Document number',
-        labelSaldo: 'Total balance',
-        thProducto: 'Product',
-        thCantidad: 'Quantity',
-        thPrecio: 'Total price',
-        step3Title: 'Delivery Data',
+        title: 'Order Management & Billing',
+        subtitle: 'Secure flow to select pending orders, issue invoices, register delivery and payments.',
+        progressHint: 'Complete the required data to continue.',
+        step1Title: '1. Select Order',
+        step1Desc: 'Choose a pending order to start invoicing.',
+        filterClient: 'Filter by client',
+        filterDate: 'Filter by date',
+        reloadGrid: 'Reload orders',
+        colFecha: 'Date',
+        colCodigo: 'Order code',
+        colCliente: 'Client',
+        colNumero: 'Number',
+        step2Title: '2. Create Invoice',
+        step2Desc: 'Confirm base, date, and quantities.',
+        baseLabel: 'Base',
+        fechaEmision: 'Issue date',
+        horaEmision: 'Issue time',
+        tipoDoc: 'Document type',
+        numDoc: 'Document number',
+        facturaExistente: 'Existing invoice?',
+        facturaExistenteHint: 'Check if the number already exists',
+        colProducto: 'Product',
+        colCantidad: 'Quantity',
+        colTotal: 'Total price',
+        totalFactura: 'Invoice total',
+        step3Title: '3. Delivery Data',
         step3Desc: 'Select an existing delivery point or register a new one.',
-        labelEntregaModo: 'Delivery point',
-        existente: 'Existing',
-        nuevo: 'New',
-        labelPuntoEntrega: 'Delivery point',
-        labelDepartamento: 'Department',
-        labelProvincia: 'Province',
-        labelDistrito: 'District',
-        labelDireccion: 'Address',
-        labelReferencia: 'Reference',
-        labelRegion: 'Region',
-        labelNombre: 'Name',
-        labelDni: 'ID',
-        labelAgencia: 'Agency',
-        labelObservaciones: 'Notes',
-        step4Title: 'Receiver Data',
-        step4Desc: 'Select or register the receiver.',
-        labelRecibeModo: 'Receiver no.',
-        labelNumRecibe: 'Receiver no.',
-        labelNumeroRecibe: 'Number',
-        labelNombreRecibe: 'Name',
-        step5Title: 'Summary and emit invoice',
-        step5Desc: 'Review the information before confirming.',
-        summaryPedido: 'Order',
-        summaryFactura: 'Invoice',
-        summaryEntrega: 'Delivery',
-        summaryRecibe: 'Receiver',
-        confirmText: 'I confirm I want to emit the invoice and register the data.',
-        emit: 'Emit invoice',
+        existing: 'Existing',
+        new: 'New',
+        puntoEntrega: 'Delivery point',
+        departamento: 'Department',
+        provincia: 'Province',
+        distrito: 'District',
+        direccion: 'Address',
+        referencia: 'Reference',
+        nombre: 'Name',
+        dni: 'ID',
+        agencia: 'Agency',
+        observaciones: 'Notes',
+        step4Title: '4. Recipient Data',
+        step4Desc: 'Register who receives the order (Lima only).',
+        recibe: 'Recipient',
+        numeroRecibe: 'Number',
+        nombreRecibe: 'Name',
+        step5Title: '5. Payment Receipt',
+        step5Desc: 'Register payment receipt (optional).',
+        tipoDocPago: 'Document type',
+        numDocPago: 'Document number',
+        cuentaBancaria: 'Bank account',
+        montoPago: 'Payment amount',
+        montoPagoHint: 'Leave empty or 0 to skip payment.',
+        step6Title: '6. Summary & Issue Invoice',
+        step6Desc: 'Review all information before confirming.',
+        summaryPedido: 'Order Summary',
+        summaryFactura: 'Invoice Summary',
+        summaryEntrega: 'Delivery Summary',
+        summaryRecibe: 'Recipient Summary',
+        summaryPago: 'Payment Summary',
+        confirmOperacion: 'I confirm the data is correct and want to issue the invoice.',
+        emitirFactura: 'Issue Invoice',
+        prev: 'Back',
+        next: 'Next',
         loading: 'Loading...',
-        noData: 'No data',
-        selectPedido: 'Select an order to continue.',
-        loadPedidosError: 'Could not load pending orders.',
-        loadDetalleError: 'Could not load order details.',
-        loadBasesError: 'Could not load bases.',
-        validationFactura: 'Complete base, date, time and valid quantities.',
-        validationEntrega: 'Complete required delivery data.',
-        validationRecibe: 'Complete required receiver data.',
-        confirmRequired: 'You must confirm the operation.',
-        emitSuccess: 'Invoice emitted successfully.',
-        emitError: 'Could not emit invoice.',
-        quantityInvalid: 'Invalid quantity or exceeds balance.',
-        selected: 'Selected',
-        select: 'Select',
-        modeExisting: 'EXISTING',
-        modeNew: 'NEW',
-        max: 'Max',
       },
     };
-  }
 
-  showAlert(message, type = 'danger') {
-    this.alertArea.innerHTML = `
-      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-    `;
-  }
-
-  clearAlert() {
-    this.alertArea.innerHTML = '';
-  }
-
-  setLoading(active, textKey = 'loading') {
-    this.loadingOverlay.classList.toggle('active', active);
-    this.loadingText.textContent = this.t(textKey);
-  }
-
-  updateProgress() {
-    const steps = this.steps.length;
-    const percent = (this.currentStep / steps) * 100;
-    this.progress.style.width = `${percent}%`;
-    this.stepPills.forEach((pill) => {
-      const step = Number(pill.getAttribute('data-step'));
-      pill.classList.toggle('active', step === this.currentStep);
+    const locale = language.startsWith('es') ? 'es' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.dataset.i18n;
+      if (strings[locale] && strings[locale][key]) {
+        el.textContent = strings[locale][key];
+      }
     });
   }
 
-  goToStep(step) {
-    this.currentStep = step;
-    this.steps.forEach((el) => {
-      el.classList.toggle('active', Number(el.getAttribute('data-step')) === step);
-    });
-    this.updateProgress();
+  bindNav() {
+    this.btnPrev = document.getElementById('btnPrev');
+    this.btnNext = document.getElementById('btnNext');
+
+    this.btnPrev.addEventListener('click', () => this.prevStep());
+    this.btnNext.addEventListener('click', () => this.nextStep());
+
+    document.getElementById('btnEmitir').addEventListener('click', () => this.emitirFactura());
   }
 
-  goToPreviousSummary() {
-    if (this.vRegionEntrega === 'LIMA') {
-      this.goToStep(4);
-    } else {
-      this.goToStep(3);
+  renderStepTrack() {
+    const track = document.getElementById('stepTrack');
+    track.innerHTML = '';
+    for (let i = 1; i <= this.totalSteps; i += 1) {
+      const dot = document.createElement('div');
+      dot.className = 'step-dot';
+      track.appendChild(dot);
     }
   }
 
+  bindStepEvents() {
+    document.getElementById('btnRecargarPedidos').addEventListener('click', () => this.loadPedidos());
+    document.getElementById('filterCliente').addEventListener('input', () => this.renderPedidos());
+    document.getElementById('filterFecha').addEventListener('change', () => this.renderPedidos());
+
+    document.getElementById('facturaExistente').addEventListener('change', (event) => {
+      this.state.factura.esNueva = !event.target.checked;
+      const numeroInput = document.getElementById('numeroDocumento');
+      if (event.target.checked) {
+        numeroInput.removeAttribute('readonly');
+        numeroInput.value = '';
+      } else {
+        numeroInput.setAttribute('readonly', 'readonly');
+        this.fetchNextFactura();
+      }
+    });
+
+    document.getElementById('fechaEmision').addEventListener('change', (e) => {
+      this.state.factura.vFecha_emision = e.target.value;
+    });
+    document.getElementById('horaEmision').addEventListener('change', (e) => {
+      this.state.factura.vHora_emision = e.target.value;
+    });
+
+    document.getElementById('entregaExistente').addEventListener('change', () => this.toggleEntregaModo('existente'));
+    document.getElementById('entregaNuevo').addEventListener('change', () => this.toggleEntregaModo('nuevo'));
+    document.getElementById('recibeExistente').addEventListener('change', () => this.toggleRecibeModo('existente'));
+    document.getElementById('recibeNuevo').addEventListener('change', () => this.toggleRecibeModo('nuevo'));
+
+    document.getElementById('montoPago').addEventListener('input', (e) => {
+      this.state.pago.vMontoPago = e.target.value.trim();
+    });
+  }
+
+  async loadInitialData() {
+    await Promise.all([
+      this.loadPedidos(),
+      this.loadBases(),
+      this.loadCuentas(),
+    ]);
+
+    this.initTypeahead();
+    this.fetchNextFactura();
+    this.fetchNextRecibo();
+  }
+
+  initTypeahead() {
+    this.baseTypeahead = new Typeahead('baseTypeahead', {
+      placeholder: 'Buscar base',
+      onSelect: (item) => {
+        this.state.factura.vCodigo_base = item.value;
+      },
+    });
+    this.baseTypeahead.setOptions(this.cache.bases.map((base) => ({
+      label: `${base.nombre} (${base.codigo_base})`,
+      value: base.codigo_base,
+    })));
+
+    this.puntoEntregaTypeahead = new Typeahead('puntoEntregaTypeahead', {
+      placeholder: 'Buscar punto de entrega',
+      onSelect: (item) => {
+        this.state.entrega.vCodigo_puntoentrega = item.value;
+        this.state.entrega.Vconcatenarpuntoentrega = item.label;
+        this.state.entrega.vRegion_Entrega = item.region_entrega || this.state.entrega.vRegion_Entrega;
+        this.state.entrega.vCod_Dep = item.cod_dep || this.state.entrega.vCod_Dep;
+        this.state.entrega.vCod_Prov = item.cod_prov || this.state.entrega.vCod_Prov;
+        this.state.entrega.vCod_Dist = item.cod_dist || this.state.entrega.vCod_Dist;
+      },
+    });
+
+    this.depTypeahead = new Typeahead('depTypeahead', {
+      placeholder: 'Buscar departamento',
+      onSelect: (item) => {
+        this.state.entrega.vCod_Dep = item.value;
+        this.loadProvincias(item.value);
+        this.computeRegion();
+      },
+    });
+
+    this.provTypeahead = new Typeahead('provTypeahead', {
+      placeholder: 'Buscar provincia',
+      onSelect: (item) => {
+        this.state.entrega.vCod_Prov = item.value;
+        this.loadDistritos(this.state.entrega.vCod_Dep, item.value);
+        this.computeRegion();
+      },
+    });
+
+    this.distTypeahead = new Typeahead('distTypeahead', {
+      placeholder: 'Buscar distrito',
+      onSelect: (item) => {
+        this.state.entrega.vCod_Dist = item.value;
+        this.computeRegion();
+      },
+    });
+
+    this.recibeTypeahead = new Typeahead('recibeTypeahead', {
+      placeholder: 'Buscar recibe',
+      onSelect: (item) => {
+        this.state.recibe.vCodigoClienteNumrecibe = item.codigo_cliente_numrecibe;
+        this.state.recibe.Vordinal_numrecibe = item.ordinal_numrecibe;
+        this.state.recibe.Vconcatenarnumrecibe = item.label;
+      },
+    });
+
+    this.cuentaTypeahead = new Typeahead('cuentaTypeahead', {
+      placeholder: 'Buscar cuenta bancaria',
+      onSelect: (item) => {
+        this.state.pago.vCuentaBancaria = item.value;
+      },
+    });
+    this.cuentaTypeahead.setOptions(this.cache.cuentas.map((cuenta) => ({
+      label: `${cuenta.nombre} · ${cuenta.banco}`,
+      value: cuenta.codigo_cuentabancaria,
+    })));
+  }
+
   async loadPedidos() {
-    this.clearAlert();
-    this.setLoading(true);
-    const cliente = this.filterCliente.value.trim();
-    const fecha = this.filterFecha.value;
-    const params = new URLSearchParams();
-    if (cliente) params.append('cliente', cliente);
-    if (fecha) params.append('fecha', fecha);
+    this.showLoading(true);
     try {
-      const response = await fetch(`/api/pedidos?${params.toString()}`);
-      if (!response.ok) throw new Error('error');
+      const response = await fetch('/api/pedidos-pendientes');
+      if (!response.ok) throw new Error('No se pudo cargar pedidos');
       const data = await response.json();
-      this.pedidos = Array.isArray(data) ? data : [];
+      this.cache.pedidos = data || [];
       this.renderPedidos();
     } catch (error) {
-      this.showAlert(this.t('loadPedidosError'));
+      this.showError(error.message || 'Error cargando pedidos');
     } finally {
-      this.setLoading(false);
+      this.showLoading(false);
     }
   }
 
   renderPedidos() {
-    if (!this.pedidos.length) {
-      this.pedidosTableBody.innerHTML = `<tr><td colspan="5">${this.t('noData')}</td></tr>`;
-      return;
-    }
-    this.pedidosTableBody.innerHTML = '';
-    this.pedidos.forEach((row, index) => {
+    const filtroCliente = document.getElementById('filterCliente').value.toLowerCase();
+    const filtroFecha = document.getElementById('filterFecha').value;
+    const tbody = document.querySelector('#tablaPedidos tbody');
+    tbody.innerHTML = '';
+
+    const pedidos = this.cache.pedidos.filter((pedido) => {
+      const matchesCliente = !filtroCliente || pedido.nombre_cliente.toLowerCase().includes(filtroCliente);
+      const matchesFecha = !filtroFecha || pedido.fecha.startsWith(filtroFecha);
+      return matchesCliente && matchesFecha;
+    });
+
+    pedidos.forEach((pedido) => {
       const tr = document.createElement('tr');
-      const selected = this.selectedPedido && this.selectedPedido.codigo_pedido === row.codigo_pedido;
       tr.innerHTML = `
-        <td>${this.formatDate(row.fecha || row.vfecha || '')}</td>
-        <td>${row.codigo_pedido || row.vcodigo_pedido || ''}</td>
-        <td>${row.nombre_cliente || row.vnombre_cliente || ''}</td>
-        <td>${row.numero_cliente || row.vnumero_cliente || ''}</td>
-        <td>
-          <button class="btn btn-sm ${selected ? 'btn-success' : 'btn-outline-light'}" data-index="${index}">
-            ${selected ? this.t('selected') : this.t('select')}
-          </button>
-        </td>
+        <td>${this.formatDate(pedido.fecha)}</td>
+        <td>${pedido.codigo_pedido}</td>
+        <td>${pedido.nombre_cliente}</td>
+        <td>${pedido.numero_cliente}</td>
       `;
-      tr.querySelector('button').addEventListener('click', () => this.selectPedido(index));
-      this.pedidosTableBody.appendChild(tr);
+      tr.addEventListener('click', () => this.selectPedido(pedido));
+      tbody.appendChild(tr);
     });
   }
 
-  selectPedido(index) {
-    this.selectedPedido = this.pedidos[index];
-    this.renderPedidos();
+  async selectPedido(pedido) {
+    this.state.pedido = {
+      vcodigo_pedido: pedido.codigo_pedido,
+      vcodigo_cliente: pedido.codigo_cliente,
+      vnombre_cliente: pedido.nombre_cliente,
+      vnumero_cliente: pedido.numero_cliente,
+      vfecha: pedido.fecha,
+    };
+
+    document.getElementById('pedidoSeleccionado').textContent =
+      `Pedido #${pedido.codigo_pedido} · ${pedido.nombre_cliente} (${pedido.numero_cliente})`;
+
+    await Promise.all([
+      this.loadPedidoDetalle(pedido.codigo_pedido),
+      this.loadPuntosEntrega(pedido.codigo_cliente),
+      this.loadDepartamentos(),
+      this.loadNumRecibe(pedido.codigo_cliente),
+    ]);
   }
 
-  async handleStep1() {
-    if (!this.selectedPedido) {
-      this.showAlert(this.t('selectPedido'));
+  async loadPedidoDetalle(codigoPedido) {
+    this.showLoading(true);
+    try {
+      const response = await fetch(`/api/pedido-detalle?codigo_pedido=${encodeURIComponent(codigoPedido)}`);
+      if (!response.ok) throw new Error('No se pudo cargar detalle');
+      const data = await response.json();
+      this.state.pedidoDetalle = data.map((row) => {
+        const vCantidadProducto = Number(row.saldo || 0);
+        const vPrecioUnitario = Number(row.precio_unitario || 0);
+        return {
+          vcodigo_producto: row.codigo_producto,
+          vnombre_producto: row.nombre_producto,
+          vCantidadProducto,
+          vPrecioUnitario,
+          vPrecioTotal: vCantidadProducto * vPrecioUnitario,
+          vFCantidadProducto: vCantidadProducto,
+          vFPrecioTotal: vCantidadProducto * vPrecioUnitario,
+        };
+      });
+      this.renderFacturaDetalle();
+    } catch (error) {
+      this.showError(error.message || 'Error cargando detalle');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  renderFacturaDetalle() {
+    const tbody = document.querySelector('#tablaFactura tbody');
+    tbody.innerHTML = '';
+    const rows = this.state.pedidoDetalle;
+
+    rows.forEach((row, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.vnombre_producto}</td>
+        <td>
+          <input type="text" class="form-control form-control-sm" value="${row.vFCantidadProducto}" data-index="${index}" />
+        </td>
+        <td>${this.formatCurrency(row.vFPrecioTotal)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-light" data-remove="${index}">×</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('input').forEach((input) => {
+      input.addEventListener('input', (e) => this.updateCantidadFactura(e));
+    });
+
+    tbody.querySelectorAll('button[data-remove]').forEach((btn) => {
+      btn.addEventListener('click', (e) => this.removeFacturaRow(e));
+    });
+
+    this.updateTotalFactura();
+  }
+
+  updateCantidadFactura(event) {
+    const input = event.target;
+    const index = Number(input.dataset.index);
+    const value = input.value.trim();
+    const decimalRegex = /^\d+(\.\d{1,2})?$/;
+    if (value && !decimalRegex.test(value)) {
+      input.classList.add('is-invalid');
       return;
     }
-    await this.prepareStep2();
-    this.goToStep(2);
+    input.classList.remove('is-invalid');
+
+    const row = this.state.pedidoDetalle[index];
+    const newCantidad = value === '' ? 0 : Number(value);
+    row.vFCantidadProducto = newCantidad;
+    const precioUnitario = row.vCantidadProducto === 0 ? 0 : row.vPrecioTotal / row.vCantidadProducto;
+    row.vFPrecioTotal = precioUnitario * newCantidad;
+
+    this.renderFacturaDetalle();
   }
 
-  async prepareStep2() {
-    this.clearAlert();
-    this.setLoading(true);
-    try {
-      await Promise.all([this.loadBases(), this.loadDetallePedido(), this.loadNumeroDocumento()]);
-      this.saldoTotal.value = this.formatMoney(this.getTotalFactura());
-    } catch (error) {
-      this.showAlert(this.t('loadDetalleError'));
-    } finally {
-      this.setLoading(false);
+  removeFacturaRow(event) {
+    const index = Number(event.target.dataset.remove);
+    if (this.state.pedidoDetalle.length <= 1) {
+      this.showError('No se permite eliminar la ultima fila.');
+      return;
     }
+    this.state.pedidoDetalle.splice(index, 1);
+    this.renderFacturaDetalle();
+  }
+
+  updateTotalFactura() {
+    const total = this.state.pedidoDetalle.reduce((sum, row) => sum + (row.vFPrecioTotal || 0), 0);
+    this.state.totals.vFsaldo = total;
+    document.getElementById('totalFactura').textContent = this.formatCurrency(total);
   }
 
   async loadBases() {
-    if (this.bases.length) return;
-    const response = await fetch('/api/bases');
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    this.bases = Array.isArray(data) ? data : [];
-    this.baseSelect.innerHTML = this.bases
-      .map((base) => {
-        const value = base.codigo_base || base.codigo || base.id || base.base || '';
-        const label = base.nombre_base || base.nombre || base.descripcion || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-  }
-
-  async loadNumeroDocumento() {
-    const response = await fetch('/api/next-documento?tipo=FAC');
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    this.vNumeroDocumento = data?.next || 1;
-    this.numeroDocumento.value = this.vNumeroDocumento;
-    const ordinalRes = await fetch(`/api/next-ordinal-detalle?tipo=FAC&numero=${this.vNumeroDocumento}`);
-    if (!ordinalRes.ok) throw new Error('error');
-    const ordinalData = await ordinalRes.json();
-    this.vOrdinalDetMovCont = ordinalData?.next || 1;
-  }
-
-  async loadDetallePedido() {
-    if (!this.selectedPedido) return;
-    const codigo = this.selectedPedido.codigo_pedido || this.selectedPedido.vcodigo_pedido;
-    const response = await fetch(`/api/pedidos/${encodeURIComponent(codigo)}/detalle`);
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    const rows = Array.isArray(data) ? data : [];
-    this.detalleFactura = rows.map((row) => {
-      const cantidad = this.toNumber(row.saldo ?? row.cantidad ?? row.vcantidad ?? row.cantidad_producto ?? 0);
-      const precioUnitario = this.toNumber(row.precio_unitario ?? row.precio_unitario_producto ?? row.precio ?? 0);
-      const precioTotalBase = this.toNumber(row.precio_total ?? row.vprecio_total ?? 0);
-      const unit = precioUnitario || (cantidad ? precioTotalBase / cantidad : 0);
-      const total = unit * cantidad;
-      return {
-        codigo_producto: row.codigo_producto || row.vcodigo_producto || '',
-        nombre_producto: row.nombre_producto || row.vnombre_producto || '',
-        cantidad_original: cantidad,
-        cantidad_factura: cantidad,
-        precio_unitario: unit,
-        precio_total_original: total,
-        precio_total: total,
-      };
-    });
-    this.renderDetalle();
-  }
-
-  renderDetalle() {
-    if (!this.detalleFactura.length) {
-      this.detalleTableBody.innerHTML = `<tr><td colspan="4">${this.t('noData')}</td></tr>`;
-      return;
+    this.showLoading(true);
+    try {
+      const response = await fetch('/api/bases');
+      if (!response.ok) throw new Error('No se pudo cargar bases');
+      this.cache.bases = await response.json();
+    } catch (error) {
+      this.showError(error.message || 'Error cargando bases');
+    } finally {
+      this.showLoading(false);
     }
-    this.detalleTableBody.innerHTML = '';
-    this.detalleFactura.forEach((item, index) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${item.nombre_producto}</td>
-        <td style="max-width: 140px;">
-          <input class="form-control form-control-sm" data-index="${index}" value="${item.cantidad_factura}" />
-          <div class="small text-muted">${this.t('max')}: ${item.cantidad_original}</div>
-        </td>
-        <td>${this.formatMoney(item.precio_total)}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-light" data-action="delete" data-index="${index}">✕</button>
-        </td>
-      `;
-      const input = tr.querySelector('input');
-      input.addEventListener('input', (event) => this.onCantidadChange(event));
-      const deleteBtn = tr.querySelector('button');
-      deleteBtn.addEventListener('click', () => this.removeDetalle(index));
-      if (this.detalleFactura.length <= 1) {
-        deleteBtn.disabled = true;
+  }
+
+  async loadPuntosEntrega(codigoCliente) {
+    if (!codigoCliente) return;
+    try {
+      const response = await fetch(`/api/puntos-entrega?codigo_cliente=${encodeURIComponent(codigoCliente)}`);
+      if (!response.ok) throw new Error('No se pudo cargar puntos de entrega');
+      this.cache.puntosEntrega = await response.json();
+    } catch (error) {
+      this.showError(error.message || 'Error cargando puntos de entrega');
+    }
+
+    const hasPuntos = this.cache.puntosEntrega.length > 0;
+    document.getElementById('entregaExistente').parentElement.style.display = hasPuntos ? 'inline-flex' : 'none';
+    if (!hasPuntos) {
+      document.getElementById('entregaNuevo').checked = true;
+      this.toggleEntregaModo('nuevo');
+    }
+
+    if (this.puntoEntregaTypeahead) {
+      this.puntoEntregaTypeahead.setOptions(this.cache.puntosEntrega.map((punto) => ({
+        label: punto.concatenarpuntoentrega,
+        value: punto.codigo_puntoentrega,
+        region_entrega: punto.region_entrega,
+        cod_dep: punto.cod_dep,
+        cod_prov: punto.cod_prov,
+        cod_dist: punto.cod_dist,
+      })));
+    }
+  }
+
+  async loadDepartamentos() {
+    try {
+      const response = await fetch('/api/ubigeo/departamentos');
+      if (!response.ok) throw new Error('No se pudo cargar departamentos');
+      this.cache.departamentos = await response.json();
+      if (this.depTypeahead) {
+        this.depTypeahead.setOptions(this.cache.departamentos.map((dep) => ({
+          label: dep.departamento,
+          value: dep.cod_dep,
+        })));
       }
-      this.detalleTableBody.appendChild(tr);
+    } catch (error) {
+      this.showError(error.message || 'Error cargando departamentos');
+    }
+  }
+
+  async loadProvincias(codDep) {
+    if (!codDep) return;
+    try {
+      const response = await fetch(`/api/ubigeo/provincias?cod_dep=${encodeURIComponent(codDep)}`);
+      if (!response.ok) throw new Error('No se pudo cargar provincias');
+      this.cache.provincias = await response.json();
+      if (this.provTypeahead) {
+        this.provTypeahead.setOptions(this.cache.provincias.map((prov) => ({
+          label: prov.provincia,
+          value: prov.cod_prov,
+        })));
+      }
+    } catch (error) {
+      this.showError(error.message || 'Error cargando provincias');
+    }
+  }
+
+  async loadDistritos(codDep, codProv) {
+    if (!codDep || !codProv) return;
+    try {
+      const response = await fetch(`/api/ubigeo/distritos?cod_dep=${encodeURIComponent(codDep)}&cod_prov=${encodeURIComponent(codProv)}`);
+      if (!response.ok) throw new Error('No se pudo cargar distritos');
+      this.cache.distritos = await response.json();
+      if (this.distTypeahead) {
+        this.distTypeahead.setOptions(this.cache.distritos.map((dist) => ({
+          label: dist.distrito,
+          value: dist.cod_dist,
+        })));
+      }
+    } catch (error) {
+      this.showError(error.message || 'Error cargando distritos');
+    }
+  }
+
+  async loadNumRecibe(codigoCliente) {
+    if (!codigoCliente) return;
+    try {
+      const response = await fetch(`/api/numrecibe?codigo_cliente=${encodeURIComponent(codigoCliente)}`);
+      if (!response.ok) throw new Error('No se pudo cargar numrecibe');
+      this.cache.numrecibe = await response.json();
+    } catch (error) {
+      this.showError(error.message || 'Error cargando numrecibe');
+    }
+
+    const hasRecibe = this.cache.numrecibe.length > 0;
+    document.getElementById('recibeExistente').parentElement.style.display = hasRecibe ? 'inline-flex' : 'none';
+    if (!hasRecibe) {
+      document.getElementById('recibeNuevo').checked = true;
+      this.toggleRecibeModo('nuevo');
+    }
+
+    if (this.recibeTypeahead) {
+      this.recibeTypeahead.setOptions(this.cache.numrecibe.map((recibe) => ({
+        label: recibe.concatenarnumrecibe,
+        codigo_cliente_numrecibe: recibe.codigo_cliente_numrecibe,
+        ordinal_numrecibe: recibe.ordinal_numrecibe,
+        value: recibe.codigo_cliente_numrecibe,
+      })));
+    }
+  }
+
+  async loadCuentas() {
+    this.showLoading(true);
+    try {
+      const response = await fetch('/api/cuentas-bancarias');
+      if (!response.ok) throw new Error('No se pudo cargar cuentas');
+      this.cache.cuentas = await response.json();
+    } catch (error) {
+      this.showError(error.message || 'Error cargando cuentas');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  async fetchNextFactura() {
+    try {
+      const response = await fetch('/api/next-factura');
+      if (!response.ok) throw new Error('No se pudo obtener numero');
+      const data = await response.json();
+      this.state.factura.vNumero_documento = data.next;
+      document.getElementById('numeroDocumento').value = data.next;
+    } catch (error) {
+      this.showError(error.message || 'Error obteniendo numero de factura');
+    }
+  }
+
+  async fetchNextRecibo() {
+    try {
+      const response = await fetch('/api/next-recibo');
+      if (!response.ok) throw new Error('No se pudo obtener numero');
+      const data = await response.json();
+      this.state.pago.vNumero_documento_pago = data.next;
+      document.getElementById('numeroDocumentoPago').value = data.next;
+    } catch (error) {
+      this.showError(error.message || 'Error obteniendo numero de recibo');
+    }
+  }
+
+  toggleEntregaModo(modo) {
+    this.state.entrega.modo = modo;
+    document.getElementById('puntoEntregaExistente').style.display = modo === 'existente' ? 'block' : 'none';
+    document.getElementById('puntoEntregaNuevo').style.display = modo === 'nuevo' ? 'block' : 'none';
+  }
+
+  toggleRecibeModo(modo) {
+    this.state.recibe.modo = modo;
+    document.getElementById('recibeExistentePanel').style.display = modo === 'existente' ? 'block' : 'none';
+    document.getElementById('recibeNuevoPanel').style.display = modo === 'nuevo' ? 'flex' : 'none';
+  }
+
+  computeRegion() {
+    const { vCod_Dep, vCod_Prov } = this.state.entrega;
+    const region = vCod_Dep === '15' && vCod_Prov === '01' ? 'LIMA' : 'PROV';
+    this.state.entrega.vRegion_Entrega = region;
+    document.getElementById('entregaLima').style.display = region === 'LIMA' ? 'flex' : 'none';
+    document.getElementById('entregaProv').style.display = region === 'PROV' ? 'flex' : 'none';
+  }
+
+  nextStep() {
+    if (!this.validateStep()) return;
+    if (this.step === 3 && this.state.entrega.vRegion_Entrega !== 'LIMA') {
+      this.step = 5;
+    } else {
+      this.step = Math.min(this.step + 1, this.totalSteps);
+    }
+    this.showStep(this.step);
+  }
+
+  prevStep() {
+    if (this.step === 5 && this.state.entrega.vRegion_Entrega !== 'LIMA') {
+      this.step = 3;
+    } else {
+      this.step = Math.max(this.step - 1, 1);
+    }
+    this.showStep(this.step);
+  }
+
+  showStep(step) {
+    this.step = step;
+    document.querySelectorAll('.step-panel').forEach((panel) => {
+      panel.classList.toggle('active', Number(panel.dataset.step) === step);
     });
-  }
+    document.getElementById('btnPrev').style.visibility = step === 1 ? 'hidden' : 'visible';
+    document.getElementById('btnNext').style.display = step === this.totalSteps ? 'none' : 'inline-flex';
 
-  onCantidadChange(event) {
-    const index = Number(event.target.getAttribute('data-index'));
-    const value = event.target.value.trim();
-    const item = this.detalleFactura[index];
-    const cantidad = this.toNumber(value);
-    if (!this.regex.decimal.test(value) || cantidad <= 0 || cantidad > item.cantidad_original) {
-      event.target.classList.add('is-invalid');
-      return;
-    }
-    event.target.classList.remove('is-invalid');
-    item.cantidad_factura = cantidad;
-    item.precio_total = item.precio_unitario * cantidad;
-    this.detalleFactura[index] = item;
-    this.renderDetalle();
-    this.saldoTotal.value = this.formatMoney(this.getTotalFactura());
-  }
+    const progress = Math.round((step - 1) / (this.totalSteps - 1) * 100);
+    document.getElementById('progressBar').style.width = `${progress}%`;
+    document.getElementById('stepLabel').textContent = `Paso ${step} de ${this.totalSteps}`;
 
-  removeDetalle(index) {
-    if (this.detalleFactura.length <= 1) return;
-    this.detalleFactura.splice(index, 1);
-    this.renderDetalle();
-    this.saldoTotal.value = this.formatMoney(this.getTotalFactura());
-  }
-
-  handleStep2() {
-    const validation = this.validateFactura();
-    if (!validation.ok) {
-      this.showAlert(this.t(validation.reason));
-      return;
-    }
-    this.prepareStep3();
-    this.goToStep(3);
-  }
-
-  validateFactura() {
-    const base = this.baseSelect.value;
-    if (!base || !this.fechaEmision.value || !this.horaEmision.value) {
-      return { ok: false, reason: 'validationFactura' };
-    }
-    const invalid = this.detalleFactura.some((item) => {
-      return !item.cantidad_factura || item.cantidad_factura <= 0;
+    const dots = document.querySelectorAll('.step-dot');
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index < step);
     });
-    if (invalid) return { ok: false, reason: 'validationFactura' };
-    const over = this.detalleFactura.some((item) => item.cantidad_factura > item.cantidad_original);
-    if (over) return { ok: false, reason: 'quantityInvalid' };
-    return { ok: true };
+
+    if (step === 6) {
+      this.renderResumen();
+    }
   }
 
-  async prepareStep3() {
+  validateStep() {
     this.clearAlert();
-    await Promise.all([this.loadPuntosEntrega(), this.loadUbigeo()]);
-    this.toggleEntregaModo();
-  }
-
-  async loadPuntosEntrega() {
-    if (!this.selectedPedido) return;
-    const codigoCliente = this.selectedPedido.codigo_cliente || this.selectedPedido.vcodigo_cliente;
-    const response = await fetch(`/api/puntos-entrega?cliente=${encodeURIComponent(codigoCliente)}`);
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    this.puntosEntrega = Array.isArray(data) ? data : [];
-    if (!this.puntosEntrega.length) {
-      this.entregaExistente.disabled = true;
-      this.entregaNuevo.checked = true;
-    } else {
-      this.entregaExistente.disabled = false;
-      this.entregaExistente.checked = true;
+    if (this.step === 1) {
+      if (!this.state.pedido) {
+        this.showError('Selecciona un pedido antes de continuar.');
+        return false;
+      }
     }
-    this.puntoEntregaSelect.innerHTML = this.puntosEntrega
-      .map((row) => {
-        const value = row.codigo_puntoentrega || row.vcodigo_puntoentrega || '';
-        const label = row.concatenarpuntoentrega || row.vconcatenarpuntoentrega || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-  }
 
-  async loadUbigeo() {
-    const response = await fetch('/api/ubigeo/departamentos');
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    this.depSelect.innerHTML = (Array.isArray(data) ? data : [])
-      .map((row) => {
-        const value = row.codigo || row.cod_dep || row.codigo_dep || row.codigo_departamento || row.codigo_ubigeo || '';
-        const label = row.nombre || row.nombre_departamento || row.departamento || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-    await this.onDepartamentoChange();
-  }
+    if (this.step === 2) {
+      if (!this.state.factura.vCodigo_base) {
+        this.showError('Selecciona una base.');
+        return false;
+      }
+      const fecha = document.getElementById('fechaEmision').value;
+      const hora = document.getElementById('horaEmision').value;
+      if (!fecha || !hora) {
+        this.showError('Fecha y hora de emisión son obligatorias.');
+        return false;
+      }
+      this.state.factura.vFecha_emision = fecha;
+      this.state.factura.vHora_emision = hora;
+      this.state.factura.vNumero_documento = document.getElementById('numeroDocumento').value.trim();
+      if (!this.state.factura.vNumero_documento) {
+        this.showError('Numero de documento es obligatorio.');
+        return false;
+      }
 
-  async onDepartamentoChange() {
-    const dep = this.depSelect.value;
-    if (!dep) return;
-    const response = await fetch(`/api/ubigeo/provincias?dep=${encodeURIComponent(dep)}`);
-    if (!response.ok) return;
-    const data = await response.json();
-    this.provSelect.innerHTML = (Array.isArray(data) ? data : [])
-      .map((row) => {
-        const value = row.codigo || row.cod_prov || row.codigo_provincia || row.codigo_ubigeo || '';
-        const label = row.nombre || row.nombre_provincia || row.provincia || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-    await this.onProvinciaChange();
-  }
-
-  async onProvinciaChange() {
-    const dep = this.depSelect.value;
-    const prov = this.provSelect.value;
-    if (!dep || !prov) return;
-    const response = await fetch(`/api/ubigeo/distritos?dep=${encodeURIComponent(dep)}&prov=${encodeURIComponent(prov)}`);
-    if (!response.ok) return;
-    const data = await response.json();
-    this.distSelect.innerHTML = (Array.isArray(data) ? data : [])
-      .map((row) => {
-        const value = row.codigo || row.cod_dist || row.codigo_distrito || row.codigo_ubigeo || '';
-        const label = row.nombre || row.nombre_distrito || row.distrito || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-    this.updateRegionEntrega();
-  }
-
-  updateRegionEntrega() {
-    const dep = this.depSelect.value;
-    const prov = this.provSelect.value;
-    this.vRegionEntrega = dep === '15' && prov === '01' ? 'LIMA' : 'PROV';
-    this.regionEntregaLabel.textContent = this.vRegionEntrega;
-    this.limaFields.style.display = this.vRegionEntrega === 'LIMA' ? 'block' : 'none';
-    this.provFields.style.display = this.vRegionEntrega === 'PROV' ? 'block' : 'none';
-  }
-
-  toggleEntregaModo() {
-    const isExistente = this.entregaExistente.checked && !this.entregaExistente.disabled;
-    this.puntoExistenteWrap.style.display = isExistente ? 'block' : 'none';
-    this.puntoNuevoWrap.style.display = isExistente ? 'none' : 'block';
-    if (isExistente) {
-      this.updateRegionFromExisting();
-    } else {
-      this.updateRegionEntrega();
+      const invalid = this.state.pedidoDetalle.some((row) => row.vFCantidadProducto > row.vCantidadProducto);
+      if (invalid) {
+        this.showError('No se permite facturar cantidad mayor al saldo del pedido.');
+        return false;
+      }
     }
+
+    if (this.step === 3) {
+      if (this.state.entrega.modo === 'existente') {
+        if (!this.state.entrega.vCodigo_puntoentrega) {
+          this.showError('Selecciona un punto de entrega existente.');
+          return false;
+        }
+      } else {
+        this.state.entrega.Vdireccion_linea = document.getElementById('direccionLinea').value.trim();
+        this.state.entrega.Vreferencia = document.getElementById('referencia').value.trim();
+        this.state.entrega.Vnombre = document.getElementById('nombreProv').value.trim();
+        this.state.entrega.Vdni = document.getElementById('dniProv').value.trim();
+        this.state.entrega.Vagencia = document.getElementById('agenciaProv').value.trim();
+        this.state.entrega.Vobservaciones = document.getElementById('observacionesProv').value.trim();
+
+        if (!this.state.entrega.vCod_Dep || !this.state.entrega.vCod_Prov || !this.state.entrega.vCod_Dist) {
+          this.showError('Selecciona ubigeo completo.');
+          return false;
+        }
+
+        if (this.state.entrega.vRegion_Entrega === 'LIMA' && !this.state.entrega.Vdireccion_linea) {
+          this.showError('Direccion es obligatoria para Lima.');
+          return false;
+        }
+
+        if (this.state.entrega.vRegion_Entrega === 'PROV' && !this.state.entrega.Vnombre) {
+          this.showError('Nombre es obligatorio para provincia.');
+          return false;
+        }
+      }
+    }
+
+    if (this.step === 4) {
+      if (this.state.entrega.vRegion_Entrega === 'LIMA') {
+        if (this.state.recibe.modo === 'existente' && !this.state.recibe.Vconcatenarnumrecibe) {
+          this.showError('Selecciona un numrecibe existente.');
+          return false;
+        }
+
+        if (this.state.recibe.modo === 'nuevo') {
+          const numero = document.getElementById('numeroRecibe').value.trim();
+          const nombre = document.getElementById('nombreRecibe').value.trim();
+          if (!numero || !nombre) {
+            this.showError('Numero y nombre de recibe son obligatorios.');
+            return false;
+          }
+          this.state.recibe.vNumeroRecibe = numero;
+          this.state.recibe.vNombreRecibe = nombre;
+        }
+      }
+    }
+
+    if (this.step === 5) {
+      const montoRaw = document.getElementById('montoPago').value.trim();
+      if (montoRaw) {
+        const decimalRegex = /^\d+(\.\d{1,2})?$/;
+        if (!decimalRegex.test(montoRaw)) {
+          this.showError('Monto de pago invalido.');
+          return false;
+        }
+        const monto = Number(montoRaw);
+        if (monto > this.state.totals.vFsaldo) {
+          this.showError('El monto de pago no puede ser mayor al total.');
+          return false;
+        }
+        if (!this.state.pago.vCuentaBancaria) {
+          this.showError('Selecciona una cuenta bancaria para registrar el pago.');
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
-  updateRegionFromExisting() {
-    const selected = this.puntosEntrega.find(
-      (row) => String(row.codigo_puntoentrega || row.vcodigo_puntoentrega || '') === this.puntoEntregaSelect.value
-    );
-    const region = selected?.region_entrega || selected?.vregion_entrega || null;
-    if (region) {
-      this.vRegionEntrega = region;
-      this.regionEntregaLabel.textContent = this.vRegionEntrega;
-    }
+  renderResumen() {
+    const pedido = this.state.pedido || {};
+    const entrega = this.state.entrega;
+    const recibe = this.state.recibe;
+    const pago = this.state.pago;
+
+    document.getElementById('summaryPedido').textContent =
+      `Pedido ${pedido.vcodigo_pedido || ''} · ${pedido.vnombre_cliente || ''} (${pedido.vnumero_cliente || ''})`;
+
+    document.getElementById('summaryFactura').textContent =
+      `Factura ${this.state.factura.vNumero_documento} · Total ${this.formatCurrency(this.state.totals.vFsaldo)}`;
+
+    document.getElementById('summaryEntrega').textContent =
+      entrega.modo === 'existente'
+        ? `Punto existente: ${entrega.Vconcatenarpuntoentrega}`
+        : `Punto nuevo: ${this.buildConcatenarEntrega()}`;
+
+    document.getElementById('summaryRecibe').textContent =
+      this.state.entrega.vRegion_Entrega !== 'LIMA'
+        ? 'No aplica'
+        : (recibe.modo === 'existente'
+          ? `Recibe existente: ${recibe.Vconcatenarnumrecibe}`
+          : `Recibe nuevo: ${recibe.vNumeroRecibe} | ${recibe.vNombreRecibe}`);
+
+    document.getElementById('summaryPago').textContent =
+      pago.vMontoPago && Number(pago.vMontoPago) > 0
+        ? `Pago registrado: ${this.formatCurrency(Number(pago.vMontoPago))}`
+        : 'Sin pago registrado';
   }
 
-  handleStep3() {
-    if (!this.validateEntrega()) {
-      this.showAlert(this.t('validationEntrega'));
-      return;
-    }
-    if (this.vRegionEntrega === 'LIMA') {
-      this.prepareStep4();
-      this.goToStep(4);
-    } else {
-      this.prepareStep5();
-      this.goToStep(5);
-    }
-  }
-
-  validateEntrega() {
-    const isExistente = this.entregaExistente.checked && !this.entregaExistente.disabled;
-    if (isExistente) {
-      return Boolean(this.puntoEntregaSelect.value);
-    }
-    if (!this.depSelect.value || !this.provSelect.value || !this.distSelect.value) return false;
-    if (this.vRegionEntrega === 'LIMA') {
-      return this.direccionLinea.value.trim().length > 3;
-    }
-    const nombre = this.nombreEntrega.value.trim();
-    const dni = this.dniEntrega.value.trim();
-    return nombre.length > 2 && this.regex.dni.test(dni);
-  }
-
-  async prepareStep4() {
-    this.clearAlert();
-    await Promise.all([this.loadNumRecibe(), this.loadOrdinalesRecibe()]);
-    this.toggleRecibeModo();
-  }
-
-  async loadNumRecibe() {
-    const codigoCliente = this.selectedPedido.codigo_cliente || this.selectedPedido.vcodigo_cliente;
-    const response = await fetch(`/api/numrecibe?cliente=${encodeURIComponent(codigoCliente)}`);
-    if (!response.ok) throw new Error('error');
-    const data = await response.json();
-    this.numRecibe = Array.isArray(data) ? data : [];
-    if (!this.numRecibe.length) {
-      this.recibeExistente.disabled = true;
-      this.recibeNuevo.checked = true;
-    } else {
-      this.recibeExistente.disabled = false;
-      this.recibeExistente.checked = true;
-    }
-    this.recibeSelect.innerHTML = this.numRecibe
-      .map((row) => {
-        const value = row.numero || row.vnumero || row.numero_recibe || row.codigo_numrecibe || '';
-        const label = row.concatenarnumrecibe || row.vconcatenarnumrecibe || value;
-        return `<option value="${value}">${label}</option>`;
-      })
-      .join('');
-  }
-
-  async loadOrdinalesRecibe() {
-    const codigoCliente = this.selectedPedido.codigo_cliente || this.selectedPedido.vcodigo_cliente;
-    const numRes = await fetch(`/api/next-numrecibe?cliente=${encodeURIComponent(codigoCliente)}`);
-    if (numRes.ok) {
-      const data = await numRes.json();
-      this.vOrdinalNumRecibe = data?.next || 1;
-    }
-    const paqueteRes = await fetch(`/api/next-paquetedetalle?numero=${encodeURIComponent(this.vNumeroDocumento)}`);
-    if (paqueteRes.ok) {
-      const data = await paqueteRes.json();
-      this.vOrdinalPaqueteDetalle = data?.next || 1;
-    }
-  }
-
-  toggleRecibeModo() {
-    const isExistente = this.recibeExistente.checked && !this.recibeExistente.disabled;
-    this.recibeExistenteWrap.style.display = isExistente ? 'block' : 'none';
-    this.recibeNuevoWrap.style.display = isExistente ? 'none' : 'block';
-  }
-
-  handleStep4() {
-    if (!this.validateRecibe()) {
-      this.showAlert(this.t('validationRecibe'));
-      return;
-    }
-    this.prepareStep5();
-    this.goToStep(5);
-  }
-
-  validateRecibe() {
-    const isExistente = this.recibeExistente.checked && !this.recibeExistente.disabled;
-    if (isExistente) {
-      return Boolean(this.recibeSelect.value);
-    }
-    const numero = this.numeroRecibe.value.trim();
-    const nombre = this.nombreRecibe.value.trim();
-    return numero.length > 0 && nombre.length > 2;
-  }
-
-  prepareStep5() {
-    const pedido = this.selectedPedido;
-    this.summaryPedido.innerHTML = `
-      <div class="summary-item"><strong>${pedido.codigo_pedido || pedido.vcodigo_pedido}</strong></div>
-      <div class="summary-item">${pedido.nombre_cliente || pedido.vnombre_cliente}</div>
-      <div class="summary-item">${pedido.numero_cliente || pedido.vnumero_cliente}</div>
-    `;
-
-    const total = this.formatMoney(this.getTotalFactura());
-    this.summaryFactura.innerHTML = `
-      <div class="summary-item">${this.t('labelTipoDoc')}: ${this.vTipoDocumento}</div>
-      <div class="summary-item">${this.t('labelNumeroDoc')}: ${this.vNumeroDocumento}</div>
-      <div class="summary-item">${this.t('labelSaldo')}: ${total}</div>
-    `;
-
-    const entregaModo = this.entregaExistente.checked && !this.entregaExistente.disabled ? this.t('modeExisting') : this.t('modeNew');
-    const entregaDetalle = this.getEntregaSummary();
-    this.summaryEntrega.innerHTML = `
-      <div class="summary-item">${entregaModo}</div>
-      <div class="summary-item">${entregaDetalle}</div>
-    `;
-
-    if (this.vRegionEntrega === 'LIMA') {
-      this.summaryRecibeWrap.style.display = 'block';
-      const recibeModo = this.recibeExistente.checked && !this.recibeExistente.disabled ? this.t('modeExisting') : this.t('modeNew');
-      const recibeDetalle = this.getRecibeSummary();
-      this.summaryRecibe.innerHTML = `
-        <div class="summary-item">${recibeModo}</div>
-        <div class="summary-item">${recibeDetalle}</div>
-      `;
-    } else {
-      this.summaryRecibeWrap.style.display = 'none';
-    }
-  }
-
-  getEntregaSummary() {
-    if (this.entregaExistente.checked && !this.entregaExistente.disabled) {
-      const selected = this.puntosEntrega.find(
-        (row) => String(row.codigo_puntoentrega || row.vcodigo_puntoentrega || '') === this.puntoEntregaSelect.value
-      );
-      return selected?.concatenarpuntoentrega || selected?.vconcatenarpuntoentrega || this.puntoEntregaSelect.value;
-    }
-    return this.buildConcatenarPuntoEntrega();
-  }
-
-  getRecibeSummary() {
-    if (this.recibeExistente.checked && !this.recibeExistente.disabled) {
-      const selected = this.numRecibe.find(
-        (row) => String(row.numero || row.vnumero || '') === this.recibeSelect.value
-      );
-      return selected?.concatenarnumrecibe || selected?.vconcatenarnumrecibe || this.recibeSelect.value;
-    }
-    return this.buildConcatenarNumRecibe();
-  }
-
-  buildConcatenarPuntoEntrega() {
-    if (this.vRegionEntrega === 'LIMA') {
-      const parts = [this.direccionLinea.value.trim(), this.distSelect.options[this.distSelect.selectedIndex]?.text || ''];
-      if (this.referencia.value.trim()) parts.push(this.referencia.value.trim());
+  buildConcatenarEntrega() {
+    if (this.state.entrega.vRegion_Entrega === 'LIMA') {
+      const parts = [this.state.entrega.Vdireccion_linea];
+      const distrito = this.cache.distritos.find((d) => d.cod_dist === this.state.entrega.vCod_Dist)?.distrito;
+      if (distrito) parts.push(distrito);
+      if (this.state.entrega.Vreferencia) parts.push(this.state.entrega.Vreferencia);
       return parts.filter(Boolean).join(' | ');
     }
-    const parts = [this.nombreEntrega.value.trim(), this.dniEntrega.value.trim(), this.agencia.value.trim(), this.observaciones.value.trim()];
-    return parts.filter(Boolean).join(' | ');
-  }
-
-  buildConcatenarNumRecibe() {
-    const parts = [this.numeroRecibe.value.trim(), this.nombreRecibe.value.trim()];
+    const parts = [this.state.entrega.Vnombre, this.state.entrega.Vdni, this.state.entrega.Vagencia, this.state.entrega.Vobservaciones];
     return parts.filter(Boolean).join(' | ');
   }
 
   async emitirFactura() {
-    if (!this.confirmCheck.checked) {
-      this.showAlert(this.t('confirmRequired'));
+    if (!document.getElementById('confirmOperacion').checked) {
+      this.showError('Debes confirmar la operación antes de emitir.');
       return;
     }
-    this.setLoading(true, 'emit');
-    this.clearAlert();
+
+    const payload = this.buildPayload();
+    this.showLoading(true);
     try {
-      const payload = this.buildPayload();
       const response = await fetch('/api/emitir-factura', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error('error');
-      this.showAlert(this.t('emitSuccess'), 'success');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Error al emitir factura');
+      this.showSuccess('Factura emitida correctamente.');
     } catch (error) {
-      this.showAlert(this.t('emitError'));
+      this.showError(error.message || 'Error al emitir factura');
     } finally {
-      this.setLoading(false);
+      this.showLoading(false);
     }
   }
 
   buildPayload() {
-    const pedido = this.selectedPedido;
-    const entregaModo = this.entregaExistente.checked && !this.entregaExistente.disabled ? 'existente' : 'nuevo';
-    const recibeModo =
-      this.vRegionEntrega === 'LIMA' && this.recibeExistente.checked && !this.recibeExistente.disabled
-        ? 'existente'
-        : 'nuevo';
-    const codigoCliente = pedido.codigo_cliente || pedido.vcodigo_cliente;
+    const facturaDetalle = this.state.pedidoDetalle.map((row, index) => ({
+      vcodigo_producto: row.vcodigo_producto,
+      vnombre_producto: row.vnombre_producto,
+      vFCantidadProducto: row.vFCantidadProducto,
+      vFPrecioTotal: row.vFPrecioTotal,
+      vOrdinalDetMovCont: index + 1,
+    }));
+
+    const fechaP = `${this.state.factura.vFecha_emision} ${this.state.factura.vHora_emision}:00`;
+    this.state.factura.vFechaP = fechaP;
+
+    const entrega = this.state.entrega;
+    if (entrega.modo === 'nuevo') {
+      entrega.Vconcatenarpuntoentrega = this.buildConcatenarEntrega();
+    }
+
+    if (this.state.recibe.modo === 'nuevo') {
+      this.state.recibe.Vconcatenarnumrecibe = `${this.state.recibe.vNumeroRecibe} | ${this.state.recibe.vNombreRecibe}`;
+    }
 
     return {
-      pedido: {
-        codigo_pedido: pedido.codigo_pedido || pedido.vcodigo_pedido,
-        codigo_cliente: codigoCliente,
-      },
+      pedido: this.state.pedido,
       factura: {
-        tipo_documento: this.vTipoDocumento,
-        numero_documento: this.vNumeroDocumento,
-        codigo_base: this.baseSelect.value,
-        fecha_emision: this.fechaEmision.value,
-        hora_emision: this.horaEmision.value,
-        saldo_total: this.getTotalFactura(),
-        ordinal_detalle: this.vOrdinalDetMovCont,
+        ...this.state.factura,
+        vFechaP: fechaP,
+        vFsaldo: this.state.totals.vFsaldo,
+        detalle: facturaDetalle,
       },
-      detalle: this.detalleFactura.map((item) => ({
-        codigo_producto: item.codigo_producto,
-        cantidad_factura: item.cantidad_factura,
-        precio_total: item.precio_total,
-        precio_unitario: item.precio_unitario,
-        cantidad_original: item.cantidad_original,
-      })),
-      entrega: {
-        modo: entregaModo,
-        codigo_cliente: codigoCliente,
-        codigo_puntoentrega: this.puntoEntregaSelect.value,
-        ubigeo: `${this.depSelect.value}${this.provSelect.value}${this.distSelect.value}`,
-        region_entrega: this.vRegionEntrega,
-        direccion_linea: this.direccionLinea.value.trim(),
-        referencia: this.referencia.value.trim(),
-        nombre: this.nombreEntrega.value.trim(),
-        dni: this.dniEntrega.value.trim(),
-        agencia: this.agencia.value.trim(),
-        observaciones: this.observaciones.value.trim(),
-        concatenarpuntoentrega: this.buildConcatenarPuntoEntrega(),
-      },
-      recibe: {
-        modo: recibeModo,
-        codigo_cliente: codigoCliente,
-        numero: numeroRecibeValue,
-        nombre: this.nombreRecibe.value.trim(),
-        concatenarnumrecibe: this.buildConcatenarNumRecibe(),
-      },
-      ordinals: {
-        ordinal_numrecibe: this.vOrdinalNumRecibe,
-        ordinal_paquetedetalle: this.vOrdinalPaqueteDetalle,
+      entrega: this.state.entrega,
+      recibe: this.state.recibe,
+      pago: {
+        ...this.state.pago,
+        vMontoPago: this.state.pago.vMontoPago ? Number(this.state.pago.vMontoPago) : 0,
       },
     };
   }
 
-  openLogs() {
-    window.open('/api/logs', '_blank');
+  showLoading(isLoading) {
+    document.getElementById('loadingOverlay').classList.toggle('active', isLoading);
   }
 
-  getTotalFactura() {
-    return this.detalleFactura.reduce((sum, item) => sum + this.toNumber(item.precio_total), 0);
+  clearAlert() {
+    document.getElementById('alertArea').innerHTML = '';
   }
 
-  formatMoney(value) {
-    return Number(value || 0).toFixed(2);
+  showError(message) {
+    this.showAlert('danger', message);
+  }
+
+  showSuccess(message) {
+    this.showAlert('success', message);
+  }
+
+  showAlert(type, message) {
+    const alertArea = document.getElementById('alertArea');
+    alertArea.innerHTML = `
+      <div class="alert alert-${type}" role="alert">
+        ${message}
+      </div>
+    `;
+  }
+
+  formatCurrency(value) {
+    const locale = navigator.language || 'es';
+    return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
   }
 
   formatDate(value) {
     if (!value) return '';
-    if (value instanceof Date) {
-      return value.toISOString().split('T')[0];
-    }
-    if (typeof value === 'string') {
-      return value.split('T')[0];
-    }
-    return value;
-  }
-
-  toNumber(value) {
-    const num = parseFloat(value);
-    return Number.isNaN(num) ? 0 : num;
+    const locale = navigator.language || 'es';
+    return new Intl.DateTimeFormat(locale).format(new Date(value));
   }
 }
 
-const wizard = new FormWizard();
-window.addEventListener('DOMContentLoaded', () => wizard.init());
+class Typeahead {
+  constructor(containerId, { placeholder, onSelect }) {
+    this.container = document.getElementById(containerId);
+    this.onSelect = onSelect;
+    this.options = [];
+    this.activeIndex = -1;
+
+    this.input = document.createElement('input');
+    this.input.type = 'text';
+    this.input.className = 'form-control';
+    this.input.placeholder = placeholder;
+
+    this.list = document.createElement('div');
+    this.list.className = 'typeahead-list';
+    this.list.style.display = 'none';
+
+    this.container.appendChild(this.input);
+    this.container.appendChild(this.list);
+
+    this.input.addEventListener('input', () => this.render());
+    this.input.addEventListener('focus', () => this.render());
+    this.input.addEventListener('keydown', (e) => this.handleKey(e));
+    document.addEventListener('click', (e) => {
+      if (!this.container.contains(e.target)) {
+        this.hide();
+      }
+    });
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.render();
+  }
+
+  render() {
+    const query = this.input.value.toLowerCase();
+    const filtered = this.options.filter((option) => option.label.toLowerCase().includes(query));
+    this.list.innerHTML = '';
+    filtered.forEach((option, index) => {
+      const item = document.createElement('div');
+      item.className = 'typeahead-item';
+      item.textContent = option.label;
+      item.addEventListener('click', () => this.select(option));
+      if (index === this.activeIndex) item.classList.add('active');
+      this.list.appendChild(item);
+    });
+    this.list.style.display = filtered.length ? 'block' : 'none';
+  }
+
+  handleKey(event) {
+    const items = Array.from(this.list.children);
+    if (!items.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.activeIndex = (this.activeIndex + 1) % items.length;
+      this.render();
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.activeIndex = (this.activeIndex - 1 + items.length) % items.length;
+      this.render();
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (this.activeIndex >= 0) {
+        const option = this.options.filter((opt) => opt.label.toLowerCase().includes(this.input.value.toLowerCase()))[this.activeIndex];
+        if (option) this.select(option);
+      }
+    }
+  }
+
+  select(option) {
+    this.input.value = option.label;
+    this.hide();
+    if (this.onSelect) this.onSelect(option);
+  }
+
+  hide() {
+    this.list.style.display = 'none';
+    this.activeIndex = -1;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  new FormWizard();
+});

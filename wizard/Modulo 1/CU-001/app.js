@@ -1,1266 +1,1293 @@
-class FormWizard {
-  constructor() {
-    this.steps = Array.from(document.querySelectorAll('.step'));
-    this.currentStep = 0;
-    this.progressBar = document.getElementById('progressBar');
-    this.nextBtn = document.getElementById('nextBtn');
-    this.prevBtn = document.getElementById('prevBtn');
-    this.emitirBtn = document.getElementById('emitirBtn');
-    this.loadingState = document.getElementById('loadingState');
-    this.alertArea = document.getElementById('alertArea');
-    this.statusHint = document.getElementById('statusHint');
-
-    this.fechaPedidoInput = document.getElementById('fechaPedido');
-    this.horaPedidoInput = document.getElementById('horaPedido');
-    this.clienteInput = document.getElementById('clienteInput');
-    this.clienteList = document.getElementById('clienteList');
-    this.clienteNumero = document.getElementById('clienteNumero');
-
-    this.pedidoBody = document.getElementById('pedidoBody');
-    this.addPedidoRowBtn = document.getElementById('addPedidoRow');
-
-    this.fechaEmisionInput = document.getElementById('fechaEmision');
-    this.horaEmisionInput = document.getElementById('horaEmision');
-    this.tipoDocumentoInput = document.getElementById('tipoDocumento');
-    this.numeroDocumentoInput = document.getElementById('numeroDocumento');
-    this.facturaBody = document.getElementById('facturaBody');
-    this.saldoFactura = document.getElementById('saldoFactura');
-
-    this.entregaExisteRadio = document.getElementById('entregaExiste');
-    this.entregaNuevoRadio = document.getElementById('entregaNuevo');
-    this.entregaExistenteCard = document.getElementById('entregaExistente');
-    this.entregaNuevoCard = document.getElementById('entregaNuevo');
-    this.puntoEntregaInput = document.getElementById('puntoEntregaInput');
-    this.puntoEntregaList = document.getElementById('puntoEntregaList');
-    this.entregaExistenteInfo = document.getElementById('entregaExistenteInfo');
-    this.departamentoInput = document.getElementById('departamentoInput');
-    this.departamentoList = document.getElementById('departamentoList');
-    this.provinciaInput = document.getElementById('provinciaInput');
-    this.provinciaList = document.getElementById('provinciaList');
-    this.distritoInput = document.getElementById('distritoInput');
-    this.distritoList = document.getElementById('distritoList');
-    this.entregaLimaFields = document.getElementById('entregaLimaFields');
-    this.entregaProvFields = document.getElementById('entregaProvFields');
-    this.direccionInput = document.getElementById('direccionInput');
-    this.referenciaInput = document.getElementById('referenciaInput');
-    this.nombreProvInput = document.getElementById('nombreProvInput');
-    this.dniProvInput = document.getElementById('dniProvInput');
-    this.agenciaProvInput = document.getElementById('agenciaProvInput');
-    this.observacionesProvInput = document.getElementById('observacionesProvInput');
-
-    this.recibeExisteRadio = document.getElementById('recibeExiste');
-    this.recibeNuevoRadio = document.getElementById('recibeNuevo');
-    this.recibeExistenteCard = document.getElementById('recibeExistente');
-    this.recibeNuevoCard = document.getElementById('recibeNuevo');
-    this.recibeInput = document.getElementById('recibeInput');
-    this.recibeList = document.getElementById('recibeList');
-    this.numeroRecibeInput = document.getElementById('numeroRecibeInput');
-    this.nombreRecibeInput = document.getElementById('nombreRecibeInput');
-
-    this.cuentaInput = document.getElementById('cuentaInput');
-    this.cuentaList = document.getElementById('cuentaList');
-    this.cuentaBanco = document.getElementById('cuentaBanco');
-    this.montoPendienteInput = document.getElementById('montoPendiente');
-    this.montoPagoInput = document.getElementById('montoPago');
-    this.addPagoBtn = document.getElementById('addPagoBtn');
-    this.pagosBody = document.getElementById('pagosBody');
-
-    this.baseInput = document.getElementById('baseInput');
-    this.baseList = document.getElementById('baseList');
-    this.jsonDetalle = document.getElementById('jsonDetalle');
-
-    this.resumenPedido = document.getElementById('resumenPedido');
-    this.resumenFactura = document.getElementById('resumenFactura');
-    this.resumenEntrega = document.getElementById('resumenEntrega');
-    this.resumenRecibe = document.getElementById('resumenRecibe');
-
-    this.confirmCheck = document.getElementById('confirmCheck');
-
-    this.state = {
-      vcodigo_pedido: null,
-      vFechaPedido: null,
-      vHoraPedido: null,
-      vFechaP: null,
-      vClienteSeleted: null,
-      vClienteNombre: '',
-      vClienteNumero: '',
-      vProdPedidos: [],
-      vProdFactura: [],
-      vTipo_documento: 'FAC',
-      vNumero_documento: null,
-      vRegion_Entrega: null,
-      vEntregaExiste: true,
-      vPuntoEntrega: null,
-      vPuntoEntregaTexto: '',
-      vDireccionLinea: '',
-      vReferencia: '',
-      vNombre: '',
-      vDni: '',
-      vAgencia: '',
-      vObservaciones: '',
-      vCod_Dep: '',
-      vCod_Prov: '',
-      vCod_Dist: '',
-      Vubigeo: '',
-      Vcodigo_puntoentrega: null,
-      vRecibeExiste: true,
-      vConcatenarnumrecibe: '',
-      vNumeroRecibe: '',
-      vNombreRecibe: '',
-      vOrdinal_numrecibe: null,
-      vTipo_documento_pago: 'RCP',
-      vNumero_documento_pago: null,
-      vCuentaNombre: '',
-      vCuentaBanco: '',
-      vCuentaBancaria: null,
-      vMontoPendiente: 0,
-      vMontoPago: 0,
-      vPagos: [],
-      vCodigo_base: null,
-      vBaseNombre: ''
-    };
-
-    this.catalogos = {
-      clientes: [],
-      productos: [],
-      puntosEntrega: [],
-      departamentos: [],
-      provincias: [],
-      distritos: [],
-      numrecibe: [],
-      cuentas: [],
-      bases: []
-    };
-
-    this.init();
+const state = {
+  step: 1,
+  totalSteps: 8,
+  clienteModo: 'existente',
+  entregaModo: 'existente',
+  recibeModo: 'existente',
+  regionEntrega: null,
+  clientes: [],
+  productos: [],
+  puntosEntrega: [],
+  departamentos: [],
+  provincias: [],
+  distritos: [],
+  numrecibe: [],
+  cuentas: [],
+  bases: [],
+  basesCandidatas: [],
+  pedidoDetalle: [],
+  facturaDetalle: [],
+  pagos: [],
+  mapsReady: false,
+  map: null,
+  geocoder: null,
+  nextCodigoCliente: null,
+  nextCodigoPedido: null,
+  nextNumeroFactura: null,
+  nextNumeroRecibo: null,
+  nextOrdinalRecibe: null,
+  nextPuntoEntrega: null,
+  config: {
+    googleMapsKey: '',
+    mapCenter: { lat: -12.0464, lng: -77.0428 },
+    mapZoom: 12
   }
+};
 
-  init() {
-    this.setLanguage();
-    this.applyLanguage();
-    this.initializeDates();
-    this.updateButtons();
-    this.attachEvents();
-    this.loadInitialData();
-    this.addPedidoRow();
-  }
+const decimalRegex = /^\d+(?:\.\d{1,2})?$/;
 
-  setLanguage() {
-    const lang = (navigator.language || 'es').toLowerCase();
-    this.langKey = lang.startsWith('es') ? 'es' : 'en';
-    this.dict = translations[this.langKey];
-    document.documentElement.lang = this.langKey;
-  }
-
-  applyLanguage() {
-    const dict = this.dict;
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      if (dict[key]) {
-        el.textContent = dict[key];
-      }
-    });
-  }
-
-  initializeDates() {
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10);
-    const time = now.toTimeString().slice(0, 8);
-    this.state.vFechaPedido = date;
-    this.state.vHoraPedido = time;
-    this.state.vFechaP = `${date} ${time}`;
-    this.fechaPedidoInput.value = date;
-    this.horaPedidoInput.value = time;
-    this.fechaEmisionInput.value = date;
-    this.horaEmisionInput.value = time;
-    this.tipoDocumentoInput.value = this.state.vTipo_documento;
-  }
-
-  attachEvents() {
-    this.nextBtn.addEventListener('click', () => this.handleNext());
-    this.prevBtn.addEventListener('click', () => this.handlePrev());
-    this.emitirBtn.addEventListener('click', () => this.handleEmitir());
-
-    this.addPedidoRowBtn.addEventListener('click', () => this.addPedidoRow());
-    this.entregaExisteRadio.addEventListener('change', () => this.toggleEntrega());
-    this.entregaNuevoRadio.addEventListener('change', () => this.toggleEntrega());
-    this.recibeExisteRadio.addEventListener('change', () => this.toggleRecibe());
-    this.recibeNuevoRadio.addEventListener('change', () => this.toggleRecibe());
-
-    this.addPagoBtn.addEventListener('click', () => this.addPago());
-    this.montoPagoInput.addEventListener('input', () => this.clearInvalid(this.montoPagoInput));
-
-    this.clienteInput.addEventListener('input', () => this.showTypeahead('clientes', this.clienteInput, this.clienteList, 'nombre'));
-    this.puntoEntregaInput.addEventListener('input', () => this.showTypeahead('puntosEntrega', this.puntoEntregaInput, this.puntoEntregaList, 'concatenarpuntoentrega'));
-    this.departamentoInput.addEventListener('input', () => this.showTypeahead('departamentos', this.departamentoInput, this.departamentoList, 'departamento'));
-    this.provinciaInput.addEventListener('input', () => this.showTypeahead('provincias', this.provinciaInput, this.provinciaList, 'provincia'));
-    this.distritoInput.addEventListener('input', () => this.showTypeahead('distritos', this.distritoInput, this.distritoList, 'distrito'));
-    this.recibeInput.addEventListener('input', () => this.showTypeahead('numrecibe', this.recibeInput, this.recibeList, 'concatenarnumrecibe'));
-    this.cuentaInput.addEventListener('input', () => this.showTypeahead('cuentas', this.cuentaInput, this.cuentaList, 'nombre'));
-    this.baseInput.addEventListener('input', () => this.showTypeahead('bases', this.baseInput, this.baseList, 'nombre'));
-
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('.typeahead')) {
-        document.querySelectorAll('.typeahead-list').forEach((list) => list.style.display = 'none');
-      }
-    });
-  }
-
-  setLoading(message) {
-    if (!message) {
-      this.loadingState.innerHTML = '';
-      return;
-    }
-    this.loadingState.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span>${message}`;
-  }
-
-  showAlert(type, message) {
-    this.alertArea.innerHTML = `
-      <div class="alert alert-${type} d-flex justify-content-between align-items-center" role="alert">
-        <div>${message}</div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>`;
-  }
-
-  clearAlert() {
-    this.alertArea.innerHTML = '';
-  }
-
-  updateButtons() {
-    const sequence = this.getStepSequence();
-    this.prevBtn.disabled = this.currentStep === 0;
-    this.nextBtn.textContent = this.currentStep === sequence.length - 1 ? this.dict.finish : this.dict.next;
-    const progress = ((this.currentStep + 1) / sequence.length) * 100;
-    this.progressBar.style.width = `${progress}%`;
-  }
-
-  getStepSequence() {
-    const steps = [0, 1, 2, 3, 4, 5, 6];
-    if (this.state.vRegion_Entrega && this.state.vRegion_Entrega !== 'LIMA') {
-      return steps.filter((step) => step !== 3);
-    }
-    return steps;
-  }
-
-  goToStep(index) {
-    const sequence = this.getStepSequence();
-    const actualIndex = sequence[index];
-    const currentActual = sequence[this.currentStep];
-    this.steps[currentActual].classList.remove('active');
-    this.currentStep = index;
-    this.steps[actualIndex].classList.add('active');
-    this.updateButtons();
-  }
-
-  handlePrev() {
-    if (this.currentStep > 0) {
-      this.goToStep(this.currentStep - 1);
-    }
-  }
-
-  async handleNext() {
-    this.clearAlert();
-    const valid = this.validateStep();
-    if (!valid) return;
-
-    const sequence = this.getStepSequence();
-    if (this.currentStep === sequence.length - 1) {
-      this.goToStep(this.currentStep);
-      return;
-    }
-
-    this.goToStep(this.currentStep + 1);
-
-    const stepIndex = sequence[this.currentStep];
-    if (stepIndex === 1) {
-      this.prepareFactura();
-    }
-    if (stepIndex === 2) {
-      this.updateEntregaUI();
-    }
-    if (stepIndex === 4) {
-      this.updateMontoPendiente();
-    }
-    if (stepIndex === 5) {
-      this.updateJsonDetalle();
-    }
-    if (stepIndex === 6) {
-      this.renderResumen();
-    }
-  }
-
-  validateStep() {
-    const stepIndex = this.getStepSequence()[this.currentStep];
-
-    if (stepIndex === 0) {
-      if (!this.state.vClienteSeleted) {
-        this.showAlert('warning', this.dict.errors.cliente);
-        this.clienteInput.classList.add('is-invalid');
-        return false;
-      }
-
-      const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
-      if (rows.length === 0) {
-        this.showAlert('warning', this.dict.errors.detallePedido);
-        return false;
-      }
-
-      const decimalRegex = /^\d+(\.\d{1,2})?$/;
-      for (const row of rows) {
-        const producto = row.dataset.codigoProducto;
-        const cantidadInput = row.querySelector('.pedido-cantidad');
-        const precioInput = row.querySelector('.pedido-precio');
-        if (!producto) {
-          this.showAlert('warning', this.dict.errors.producto);
-          row.querySelector('.pedido-producto').classList.add('is-invalid');
-          return false;
-        }
-        if (!decimalRegex.test(cantidadInput.value) || Number(cantidadInput.value) <= 0) {
-          this.showAlert('warning', this.dict.errors.cantidad);
-          cantidadInput.classList.add('is-invalid');
-          return false;
-        }
-        if (!decimalRegex.test(precioInput.value) || Number(precioInput.value) <= 0) {
-          this.showAlert('warning', this.dict.errors.precio);
-          precioInput.classList.add('is-invalid');
-          return false;
-        }
-      }
-      this.storePedidoLines();
-      return true;
-    }
-
-    if (stepIndex === 1) {
-      const decimalRegex = /^\d+(\.\d{1,2})?$/;
-      for (const line of this.state.vProdFactura) {
-        if (!decimalRegex.test(String(line.vFCantidadProducto)) || Number(line.vFCantidadProducto) <= 0) {
-          this.showAlert('warning', this.dict.errors.cantidadFactura);
-          return false;
-        }
-        if (Number(line.vFCantidadProducto) > Number(line.vMaxCantidad)) {
-          this.showAlert('danger', this.dict.errors.cantidadFacturaExcede);
-          return false;
-        }
-      }
-      return true;
-    }
-
-    if (stepIndex === 2) {
-      if (this.state.vEntregaExiste && !this.state.vPuntoEntrega) {
-        this.showAlert('warning', this.dict.errors.puntoEntrega);
-        this.puntoEntregaInput.classList.add('is-invalid');
-        return false;
-      }
-
-      if (!this.state.vEntregaExiste) {
-        if (!this.state.vCod_Dep || !this.state.vCod_Prov || !this.state.vCod_Dist) {
-          this.showAlert('warning', this.dict.errors.ubigeo);
-          return false;
-        }
-        if (this.state.vRegion_Entrega === 'LIMA' && !this.direccionInput.value.trim()) {
-          this.showAlert('warning', this.dict.errors.direccion);
-          this.direccionInput.classList.add('is-invalid');
-          return false;
-        }
-        if (this.state.vRegion_Entrega === 'PROV') {
-          const nameRegex = /^[A-Za-z0-9\s'.-]{2,}$/;
-          const dniRegex = /^\d{8}$/;
-          if (!nameRegex.test(this.nombreProvInput.value.trim())) {
-            this.showAlert('warning', this.dict.errors.nombre);
-            this.nombreProvInput.classList.add('is-invalid');
-            return false;
-          }
-          if (!dniRegex.test(this.dniProvInput.value.trim())) {
-            this.showAlert('warning', this.dict.errors.dni);
-            this.dniProvInput.classList.add('is-invalid');
-            return false;
-          }
-        }
-      }
-
-      return true;
-    }
-
-    if (stepIndex === 3) {
-      if (this.state.vRegion_Entrega !== 'LIMA') {
-        return true;
-      }
-      if (this.state.vRecibeExiste && !this.state.vConcatenarnumrecibe) {
-        this.showAlert('warning', this.dict.errors.recibe);
-        this.recibeInput.classList.add('is-invalid');
-        return false;
-      }
-      if (!this.state.vRecibeExiste) {
-        if (!this.numeroRecibeInput.value.trim() || !this.nombreRecibeInput.value.trim()) {
-          this.showAlert('warning', this.dict.errors.recibeNuevo);
-          return false;
-        }
-      }
-      return true;
-    }
-
-    if (stepIndex === 4) {
-      if (this.state.vPagos.length > 0) {
-        return true;
-      }
-      const pago = Number(this.montoPagoInput.value || 0);
-      if (pago > 0 && (!this.state.vCuentaBancaria || pago > this.state.vMontoPendiente)) {
-        this.showAlert('warning', this.dict.errors.pago);
-        return false;
-      }
-      return true;
-    }
-
-    if (stepIndex === 5) {
-      if (!this.state.vCodigo_base) {
-        this.showAlert('warning', this.dict.errors.base);
-        this.baseInput.classList.add('is-invalid');
-        return false;
-      }
-      return true;
-    }
-
-    if (stepIndex === 6) {
-      if (!this.confirmCheck.checked) {
-        this.showAlert('warning', this.dict.errors.confirm);
-        return false;
-      }
-      return true;
-    }
-
-    return true;
-  }
-
-  async loadInitialData() {
-    this.setLoading(this.dict.loading);
-    try {
-      const [clientes, productos, cuentas, bases, nextPedido, nextFactura, nextRecibo] = await Promise.all([
-        this.fetchJson('/api/clientes'),
-        this.fetchJson('/api/productos'),
-        this.fetchJson('/api/cuentas'),
-        this.fetchJson('/api/bases'),
-        this.fetchJson('/api/next/pedido'),
-        this.fetchJson('/api/next/factura'),
-        this.fetchJson('/api/next/recibo')
-      ]);
-      this.catalogos.clientes = clientes;
-      this.catalogos.productos = productos;
-      this.catalogos.cuentas = cuentas;
-      this.catalogos.bases = bases;
-      this.state.vcodigo_pedido = nextPedido.next;
-      this.state.vNumero_documento = nextFactura.next;
-      this.state.vNumero_documento_pago = nextRecibo.next;
-      this.numeroDocumentoInput.value = this.state.vNumero_documento;
-      this.refreshPedidoRowsTypeahead();
-
-      this.bindTypeahead(this.clienteInput, this.clienteList, clientes, 'nombre', (item) => {
-        this.state.vClienteSeleted = item.codigo_cliente;
-        this.state.vClienteNombre = item.nombre;
-        this.state.vClienteNumero = item.numero;
-        this.clienteNumero.textContent = `${this.dict.numeroCliente}: ${item.numero}`;
-        this.clienteInput.value = item.nombre;
-        this.clienteInput.classList.remove('is-invalid');
-        this.loadEntregaData();
-        this.loadRecibeData();
-      });
-
-      this.bindTypeahead(this.cuentaInput, this.cuentaList, cuentas, 'nombre', (item) => {
-        this.state.vCuentaBancaria = item.codigo_cuentabancaria;
-        this.state.vCuentaNombre = item.nombre;
-        this.state.vCuentaBanco = item.banco;
-        this.cuentaBanco.textContent = item.banco ? `${this.dict.banco}: ${item.banco}` : '';
-        this.cuentaInput.value = item.nombre;
-        this.cuentaInput.classList.remove('is-invalid');
-      });
-
-      this.bindTypeahead(this.baseInput, this.baseList, bases, 'nombre', (item) => {
-        this.state.vCodigo_base = item.codigo_base;
-        this.state.vBaseNombre = item.nombre;
-        this.baseInput.value = item.nombre;
-        this.baseInput.classList.remove('is-invalid');
-        this.updateJsonDetalle();
-      });
-    } catch (error) {
-      this.showAlert('danger', error.message || this.dict.errors.general);
-    } finally {
-      this.setLoading('');
-    }
-  }
-
-  async loadEntregaData() {
-    if (!this.state.vClienteSeleted) return;
-    try {
-      this.state.vPuntoEntrega = null;
-      this.state.vPuntoEntregaTexto = '';
-      this.state.vRegion_Entrega = null;
-      this.puntoEntregaInput.value = '';
-      this.entregaExistenteInfo.innerHTML = '';
-      this.departamentoInput.value = '';
-      this.provinciaInput.value = '';
-      this.distritoInput.value = '';
-      const [puntos, departamentos] = await Promise.all([
-        this.fetchJson(`/api/puntos-entrega?codigoCliente=${this.state.vClienteSeleted}`),
-        this.fetchJson('/api/departamentos')
-      ]);
-      this.catalogos.puntosEntrega = puntos;
-      this.catalogos.departamentos = departamentos;
-
-      if (!puntos || puntos.length === 0) {
-        this.entregaExisteRadio.disabled = true;
-        this.entregaNuevoRadio.checked = true;
-        this.state.vEntregaExiste = false;
-      } else {
-        this.entregaExisteRadio.disabled = false;
-        this.entregaExisteRadio.checked = true;
-        this.state.vEntregaExiste = true;
-      }
-      this.toggleEntrega();
-
-      this.bindTypeahead(this.puntoEntregaInput, this.puntoEntregaList, puntos, 'concatenarpuntoentrega', (item) => {
-        this.state.vPuntoEntrega = item;
-        this.state.vPuntoEntregaTexto = item.concatenarpuntoentrega;
-        this.state.vRegion_Entrega = item.region_entrega;
-        this.state.Vcodigo_puntoentrega = item.codigo_puntoentrega;
-        this.state.vCod_Dep = item.cod_dep;
-        this.state.vCod_Prov = item.cod_prov;
-        this.state.vCod_Dist = item.cod_dist;
-        this.state.Vubigeo = item.ubigeo;
-        this.entregaExistenteInfo.innerHTML = this.renderEntregaInfo(item);
-        this.updateRegionUI();
-      });
-
-      this.bindTypeahead(this.departamentoInput, this.departamentoList, departamentos, 'departamento', (item) => {
-        this.state.vCod_Dep = item.cod_dep;
-        this.departamentoInput.value = item.departamento;
-        this.departamentoInput.classList.remove('is-invalid');
-        this.loadProvincias(item.cod_dep);
-      });
-    } catch (error) {
-      this.showAlert('danger', error.message || this.dict.errors.general);
-    }
-  }
-
-  async loadProvincias(codDep) {
-    this.provinciaInput.value = '';
-    this.distritoInput.value = '';
-    this.catalogos.provincias = [];
-    this.catalogos.distritos = [];
-    if (!codDep) return;
-    const provincias = await this.fetchJson(`/api/provincias?codDep=${codDep}`);
-    this.catalogos.provincias = provincias;
-    this.bindTypeahead(this.provinciaInput, this.provinciaList, provincias, 'provincia', (item) => {
-      this.state.vCod_Prov = item.cod_prov;
-      this.provinciaInput.value = item.provincia;
-      this.provinciaInput.classList.remove('is-invalid');
-      this.loadDistritos(this.state.vCod_Dep, item.cod_prov);
-    });
-  }
-
-  async loadDistritos(codDep, codProv) {
-    this.distritoInput.value = '';
-    this.catalogos.distritos = [];
-    if (!codDep || !codProv) return;
-    const distritos = await this.fetchJson(`/api/distritos?codDep=${codDep}&codProv=${codProv}`);
-    this.catalogos.distritos = distritos;
-    this.bindTypeahead(this.distritoInput, this.distritoList, distritos, 'distrito', (item) => {
-      this.state.vCod_Dist = item.cod_dist;
-      this.distritoInput.value = item.distrito;
-      this.distritoInput.classList.remove('is-invalid');
-      this.defineRegion();
-    });
-  }
-
-  async loadRecibeData() {
-    if (!this.state.vClienteSeleted) return;
-    this.state.vConcatenarnumrecibe = '';
-    this.state.vNumeroRecibe = '';
-    this.state.vNombreRecibe = '';
-    this.state.vOrdinal_numrecibe = null;
-    this.recibeInput.value = '';
-    this.numeroRecibeInput.value = '';
-    this.nombreRecibeInput.value = '';
-    const numrecibe = await this.fetchJson(`/api/numrecibe?codigoCliente=${this.state.vClienteSeleted}`);
-    this.catalogos.numrecibe = numrecibe;
-
-    if (!numrecibe || numrecibe.length === 0) {
-      this.recibeExisteRadio.disabled = true;
-      this.recibeNuevoRadio.checked = true;
-      this.state.vRecibeExiste = false;
-    } else {
-      this.recibeExisteRadio.disabled = false;
-      this.recibeExisteRadio.checked = true;
-      this.state.vRecibeExiste = true;
-    }
-    this.toggleRecibe();
-
-    this.bindTypeahead(this.recibeInput, this.recibeList, numrecibe, 'concatenarnumrecibe', (item) => {
-      this.state.vConcatenarnumrecibe = item.concatenarnumrecibe;
-      this.state.vNumeroRecibe = item.numero;
-      this.state.vNombreRecibe = item.nombre;
-      this.state.vOrdinal_numrecibe = item.ordinal_numrecibe;
-      this.recibeInput.value = item.concatenarnumrecibe;
-      this.recibeInput.classList.remove('is-invalid');
-    });
-  }
-
-  async fetchJson(url) {
-    const response = await fetch(url);
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || this.dict.errors.general);
-    }
-    return data;
-  }
-
-  bindTypeahead(input, listEl, items, key, onSelect) {
-    listEl.innerHTML = '';
-    listEl.style.display = 'none';
-    input.addEventListener('focus', () => this.showTypeaheadItems(input, listEl, items, key, onSelect));
-    input.addEventListener('input', () => this.showTypeaheadItems(input, listEl, items, key, onSelect));
-    listEl.onmousedown = (event) => {
-      const item = event.target.closest('.typeahead-item');
-      if (!item) return;
-      const index = Number(item.dataset.index);
-      const selected = items[index];
-      if (selected) {
-        onSelect(selected);
-      }
-      listEl.style.display = 'none';
-    };
-  }
-
-  showTypeaheadItems(input, listEl, items, key, onSelect) {
-    const query = input.value.trim().toLowerCase();
-    const filtered = items.filter((item) => String(item[key] || '').toLowerCase().includes(query));
-    listEl.innerHTML = filtered
-      .slice(0, 50)
-      .map((item, index) => `<div class="typeahead-item" data-index="${items.indexOf(item)}">${item[key]}</div>`)
-      .join('');
-    listEl.style.display = filtered.length ? 'block' : 'none';
-    listEl.onmousedown = (event) => {
-      const node = event.target.closest('.typeahead-item');
-      if (!node) return;
-      const selected = items[Number(node.dataset.index)];
-      if (selected) {
-        onSelect(selected);
-      }
-      listEl.style.display = 'none';
-    };
-  }
-
-  showTypeahead(catalogKey, input, listEl, key) {
-    const items = this.catalogos[catalogKey] || [];
-    this.showTypeaheadItems(input, listEl, items, key, () => {});
-  }
-
-  addPedidoRow() {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>
-        <div class="typeahead">
-          <input class="form-control typeahead-input pedido-producto" type="text" placeholder="Buscar producto" autocomplete="off" />
-          <div class="typeahead-list"></div>
-        </div>
-      </td>
-      <td><input class="form-control pedido-cantidad" type="text" placeholder="0.00" /></td>
-      <td><input class="form-control pedido-precio" type="text" placeholder="0.00" /></td>
-      <td><button class="btn btn-outline-light btn-sm remove-row" type="button">${this.dict.remove}</button></td>
-    `;
-    const productoInput = row.querySelector('.pedido-producto');
-    const listEl = row.querySelector('.typeahead-list');
-
-    this.bindTypeahead(productoInput, listEl, this.catalogos.productos, 'nombre', (item) => {
-      row.dataset.codigoProducto = item.codigo_producto;
-      row.dataset.nombreProducto = item.nombre;
-      productoInput.value = item.nombre;
-      productoInput.classList.remove('is-invalid');
-    });
-
-    row.querySelector('.remove-row').addEventListener('click', () => {
-      row.remove();
-    });
-
-    row.querySelector('.pedido-cantidad').addEventListener('input', (event) => {
-      this.clearInvalid(event.target);
-    });
-    row.querySelector('.pedido-precio').addEventListener('input', (event) => {
-      this.clearInvalid(event.target);
-    });
-
-    this.pedidoBody.appendChild(row);
-  }
-
-  refreshPedidoRowsTypeahead() {
-    const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
-    rows.forEach((row) => {
-      const productoInput = row.querySelector('.pedido-producto');
-      const listEl = row.querySelector('.typeahead-list');
-      this.bindTypeahead(productoInput, listEl, this.catalogos.productos, 'nombre', (item) => {
-        row.dataset.codigoProducto = item.codigo_producto;
-        row.dataset.nombreProducto = item.nombre;
-        productoInput.value = item.nombre;
-        productoInput.classList.remove('is-invalid');
-      });
-    });
-  }
-
-  storePedidoLines() {
-    const rows = Array.from(this.pedidoBody.querySelectorAll('tr'));
-    this.state.vProdPedidos = rows.map((row, index) => {
-      const cantidad = Number(row.querySelector('.pedido-cantidad').value);
-      const precio = Number(row.querySelector('.pedido-precio').value);
-      const precioUnitario = cantidad ? precio / cantidad : 0;
-      return {
-        vProductoCodigo: row.dataset.codigoProducto,
-        vProductoNombre: row.dataset.nombreProducto,
-        vCantidadProducto: cantidad,
-        vPrecioTotal: precio,
-        vOrdinalPedDetalle: index + 1,
-        vPrecioUnitario: precioUnitario
-      };
-    });
-  }
-
-  prepareFactura() {
-    this.state.vProdFactura = this.state.vProdPedidos.map((item, index) => ({
-      vFProducto: item.vProductoCodigo,
-      vFProductoNombre: item.vProductoNombre,
-      vFCantidadProducto: item.vCantidadProducto,
-      vFPrecioTotal: item.vPrecioTotal,
-      vPrecioUnitario: item.vPrecioUnitario,
-      vMaxCantidad: item.vCantidadProducto,
-      vOrdinalDetMovCont: index + 1
-    }));
-    this.renderFacturaTable();
-    this.updateMontoPendiente();
-  }
-
-  renderFacturaTable() {
-    this.facturaBody.innerHTML = '';
-    this.state.vProdFactura.forEach((item, index) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.vFProductoNombre}</td>
-        <td><input class="form-control factura-cantidad" type="text" value="${item.vFCantidadProducto}" /></td>
-        <td><input class="form-control" type="text" value="${item.vFPrecioTotal.toFixed(2)}" readonly /></td>
-        <td><button class="btn btn-outline-light btn-sm remove-factura" type="button">${this.dict.remove}</button></td>
-      `;
-
-      if (this.state.vProdFactura.length <= 1) {
-        row.querySelector('.remove-factura').disabled = true;
-      }
-
-      row.querySelector('.remove-factura').addEventListener('click', () => {
-        if (this.state.vProdFactura.length > 1) {
-          this.state.vProdFactura.splice(index, 1);
-          this.renderFacturaTable();
-        }
-      });
-
-      row.querySelector('.factura-cantidad').addEventListener('input', (event) => {
-        const value = Number(event.target.value || 0);
-        item.vFCantidadProducto = value;
-        item.vFPrecioTotal = item.vPrecioUnitario * value;
-        row.querySelector('td:nth-child(3) input').value = item.vFPrecioTotal.toFixed(2);
-        this.updateMontoPendiente();
-      });
-
-      this.facturaBody.appendChild(row);
-    });
-  }
-
-  toggleEntrega() {
-    this.state.vEntregaExiste = this.entregaExisteRadio.checked;
-    if (this.state.vEntregaExiste) {
-      this.entregaExistenteCard.classList.remove('d-none');
-      this.entregaNuevoCard.classList.add('d-none');
-    } else {
-      this.entregaExistenteCard.classList.add('d-none');
-      this.entregaNuevoCard.classList.remove('d-none');
-      this.state.vPuntoEntrega = null;
-      this.state.vPuntoEntregaTexto = '';
-      this.entregaExistenteInfo.innerHTML = '';
-    }
-    this.updateRegionUI();
-  }
-
-  toggleRecibe() {
-    this.state.vRecibeExiste = this.recibeExisteRadio.checked;
-    if (this.state.vRecibeExiste) {
-      this.recibeExistenteCard.classList.remove('d-none');
-      this.recibeNuevoCard.classList.add('d-none');
-    } else {
-      this.recibeExistenteCard.classList.add('d-none');
-      this.recibeNuevoCard.classList.remove('d-none');
-    }
-  }
-
-  defineRegion() {
-    if (this.state.vCod_Dep === '15' && this.state.vCod_Prov === '01') {
-      this.state.vRegion_Entrega = 'LIMA';
-    } else {
-      this.state.vRegion_Entrega = 'PROV';
-    }
-    this.state.Vubigeo = `${this.state.vCod_Dep}${this.state.vCod_Prov}${this.state.vCod_Dist}`;
-    this.updateRegionUI();
-  }
-
-  updateRegionUI() {
-    if (this.state.vRegion_Entrega === 'LIMA') {
-      this.entregaLimaFields.classList.remove('d-none');
-      this.entregaProvFields.classList.add('d-none');
-    } else if (this.state.vRegion_Entrega === 'PROV') {
-      this.entregaLimaFields.classList.add('d-none');
-      this.entregaProvFields.classList.remove('d-none');
-    }
-    this.updateButtons();
-  }
-
-  updateEntregaUI() {
-    if (this.state.vEntregaExiste && this.state.vPuntoEntrega) {
-      this.entregaExistenteInfo.innerHTML = this.renderEntregaInfo(this.state.vPuntoEntrega);
-      this.state.vRegion_Entrega = this.state.vPuntoEntrega.region_entrega;
-      this.updateRegionUI();
-    }
-  }
-
-  renderEntregaInfo(item) {
-    return `
-      <div><strong>${this.dict.region}:</strong> ${item.region_entrega}</div>
-      <div><strong>${this.dict.direccion}:</strong> ${item.direccion_linea || '-'}</div>
-      <div><strong>${this.dict.referencia}:</strong> ${item.referencia || '-'}</div>
-      <div><strong>${this.dict.nombre}:</strong> ${item.nombre || '-'}</div>
-      <div><strong>${this.dict.dni}:</strong> ${item.dni || '-'}</div>
-      <div><strong>${this.dict.agencia}:</strong> ${item.agencia || '-'}</div>
-    `;
-  }
-
-  updateMontoPendiente() {
-    const total = this.getFacturaTotal();
-    if (this.state.vPagos.length > 0) {
-      this.recalculatePagos();
-    } else {
-      this.state.vMontoPendiente = Number(total.toFixed(2));
-      this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
-      this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
-    }
-    this.saldoFactura.textContent = total.toFixed(2);
-    this.addPagoBtn.disabled = this.state.vMontoPendiente <= 0;
-  }
-
-  addPago() {
-    const decimalRegex = /^\d+(\.\d{1,2})?$/;
-    const pago = Number(this.montoPagoInput.value || 0);
-    if (!decimalRegex.test(String(this.montoPagoInput.value || '0'))) {
-      this.showAlert('warning', this.dict.errors.pagoFormato);
-      return;
-    }
-    if (pago <= 0) {
-      this.showAlert('warning', this.dict.errors.pagoVacio);
-      return;
-    }
-    if (!this.state.vCuentaBancaria) {
-      this.showAlert('warning', this.dict.errors.cuenta);
-      return;
-    }
-    if (pago > this.state.vMontoPendiente) {
-      this.showAlert('warning', this.dict.errors.pagoMayor);
-      return;
-    }
-
-    const pagoItem = {
-      vCuentaBancaria: this.state.vCuentaBancaria,
-      vCuentaNombre: this.state.vCuentaNombre,
-      monto: Number(pago.toFixed(2))
-    };
-    this.state.vPagos.push(pagoItem);
-    this.state.vMontoPendiente = Number((this.state.vMontoPendiente - pago).toFixed(2));
-    this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
-    this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
-    this.renderPagos();
-    this.addPagoBtn.disabled = this.state.vMontoPendiente <= 0;
-  }
-
-  renderPagos() {
-    this.pagosBody.innerHTML = '';
-    this.state.vPagos.forEach((pago, index) => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${pago.vCuentaNombre}</td>
-        <td>${pago.monto.toFixed(2)}</td>
-        <td><button class="btn btn-outline-light btn-sm" type="button">${this.dict.remove}</button></td>
-      `;
-      row.querySelector('button').addEventListener('click', () => {
-        this.state.vPagos.splice(index, 1);
-        this.recalculatePagos();
-      });
-      this.pagosBody.appendChild(row);
-    });
-  }
-
-  recalculatePagos() {
-    const totalPagos = this.state.vPagos.reduce((sum, pago) => sum + pago.monto, 0);
-    const totalFactura = this.getFacturaTotal();
-    this.state.vMontoPendiente = Number((totalFactura - totalPagos).toFixed(2));
-    this.montoPendienteInput.value = this.state.vMontoPendiente.toFixed(2);
-    this.montoPagoInput.value = this.state.vMontoPendiente.toFixed(2);
-    this.renderPagos();
-  }
-
-  getFacturaTotal() {
-    return this.state.vProdFactura.reduce((sum, item) => sum + Number(item.vFPrecioTotal || 0), 0);
-  }
-
-  updateJsonDetalle() {
-    const json = this.state.vProdFactura.map((item) => ({
-      vFProducto: item.vFProducto,
-      vFCantidadProducto: item.vFCantidadProducto,
-      vFPrecioTotal: Number(item.vFPrecioTotal.toFixed(2))
-    }));
-    this.jsonDetalle.textContent = JSON.stringify(json, null, 2);
-  }
-
-  renderResumen() {
-    const pedidoItems = this.state.vProdPedidos
-      .map((item) => `${item.vProductoNombre}: ${item.vCantidadProducto} (${item.vPrecioTotal.toFixed(2)})`)
-      .join('<br>');
-
-    const facturaItems = this.state.vProdFactura
-      .map((item) => `${item.vFProductoNombre}: ${item.vFCantidadProducto} (${item.vFPrecioTotal.toFixed(2)})`)
-      .join('<br>');
-
-    const entregaTipo = this.state.vEntregaExiste ? this.dict.existente : this.dict.nuevo;
-    const recibeTipo = this.state.vRecibeExiste ? this.dict.existente : this.dict.nuevo;
-    const totalFactura = this.getFacturaTotal();
-
-    this.resumenPedido.innerHTML = `
-      <div><strong>${this.dict.codigoPedido}:</strong> ${this.state.vcodigo_pedido}</div>
-      <div><strong>${this.dict.cliente}:</strong> ${this.state.vClienteNombre}</div>
-      <div>${pedidoItems}</div>
-    `;
-
-    this.resumenFactura.innerHTML = `
-      <div><strong>${this.dict.numeroDoc}:</strong> ${this.state.vNumero_documento}</div>
-      <div><strong>${this.dict.saldoFactura}:</strong> ${totalFactura.toFixed(2)}</div>
-      <div>${facturaItems}</div>
-    `;
-
-    this.resumenEntrega.innerHTML = `
-      <div><strong>${this.dict.tipoPunto}:</strong> ${entregaTipo}</div>
-      <div>${this.state.vPuntoEntregaTexto || this.buildConcatenarPuntoEntrega()}</div>
-    `;
-
-    this.resumenRecibe.innerHTML = `
-      <div><strong>${this.dict.tipoRecibe}:</strong> ${this.state.vRegion_Entrega === 'LIMA' ? recibeTipo : this.dict.noAplica}</div>
-      <div>${this.state.vRegion_Entrega === 'LIMA' ? (this.state.vConcatenarnumrecibe || this.buildConcatenarNumRecibe()) : this.dict.noAplica}</div>
-    `;
-  }
-
-  buildConcatenarPuntoEntrega() {
-    if (this.state.vRegion_Entrega === 'LIMA') {
-      const parts = [this.direccionInput.value.trim(), this.distritoInput.value.trim(), this.referenciaInput.value.trim()].filter(Boolean);
-      return parts.join(' | ');
-    }
-    const parts = [
-      this.nombreProvInput.value.trim(),
-      this.dniProvInput.value.trim(),
-      this.agenciaProvInput.value.trim(),
-      this.observacionesProvInput.value.trim()
-    ].filter(Boolean);
-    return parts.join(' | ');
-  }
-
-  buildConcatenarNumRecibe() {
-    const parts = [this.numeroRecibeInput.value.trim(), this.nombreRecibeInput.value.trim()].filter(Boolean);
-    return parts.join(' | ');
-  }
-
-  async handleEmitir() {
-    this.clearAlert();
-    if (!this.validateStep()) return;
-
-    this.setLoading(this.dict.emitiendo);
-    try {
-      const payload = this.buildPayload();
-      const response = await fetch('/api/emitir-factura', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || this.dict.errors.general);
-      }
-      this.showAlert('success', this.dict.success);
-    } catch (error) {
-      this.showAlert('danger', error.message || this.dict.errors.general);
-    } finally {
-      this.setLoading('');
-    }
-  }
-
-  buildPayload() {
-    const entregaNuevo = !this.state.vEntregaExiste;
-    const recibeNuevo = this.state.vRegion_Entrega === 'LIMA' && !this.state.vRecibeExiste;
-
-    const payload = {
-      vcodigo_pedido: this.state.vcodigo_pedido,
-      vFechaP: this.state.vFechaP,
-      vClienteSeleted: this.state.vClienteSeleted,
-      vProdPedidos: this.state.vProdPedidos,
-      vTipo_documento: this.state.vTipo_documento,
-      vNumero_documento: this.state.vNumero_documento,
-      vProdFactura: this.state.vProdFactura,
-      vRegion_Entrega: this.state.vRegion_Entrega,
-      vEntregaNuevo: entregaNuevo,
-      vPuntoEntrega: this.state.vPuntoEntrega,
-      vDireccionLinea: this.direccionInput.value.trim(),
-      vReferencia: this.referenciaInput.value.trim(),
-      vNombre: this.nombreProvInput.value.trim(),
-      vDni: this.dniProvInput.value.trim(),
-      vAgencia: this.agenciaProvInput.value.trim(),
-      vObservaciones: this.observacionesProvInput.value.trim(),
-      vCod_Dep: this.state.vCod_Dep,
-      vCod_Prov: this.state.vCod_Prov,
-      vCod_Dist: this.state.vCod_Dist,
-      Vubigeo: this.state.Vubigeo,
-      Vcodigo_puntoentrega: this.state.Vcodigo_puntoentrega,
-      vConcatenarpuntoentrega: this.state.vPuntoEntregaTexto || this.buildConcatenarPuntoEntrega(),
-      vRecibeNuevo: recibeNuevo,
-      vConcatenarnumrecibe: this.state.vConcatenarnumrecibe || this.buildConcatenarNumRecibe(),
-      vNumeroRecibe: this.state.vNumeroRecibe || this.numeroRecibeInput.value.trim(),
-      vNombreRecibe: this.state.vNombreRecibe || this.nombreRecibeInput.value.trim(),
-      vOrdinal_numrecibe: this.state.vOrdinal_numrecibe,
-      vTipo_documento_pago: this.state.vTipo_documento_pago,
-      vNumero_documento_pago: this.state.vNumero_documento_pago,
-      vCuentaBancaria: this.state.vCuentaBancaria,
-      vPagos: this.state.vPagos,
-      vCodigo_base: this.state.vCodigo_base
-    };
-
-    return payload;
-  }
-
-  clearInvalid(input) {
-    input.classList.remove('is-invalid');
-  }
-}
-
-const translations = {
+const i18n = {
   es: {
     tag: 'IaaS + PaaS Global',
     title: 'Pedidos',
-    subtitle: 'Wizard multi-paso para crear pedidos, facturas y entregas con trazabilidad total.',
+    subtitle: 'Wizard multi-paso para registrar pedidos, factura, entrega y pagos.',
     status: 'Estado del flujo',
-    statusHint: 'Completa el pedido para continuar.',
-    steps: '7 pasos',
-    step1Title: '1. Crear Pedido',
-    step1Subtitle: 'Registra cliente, fecha y detalle del pedido.',
-    required: 'Campos obligatorios marcados',
+    statusHint: 'Completa cada paso para emitir la factura.',
+    step1Title: '1. Seleccionar o crear cliente',
+    step1Subtitle: 'Define si trabajaras con un cliente existente o uno nuevo.',
+    step2Title: '2. Crear pedido',
+    step2Subtitle: 'Agrega productos, cantidades y precios.',
+    step3Title: '3. Crear factura',
+    step3Subtitle: 'Valida cantidades y montos de factura.',
+    step4Title: '4. Datos entrega',
+    step4Subtitle: 'Selecciona un punto existente o crea uno nuevo.',
+    step5Title: '5. Datos recibe',
+    step5Subtitle: 'Solo aplica para entregas en Lima.',
+    step6Title: '6. Registro de pago (recibo)',
+    step6Subtitle: 'Puedes registrar pagos parciales o dejar saldo pendiente.',
+    step7Title: '7. Asignar base',
+    step7Subtitle: 'Selecciona la base para la factura.',
+    step8Title: '8. Resumen y emitir factura',
+    step8Subtitle: 'Revisa toda la informacion antes de emitir.',
+    required: 'Requerido',
+    editable: 'Editable',
+    optional: 'Condicional',
+    clienteExistente: 'Cliente existente',
+    clienteNuevo: 'Cliente nuevo',
+    cliente: 'Cliente',
+    numero: 'Numero',
+    clienteNombre: 'Nombre',
+    clienteNumero: 'Numero',
     fechaPedido: 'Fecha pedido',
     horaPedido: 'Hora pedido',
-    cliente: 'Cliente',
-    detallePedido: 'Detalle del pedido',
+    codigoPedido: 'Codigo pedido',
     producto: 'Producto',
     cantidad: 'Cantidad',
     precioTotal: 'Precio total',
+    acciones: 'Acciones',
     agregarLinea: 'Agregar linea',
-    step2Title: '2. Crear Factura',
-    step2Subtitle: 'Ajusta cantidades a facturar y verifica totales.',
-    auto: 'Generado automaticamente',
     fechaEmision: 'Fecha emision',
     horaEmision: 'Hora emision',
-    tipoDoc: 'Tipo documento',
-    numeroDoc: 'Numero documento',
-    cantidadFactura: 'Cantidad factura',
-    saldoFactura: 'Saldo factura',
-    step3Title: '3. Datos Entrega',
-    step3Subtitle: 'Selecciona un punto existente o registra uno nuevo.',
-    entrega: 'Entrega',
-    existe: 'Existe',
-    nuevo: 'Nuevo',
-    puntoEntrega: 'Punto de entrega',
-    departamento: 'Departamento',
-    provincia: 'Provincia',
-    distrito: 'Distrito',
+    numeroFactura: 'Numero documento',
+    montoFactura: 'Monto factura',
+    entregaExistente: 'Existe',
+    entregaNuevo: 'Nuevo',
+    puntoEntrega: 'Punto entrega',
+    regionEntrega: 'Region entrega',
     direccion: 'Direccion',
     referencia: 'Referencia',
     nombre: 'Nombre',
     dni: 'DNI',
     agencia: 'Agencia',
     observaciones: 'Observaciones',
-    step4Title: '4. Datos Recibe (solo LIMA)',
-    step4Subtitle: 'Define quien recibe en Lima Metropolitana.',
+    departamento: 'Departamento',
+    provincia: 'Provincia',
+    distrito: 'Distrito',
+    mapTitle: 'Mapa de entrega',
+    mapSubtitle: 'Selecciona el punto exacto en Lima.',
+    mapHint: 'Click para geocodificar',
+    latitud: 'Latitud',
+    longitud: 'Longitud',
+    recibeExistente: 'Existe',
+    recibeNuevo: 'Nuevo',
     recibe: 'Recibe',
-    numero: 'Numero',
-    step5Title: '5. Registro de Pago (Recibo)',
-    step5Subtitle: 'Registra pagos parciales o deja pendiente.',
+    numeroRecibe: 'Numero',
+    nombreRecibe: 'Nombre',
     cuenta: 'Cuenta bancaria',
+    banco: 'Banco',
     montoPendiente: 'Monto pendiente',
     montoPago: 'Monto pago',
-    agregarPago: 'Agregar pago',
-    pagoHint: 'Puedes dejar el monto en 0 si no deseas registrar pago.',
+    registrarPago: 'Registrar pago',
+    numeroDocumento: 'Numero documento',
     monto: 'Monto',
-    step6Title: '6. Asignar Base',
-    step6Subtitle: 'Define la base operativa y prepara el JSON del detalle.',
     base: 'Base',
-    jsonDetalle: 'JSON detalle',
-    step7Title: '7. Resumen y Emitir Factura',
-    step7Subtitle: 'Confirma la operacion y emite la factura.',
-    resumen: 'Resumen',
-    resumenPedido: 'Pedido',
-    resumenFactura: 'Factura',
-    resumenEntrega: 'Entrega',
-    resumenRecibe: 'Recibe',
-    confirm: 'Confirmo la operacion.',
-    emitir: 'Emitir Factura',
+    basesCandidatas: 'Bases candidatas',
+    confirm: 'Confirmar operacion',
+    confirmText: 'Confirmo la operacion.',
+    emitirFactura: 'Emitir factura',
     prev: 'Anterior',
-    next: 'Siguiente',
-    finish: 'Finalizar',
-    remove: 'Eliminar',
-    region: 'Region',
-    banco: 'Banco',
-    numeroCliente: 'Numero cliente',
-    codigoPedido: 'Codigo pedido',
-    tipoPunto: 'Punto',
-    tipoRecibe: 'Recibe',
-    existente: 'EXISTENTE',
-    noAplica: 'No aplica',
-    loading: 'Cargando datos...',
-    emitiendo: 'Emitendo factura...',
-    success: 'Factura emitida correctamente.',
-    errors: {
-      general: 'Ocurrio un error inesperado.',
-      cliente: 'Selecciona un cliente valido.',
-      detallePedido: 'Agrega al menos una linea de pedido.',
-      producto: 'Selecciona un producto valido.',
-      cantidad: 'Cantidad invalida. Use hasta 2 decimales.',
-      precio: 'Precio invalido. Use hasta 2 decimales.',
-      cantidadFactura: 'Cantidad de factura invalida.',
-      cantidadFacturaExcede: 'La cantidad de factura excede el pedido.',
-      puntoEntrega: 'Selecciona un punto de entrega.',
-      ubigeo: 'Selecciona departamento, provincia y distrito.',
-      direccion: 'Direccion requerida para Lima.',
-      nombre: 'Nombre invalido.',
-      dni: 'DNI invalido.',
-      recibe: 'Selecciona un registro de recibe.',
-      recibeNuevo: 'Completa numero y nombre de recibe.',
-      pago: 'Completa cuenta y monto valido.',
-      pagoFormato: 'Monto invalido.',
-      pagoVacio: 'El monto debe ser mayor a 0.',
-      pagoMayor: 'El pago no puede superar el pendiente.',
-      cuenta: 'Selecciona una cuenta bancaria.',
-      base: 'Selecciona una base.',
-      confirm: 'Debes confirmar la operacion.'
-    }
+    next: 'Siguiente'
   },
   en: {
     tag: 'Global IaaS + PaaS',
     title: 'Orders',
-    subtitle: 'Multi-step wizard to create orders, invoices, and deliveries with full traceability.',
+    subtitle: 'Multi-step wizard to register orders, invoices, delivery, and payments.',
     status: 'Flow status',
-    statusHint: 'Complete the order to continue.',
-    steps: '7 steps',
-    step1Title: '1. Create Order',
-    step1Subtitle: 'Capture client, date, and order details.',
-    required: 'Required fields marked',
+    statusHint: 'Complete each step to issue the invoice.',
+    step1Title: '1. Select or create client',
+    step1Subtitle: 'Choose an existing client or create a new one.',
+    step2Title: '2. Create order',
+    step2Subtitle: 'Add products, quantities, and totals.',
+    step3Title: '3. Create invoice',
+    step3Subtitle: 'Validate invoice quantities and totals.',
+    step4Title: '4. Delivery data',
+    step4Subtitle: 'Pick an existing point or create a new one.',
+    step5Title: '5. Receiver data',
+    step5Subtitle: 'Applies only to Lima deliveries.',
+    step6Title: '6. Payment record (receipt)',
+    step6Subtitle: 'Register partial payments or leave a balance.',
+    step7Title: '7. Assign base',
+    step7Subtitle: 'Select the base for the invoice.',
+    step8Title: '8. Summary and issue invoice',
+    step8Subtitle: 'Review all information before issuing.',
+    required: 'Required',
+    editable: 'Editable',
+    optional: 'Conditional',
+    clienteExistente: 'Existing client',
+    clienteNuevo: 'New client',
+    cliente: 'Client',
+    numero: 'Number',
+    clienteNombre: 'Name',
+    clienteNumero: 'Number',
     fechaPedido: 'Order date',
     horaPedido: 'Order time',
-    cliente: 'Client',
-    detallePedido: 'Order detail',
+    codigoPedido: 'Order code',
     producto: 'Product',
     cantidad: 'Quantity',
     precioTotal: 'Total price',
-    agregarLinea: 'Add line',
-    step2Title: '2. Create Invoice',
-    step2Subtitle: 'Adjust quantities and verify totals.',
-    auto: 'Auto generated',
+    acciones: 'Actions',
+    agregarLinea: 'Add row',
     fechaEmision: 'Issue date',
     horaEmision: 'Issue time',
-    tipoDoc: 'Document type',
-    numeroDoc: 'Document number',
-    cantidadFactura: 'Invoice quantity',
-    saldoFactura: 'Invoice balance',
-    step3Title: '3. Delivery Data',
-    step3Subtitle: 'Select an existing delivery point or register a new one.',
-    entrega: 'Delivery',
-    existe: 'Existing',
-    nuevo: 'New',
+    numeroFactura: 'Document number',
+    montoFactura: 'Invoice total',
+    entregaExistente: 'Existing',
+    entregaNuevo: 'New',
     puntoEntrega: 'Delivery point',
-    departamento: 'Department',
-    provincia: 'Province',
-    distrito: 'District',
+    regionEntrega: 'Delivery region',
     direccion: 'Address',
     referencia: 'Reference',
     nombre: 'Name',
     dni: 'ID',
     agencia: 'Agency',
     observaciones: 'Notes',
-    step4Title: '4. Receiver (LIMA only)',
-    step4Subtitle: 'Define who receives in Lima.',
+    departamento: 'Department',
+    provincia: 'Province',
+    distrito: 'District',
+    mapTitle: 'Delivery map',
+    mapSubtitle: 'Pick the exact point in Lima.',
+    mapHint: 'Click to geocode',
+    latitud: 'Latitude',
+    longitud: 'Longitude',
+    recibeExistente: 'Existing',
+    recibeNuevo: 'New',
     recibe: 'Receiver',
-    numero: 'Number',
-    step5Title: '5. Payment Receipt',
-    step5Subtitle: 'Register partial payments or leave pending.',
+    numeroRecibe: 'Number',
+    nombreRecibe: 'Name',
     cuenta: 'Bank account',
+    banco: 'Bank',
     montoPendiente: 'Pending amount',
     montoPago: 'Payment amount',
-    agregarPago: 'Add payment',
-    pagoHint: 'Set to 0 if you do not want to register a payment.',
+    registrarPago: 'Add payment',
+    numeroDocumento: 'Document number',
     monto: 'Amount',
-    step6Title: '6. Assign Base',
-    step6Subtitle: 'Define the operational base and JSON detail.',
     base: 'Base',
-    jsonDetalle: 'JSON detail',
-    step7Title: '7. Summary and Issue Invoice',
-    step7Subtitle: 'Confirm the operation and issue the invoice.',
-    resumen: 'Summary',
-    resumenPedido: 'Order',
-    resumenFactura: 'Invoice',
-    resumenEntrega: 'Delivery',
-    resumenRecibe: 'Receiver',
-    confirm: 'I confirm the operation.',
-    emitir: 'Issue Invoice',
+    basesCandidatas: 'Candidate bases',
+    confirm: 'Confirm operation',
+    confirmText: 'I confirm the operation.',
+    emitirFactura: 'Issue invoice',
     prev: 'Previous',
-    next: 'Next',
-    finish: 'Finish',
-    remove: 'Remove',
-    region: 'Region',
-    banco: 'Bank',
-    numeroCliente: 'Client number',
-    codigoPedido: 'Order code',
-    tipoPunto: 'Delivery point',
-    tipoRecibe: 'Receiver',
-    existente: 'EXISTING',
-    noAplica: 'Not applicable',
-    loading: 'Loading data...',
-    emitiendo: 'Issuing invoice...',
-    success: 'Invoice issued successfully.',
-    errors: {
-      general: 'Unexpected error occurred.',
-      cliente: 'Select a valid client.',
-      detallePedido: 'Add at least one order line.',
-      producto: 'Select a valid product.',
-      cantidad: 'Invalid quantity. Use up to 2 decimals.',
-      precio: 'Invalid price. Use up to 2 decimals.',
-      cantidadFactura: 'Invalid invoice quantity.',
-      cantidadFacturaExcede: 'Invoice quantity exceeds the order.',
-      puntoEntrega: 'Select a delivery point.',
-      ubigeo: 'Select department, province, and district.',
-      direccion: 'Address required for Lima.',
-      nombre: 'Invalid name.',
-      dni: 'Invalid ID.',
-      recibe: 'Select a receiver entry.',
-      recibeNuevo: 'Complete receiver number and name.',
-      pago: 'Provide a valid account and amount.',
-      pagoFormato: 'Invalid amount format.',
-      pagoVacio: 'Amount must be greater than 0.',
-      pagoMayor: 'Payment cannot exceed pending amount.',
-      cuenta: 'Select a bank account.',
-      base: 'Select a base.',
-      confirm: 'You must confirm the operation.'
-    }
+    next: 'Next'
   }
 };
 
-new FormWizard();
+function applyLanguage() {
+  const lang = navigator.language && navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en';
+  const dict = i18n[lang];
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) {
+      el.textContent = dict[key];
+    }
+  });
+}
+
+function showAlert(message, type = 'danger') {
+  const alertArea = document.getElementById('alertArea');
+  const wrapper = document.createElement('div');
+  wrapper.className = `alert alert-${type}`;
+  wrapper.textContent = message;
+  alertArea.innerHTML = '';
+  alertArea.appendChild(wrapper);
+}
+
+function clearAlert() {
+  const alertArea = document.getElementById('alertArea');
+  alertArea.innerHTML = '';
+}
+
+function setLoading(isLoading, message = 'Cargando...') {
+  const loading = document.getElementById('loadingState');
+  if (isLoading) {
+    loading.textContent = message;
+    loading.classList.add('active');
+  } else {
+    loading.classList.remove('active');
+    loading.textContent = '';
+  }
+}
+
+function formatNumber(value) {
+  const num = Number(value || 0);
+  return num.toFixed(2);
+}
+
+function fetchJson(url, options) {
+  return fetch(url, options).then((res) => {
+    if (!res.ok) {
+      return res.json().then((data) => Promise.reject(new Error(data.message || 'Error')));
+    }
+    return res.json();
+  });
+}
+
+function setProgress(step) {
+  const progress = document.getElementById('progressBar');
+  const badge = document.getElementById('stepBadge');
+  const percent = Math.round((step / state.totalSteps) * 100);
+  progress.style.width = `${percent}%`;
+  badge.textContent = `Paso ${step}/${state.totalSteps}`;
+}
+
+function updateRegionBadge() {
+  const badge = document.getElementById('regionBadge');
+  badge.textContent = `Region: ${state.regionEntrega || '-'}`;
+}
+
+function togglePanels() {
+  document.getElementById('clienteExistentePanel').classList.toggle('hidden', state.clienteModo !== 'existente');
+  document.getElementById('clienteNuevoPanel').classList.toggle('hidden', state.clienteModo !== 'nuevo');
+  document.getElementById('entregaExistentePanel').classList.toggle('hidden', state.entregaModo !== 'existente');
+  document.getElementById('entregaNuevoPanel').classList.toggle('hidden', state.entregaModo !== 'nuevo');
+  document.getElementById('recibeExistentePanel').classList.toggle('hidden', state.recibeModo !== 'existente');
+  document.getElementById('recibeNuevoPanel').classList.toggle('hidden', state.recibeModo !== 'nuevo');
+}
+
+function renderClientes() {
+  const list = document.getElementById('clientesList');
+  list.innerHTML = '';
+  state.clientes.forEach((cliente) => {
+    const option = document.createElement('option');
+    option.value = cliente.nombre;
+    list.appendChild(option);
+  });
+}
+
+function renderProductos() {
+  const list = document.getElementById('productosList');
+  if (!list) {
+    const datalist = document.createElement('datalist');
+    datalist.id = 'productosList';
+    document.body.appendChild(datalist);
+  }
+  const datalist = document.getElementById('productosList');
+  datalist.innerHTML = '';
+  state.productos.forEach((producto) => {
+    const option = document.createElement('option');
+    option.value = producto.nombre;
+    datalist.appendChild(option);
+  });
+}
+
+function renderPuntosEntrega() {
+  const list = document.getElementById('puntosEntregaList');
+  list.innerHTML = '';
+  state.puntosEntrega.forEach((punto) => {
+    const option = document.createElement('option');
+    option.value = punto.concatenarpuntoentrega;
+    list.appendChild(option);
+  });
+  const hasPuntos = state.puntosEntrega.length > 0;
+  const option = document.getElementById('entregaExistenteOption');
+  option.classList.toggle('hidden', !hasPuntos);
+  if (!hasPuntos) {
+    document.getElementById('entregaNuevo').checked = true;
+    state.entregaModo = 'nuevo';
+  }
+  togglePanels();
+}
+
+function renderDepartamentos() {
+  const list = document.getElementById('departamentosList');
+  list.innerHTML = '';
+  state.departamentos.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.departamento;
+    list.appendChild(option);
+  });
+}
+
+function renderProvincias() {
+  const list = document.getElementById('provinciasList');
+  list.innerHTML = '';
+  state.provincias.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.provincia;
+    list.appendChild(option);
+  });
+}
+
+function renderDistritos() {
+  const list = document.getElementById('distritosList');
+  list.innerHTML = '';
+  state.distritos.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.distrito;
+    list.appendChild(option);
+  });
+}
+
+function renderNumrecibe() {
+  const list = document.getElementById('recibeList');
+  list.innerHTML = '';
+  state.numrecibe.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.concatenarnumrecibe;
+    list.appendChild(option);
+  });
+  const hasRecibe = state.numrecibe.length > 0;
+  const option = document.getElementById('recibeExistenteOption');
+  option.classList.toggle('hidden', !hasRecibe);
+  if (!hasRecibe) {
+    document.getElementById('recibeNuevo').checked = true;
+    state.recibeModo = 'nuevo';
+  }
+  togglePanels();
+}
+
+function renderCuentas() {
+  const list = document.getElementById('cuentasList');
+  list.innerHTML = '';
+  state.cuentas.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.nombre;
+    list.appendChild(option);
+  });
+}
+
+function renderBases() {
+  const list = document.getElementById('basesList');
+  list.innerHTML = '';
+  const combined = [...state.basesCandidatas, ...state.bases];
+  const seen = new Set();
+  combined.forEach((item) => {
+    if (seen.has(item.codigo_base)) return;
+    const option = document.createElement('option');
+    option.value = item.nombre || String(item.codigo_base);
+    list.appendChild(option);
+    seen.add(item.codigo_base);
+  });
+  const container = document.getElementById('basesCandidatas');
+  container.innerHTML = '';
+  state.basesCandidatas.forEach((item) => {
+    const pill = document.createElement('div');
+    pill.className = 'candidate-pill';
+    pill.textContent = `Base ${item.codigo_base} (${item.latitud}, ${item.longitud})`;
+    container.appendChild(pill);
+  });
+}
+
+function addPedidoRow(prefill = {}) {
+  const rowId = Date.now() + Math.random();
+  const row = {
+    id: rowId,
+    productoCodigo: prefill.productoCodigo || '',
+    productoNombre: prefill.productoNombre || '',
+    cantidad: prefill.cantidad || '',
+    precioTotal: prefill.precioTotal || ''
+  };
+  state.pedidoDetalle.push(row);
+  renderPedido();
+}
+
+function renderPedido() {
+  const tbody = document.getElementById('pedidoBody');
+  tbody.innerHTML = '';
+  state.pedidoDetalle.forEach((row, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input class="form-control" list="productosList" value="${row.productoNombre}" data-row="${row.id}" data-field="producto" placeholder="Producto" />
+      </td>
+      <td>
+        <input class="form-control" value="${row.cantidad}" data-row="${row.id}" data-field="cantidad" placeholder="0.00" />
+      </td>
+      <td>
+        <input class="form-control" value="${row.precioTotal}" data-row="${row.id}" data-field="precio" placeholder="0.00" />
+      </td>
+      <td>
+        <button class="btn btn-outline-light btn-sm" type="button" data-action="remove" data-row="${row.id}">Eliminar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderFactura() {
+  const tbody = document.getElementById('facturaBody');
+  tbody.innerHTML = '';
+  state.facturaDetalle.forEach((row) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.productoNombre}</td>
+      <td>
+        <input class="form-control" value="${row.cantidad}" data-row="${row.id}" data-field="cantidad-factura" />
+      </td>
+      <td>${formatNumber(row.precioTotal)}</td>
+      <td>
+        <button class="btn btn-outline-light btn-sm" type="button" data-action="remove-factura" data-row="${row.id}">Eliminar</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('montoFactura').textContent = formatNumber(getFacturaMonto());
+  const pagosTotal = state.pagos.reduce((sum, pago) => sum + Number(pago.monto || 0), 0);
+  const pendiente = Math.max(getFacturaMonto() - pagosTotal, 0);
+  document.getElementById('montoPendiente').value = formatNumber(pendiente);
+  if (pagosTotal === 0) {
+    document.getElementById('montoPago').value = formatNumber(pendiente);
+  }
+}
+
+function renderPagos() {
+  const tbody = document.getElementById('pagosBody');
+  tbody.innerHTML = '';
+  state.pagos.forEach((pago) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${pago.numdocumento}</td>
+      <td>${formatNumber(pago.monto)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getFacturaMonto() {
+  return state.facturaDetalle.reduce((sum, row) => sum + Number(row.precioTotal || 0), 0);
+}
+
+function syncFacturaFromPedido() {
+  const map = new Map();
+  state.facturaDetalle.forEach((row) => map.set(row.productoCodigo, row));
+  state.facturaDetalle = state.pedidoDetalle.map((row) => {
+    const existing = map.get(row.productoCodigo) || {};
+    const cantidad = existing.cantidad || row.cantidad;
+    const precioUnitario = Number(row.precioTotal || 0) / Number(row.cantidad || 1);
+    const precioTotal = precioUnitario * Number(cantidad || 0);
+    return {
+      id: row.id,
+      productoCodigo: row.productoCodigo,
+      productoNombre: row.productoNombre,
+      cantidad,
+      precioUnitario,
+      precioTotal,
+      maxCantidad: row.cantidad
+    };
+  });
+  renderFactura();
+  if (state.pagos.length === 0) {
+    document.getElementById('montoPendiente').value = formatNumber(getFacturaMonto());
+    document.getElementById('montoPago').value = formatNumber(getFacturaMonto());
+  }
+}
+
+function updateRegionPanels() {
+  const region = state.regionEntrega;
+  const limaPanel = document.getElementById('entregaLimaPanel');
+  const provPanel = document.getElementById('entregaProvPanel');
+  const provNuevoPanel = document.getElementById('entregaProvNuevoPanel');
+  if (region === 'LIMA') {
+    limaPanel.classList.remove('hidden');
+    provPanel.classList.add('hidden');
+    provNuevoPanel.classList.add('hidden');
+  } else if (region === 'PROV') {
+    limaPanel.classList.add('hidden');
+    provPanel.classList.remove('hidden');
+    provNuevoPanel.classList.remove('hidden');
+  } else {
+    limaPanel.classList.add('hidden');
+    provPanel.classList.add('hidden');
+    provNuevoPanel.classList.add('hidden');
+  }
+  updateRegionBadge();
+}
+
+function computeRegion(codDep, codProv) {
+  if (codDep === '15' && codProv === '01') {
+    return 'LIMA';
+  }
+  if (codDep && codProv) {
+    return 'PROV';
+  }
+  return null;
+}
+
+function buildConcatenarPunto(entrega) {
+  if (entrega.region_entrega === 'LIMA') {
+    const parts = [entrega.direccion_linea, entrega.distrito];
+    if (entrega.referencia) parts.push(entrega.referencia);
+    return parts.filter(Boolean).join(' | ');
+  }
+  const parts = [entrega.nombre, entrega.dni, entrega.agencia, entrega.observaciones];
+  return parts.filter(Boolean).join(' | ');
+}
+
+function buildConcatenarRecibe(recibe) {
+  return [recibe.numero, recibe.nombre].filter(Boolean).join(' | ');
+}
+
+function initMap() {
+  if (state.mapsReady || !state.config.googleMapsKey) return;
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${state.config.googleMapsKey}&libraries=places`;
+  script.async = true;
+  script.onload = () => {
+    state.mapsReady = true;
+    state.map = new google.maps.Map(document.getElementById('map'), {
+      center: state.config.mapCenter,
+      zoom: state.config.mapZoom
+    });
+    state.geocoder = new google.maps.Geocoder();
+    state.map.addListener('click', (event) => {
+      const lat = event.latLng.lat();
+      const lng = event.latLng.lng();
+      document.getElementById('latitud').value = lat.toFixed(6);
+      document.getElementById('longitud').value = lng.toFixed(6);
+      state.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          document.getElementById('direccionLineaNuevo').value = results[0].formatted_address;
+        }
+      });
+    });
+  };
+  script.onerror = () => showAlert('No se pudo cargar Google Maps.');
+  document.head.appendChild(script);
+}
+
+function updateSummary() {
+  const summary = document.getElementById('summary');
+  const clienteNombre = state.clienteModo === 'existente'
+    ? document.getElementById('clienteSelect').value
+    : document.getElementById('clienteNombreNuevo').value;
+  const pedidoItems = state.pedidoDetalle.map((row) => `<li>${row.productoNombre} - ${row.cantidad} - ${row.precioTotal}</li>`).join('');
+  const facturaItems = state.facturaDetalle.map((row) => `<li>${row.productoNombre} - ${row.cantidad} - ${formatNumber(row.precioTotal)}</li>`).join('');
+  const entregaModo = state.entregaModo === 'existente' ? 'EXISTENTE' : 'NUEVO';
+  const recibeModo = state.recibeModo === 'existente' ? 'EXISTENTE' : 'NUEVO';
+  const region = state.regionEntrega || '-';
+  summary.innerHTML = `
+    <h4>Cliente</h4>
+    <p>${clienteNombre}</p>
+    <h4>Pedido</h4>
+    <ul>${pedidoItems}</ul>
+    <h4>Factura</h4>
+    <ul>${facturaItems}</ul>
+    <p><strong>Monto:</strong> ${formatNumber(getFacturaMonto())}</p>
+    <h4>Entrega</h4>
+    <p>Modo: ${entregaModo} | Region: ${region}</p>
+    <h4>Recibe</h4>
+    <p>Modo: ${recibeModo}</p>
+  `;
+}
+
+function nextStep() {
+  clearAlert();
+  if (!validateStep(state.step)) return;
+  let next = state.step + 1;
+  if (next === 5 && state.regionEntrega !== 'LIMA') {
+    next = 6;
+  }
+  if (next > state.totalSteps) return;
+  goToStep(next);
+}
+
+function prevStep() {
+  clearAlert();
+  let prev = state.step - 1;
+  if (prev === 5 && state.regionEntrega !== 'LIMA') {
+    prev = 4;
+  }
+  if (prev < 1) return;
+  goToStep(prev);
+}
+
+function goToStep(step) {
+  document.querySelectorAll('.step').forEach((section) => {
+    section.classList.toggle('active', Number(section.dataset.step) === step);
+  });
+  state.step = step;
+  setProgress(step);
+  if (step === 3) {
+    syncFacturaFromPedido();
+    document.getElementById('fechaEmision').value = document.getElementById('fechaPedido').value;
+    document.getElementById('horaEmision').value = document.getElementById('horaPedido').value;
+  }
+  if (step === 4) {
+    initMap();
+    if (state.clienteModo === 'nuevo') {
+      loadNextPuntoEntrega(state.nextCodigoCliente);
+    }
+  }
+  if (step === 7) {
+    loadBasesCandidatas();
+  }
+  if (step === 8) {
+    updateSummary();
+  }
+}
+
+function validateStep(step) {
+  if (step === 1) {
+    if (state.clienteModo === 'existente') {
+      const nombre = document.getElementById('clienteSelect').value.trim();
+      const cliente = state.clientes.find((item) => item.nombre === nombre);
+      if (!cliente) {
+        showAlert('Selecciona un cliente existente.');
+        return false;
+      }
+    } else {
+      const nombre = document.getElementById('clienteNombreNuevo').value.trim();
+      const numero = document.getElementById('clienteNumeroNuevo').value.trim();
+      if (!nombre || !numero) {
+        showAlert('Completa nombre y numero del cliente.');
+        return false;
+      }
+      if (!state.nextCodigoCliente) {
+        showAlert('No se pudo calcular el codigo del cliente nuevo.');
+        return false;
+      }
+    }
+  }
+  if (step === 2) {
+    if (state.pedidoDetalle.length === 0) {
+      showAlert('Agrega al menos una linea al pedido.');
+      return false;
+    }
+    for (const row of state.pedidoDetalle) {
+      if (!row.productoCodigo || !row.productoNombre) {
+        showAlert('Selecciona un producto valido.');
+        return false;
+      }
+      if (!decimalRegex.test(String(row.cantidad)) || Number(row.cantidad) <= 0) {
+        showAlert('Cantidad invalida.');
+        return false;
+      }
+      if (!decimalRegex.test(String(row.precioTotal)) || Number(row.precioTotal) <= 0) {
+        showAlert('Precio total invalido.');
+        return false;
+      }
+    }
+  }
+  if (step === 3) {
+    for (const row of state.facturaDetalle) {
+      if (Number(row.cantidad) > Number(row.maxCantidad)) {
+        showAlert('La cantidad facturada no puede superar la cantidad del pedido.');
+        return false;
+      }
+    }
+  }
+  if (step === 4) {
+    if (state.entregaModo === 'existente') {
+      const texto = document.getElementById('puntoEntregaSelect').value.trim();
+      const punto = state.puntosEntrega.find((item) => item.concatenarpuntoentrega === texto);
+      if (!punto) {
+        showAlert('Selecciona un punto de entrega existente.');
+        return false;
+      }
+    } else {
+      const dep = document.getElementById('departamentoSelect').value.trim();
+      const prov = document.getElementById('provinciaSelect').value.trim();
+      const dist = document.getElementById('distritoSelect').value.trim();
+      if (!dep || !prov || !dist) {
+        showAlert('Selecciona ubigeo completo.');
+        return false;
+      }
+      if (!state.nextPuntoEntrega) {
+        showAlert('No se pudo calcular el codigo del punto de entrega.');
+        return false;
+      }
+      if (state.regionEntrega === 'LIMA') {
+        const dir = document.getElementById('direccionLineaNuevo').value.trim();
+        if (!dir) {
+          showAlert('La direccion es requerida.');
+          return false;
+        }
+      } else {
+        const nombre = document.getElementById('entregaNombreNuevo').value.trim();
+        if (!nombre) {
+          showAlert('El nombre es requerido para entregas en provincia.');
+          return false;
+        }
+      }
+    }
+  }
+  if (step === 5 && state.regionEntrega === 'LIMA') {
+    if (state.recibeModo === 'existente') {
+      const texto = document.getElementById('recibeSelect').value.trim();
+      const item = state.numrecibe.find((rec) => rec.concatenarnumrecibe === texto);
+      if (!item) {
+        showAlert('Selecciona un recibe existente.');
+        return false;
+      }
+    } else {
+      const numero = document.getElementById('recibeNumeroNuevo').value.trim();
+      if (!numero) {
+        showAlert('Numero de recibe requerido.');
+        return false;
+      }
+    }
+  }
+  if (step === 6) {
+    if (state.pagos.length > 0 && !document.getElementById('cuentaSelect').value.trim()) {
+      showAlert('Selecciona cuenta bancaria para registrar pagos.');
+      return false;
+    }
+  }
+  if (step === 7) {
+    const baseNombre = document.getElementById('baseSelect').value.trim();
+    const base = state.bases.find((item) => item.nombre === baseNombre) || state.basesCandidatas.find((item) => item.codigo_base && String(item.codigo_base) === baseNombre);
+    if (!base) {
+      showAlert('Selecciona una base valida.');
+      return false;
+    }
+  }
+  if (step === 8) {
+    if (!document.getElementById('confirmCheck').checked) {
+      showAlert('Debes confirmar la operacion.');
+      return false;
+    }
+  }
+  return true;
+}
+
+function attachEvents() {
+  document.getElementById('prevBtn').addEventListener('click', prevStep);
+  document.getElementById('nextBtn').addEventListener('click', nextStep);
+  document.getElementById('emitirBtn').addEventListener('click', emitirFactura);
+
+  document.querySelectorAll('input[name="clienteModo"]').forEach((radio) => {
+    radio.addEventListener('change', (event) => {
+      state.clienteModo = event.target.value;
+      togglePanels();
+      if (state.clienteModo === 'nuevo' && !state.nextCodigoCliente) {
+        loadNextCodigoCliente();
+      }
+    });
+  });
+
+  document.querySelectorAll('input[name="entregaModo"]').forEach((radio) => {
+    radio.addEventListener('change', (event) => {
+      state.entregaModo = event.target.value;
+      togglePanels();
+      if (state.entregaModo === 'nuevo') {
+        initMap();
+      }
+    });
+  });
+
+  document.querySelectorAll('input[name="recibeModo"]').forEach((radio) => {
+    radio.addEventListener('change', (event) => {
+      state.recibeModo = event.target.value;
+      togglePanels();
+      if (state.recibeModo === 'nuevo') {
+        loadNextOrdinalRecibe();
+      }
+    });
+  });
+
+  document.getElementById('clienteSelect').addEventListener('change', handleClienteSelect);
+  document.getElementById('addPedidoRow').addEventListener('click', () => addPedidoRow());
+
+  document.getElementById('pedidoBody').addEventListener('input', (event) => {
+    const rowId = Number(event.target.dataset.row);
+    const field = event.target.dataset.field;
+    const row = state.pedidoDetalle.find((item) => item.id === rowId);
+    if (!row) return;
+    if (field === 'producto') {
+      row.productoNombre = event.target.value;
+      const producto = state.productos.find((item) => item.nombre === row.productoNombre);
+      if (producto) {
+        row.productoCodigo = producto.codigo_producto;
+      }
+    }
+    if (field === 'cantidad') {
+      row.cantidad = event.target.value;
+    }
+    if (field === 'precio') {
+      row.precioTotal = event.target.value;
+    }
+  });
+
+  document.getElementById('pedidoBody').addEventListener('click', (event) => {
+    if (event.target.dataset.action === 'remove') {
+      const rowId = Number(event.target.dataset.row);
+      state.pedidoDetalle = state.pedidoDetalle.filter((item) => item.id !== rowId);
+      renderPedido();
+    }
+  });
+
+  document.getElementById('facturaBody').addEventListener('input', (event) => {
+    const rowId = Number(event.target.dataset.row);
+    const field = event.target.dataset.field;
+    const row = state.facturaDetalle.find((item) => item.id === rowId);
+    if (!row) return;
+    if (field === 'cantidad-factura') {
+      row.cantidad = event.target.value;
+      const precioTotal = row.precioUnitario * Number(row.cantidad || 0);
+      row.precioTotal = precioTotal;
+      renderFactura();
+    }
+  });
+
+  document.getElementById('facturaBody').addEventListener('click', (event) => {
+    if (event.target.dataset.action === 'remove-factura') {
+      if (state.facturaDetalle.length <= 1) {
+        showAlert('Debe existir al menos una fila en la factura.');
+        return;
+      }
+      const rowId = Number(event.target.dataset.row);
+      state.facturaDetalle = state.facturaDetalle.filter((item) => item.id !== rowId);
+      renderFactura();
+    }
+  });
+
+  document.getElementById('puntoEntregaSelect').addEventListener('change', handlePuntoEntregaSelect);
+  document.getElementById('departamentoSelect').addEventListener('change', handleDepartamentoSelect);
+  document.getElementById('provinciaSelect').addEventListener('change', handleProvinciaSelect);
+  document.getElementById('distritoSelect').addEventListener('change', handleDistritoSelect);
+
+  document.getElementById('recibeSelect').addEventListener('change', handleRecibeSelect);
+
+  document.getElementById('cuentaSelect').addEventListener('change', handleCuentaSelect);
+  document.getElementById('addPago').addEventListener('click', addPago);
+
+  document.getElementById('baseSelect').addEventListener('change', handleBaseSelect);
+}
+
+function handleClienteSelect() {
+  const value = document.getElementById('clienteSelect').value.trim();
+  const cliente = state.clientes.find((item) => item.nombre === value);
+  if (cliente) {
+    document.getElementById('clienteNumero').value = cliente.numero;
+    loadPuntosEntrega(cliente.codigo_cliente);
+    loadNumrecibe(cliente.codigo_cliente);
+  }
+}
+
+function handlePuntoEntregaSelect() {
+  const value = document.getElementById('puntoEntregaSelect').value.trim();
+  const punto = state.puntosEntrega.find((item) => item.concatenarpuntoentrega === value);
+  if (!punto) return;
+  state.regionEntrega = punto.region_entrega;
+  document.getElementById('regionEntrega').value = punto.region_entrega || '';
+  document.getElementById('direccionLinea').value = punto.direccion_linea || '';
+  document.getElementById('referencia').value = punto.referencia || '';
+  document.getElementById('entregaNombre').value = punto.nombre || '';
+  document.getElementById('entregaDni').value = punto.dni || '';
+  document.getElementById('entregaAgencia').value = punto.agencia || '';
+  document.getElementById('entregaObservaciones').value = punto.observaciones || '';
+  updateRegionPanels();
+}
+
+function handleDepartamentoSelect() {
+  const value = document.getElementById('departamentoSelect').value.trim();
+  const dep = state.departamentos.find((item) => item.departamento === value);
+  if (!dep) return;
+  state.selectedCodDep = dep.cod_dep;
+  loadProvincias(dep.cod_dep);
+}
+
+function handleProvinciaSelect() {
+  const value = document.getElementById('provinciaSelect').value.trim();
+  const prov = state.provincias.find((item) => item.provincia === value);
+  if (!prov) return;
+  state.selectedCodProv = prov.cod_prov;
+  loadDistritos(state.selectedCodDep, prov.cod_prov);
+}
+
+function handleDistritoSelect() {
+  const value = document.getElementById('distritoSelect').value.trim();
+  const dist = state.distritos.find((item) => item.distrito === value);
+  if (!dist) return;
+  state.selectedCodDist = dist.cod_dist;
+  state.regionEntrega = computeRegion(state.selectedCodDep, state.selectedCodProv);
+  updateRegionPanels();
+}
+
+function handleRecibeSelect() {
+  const value = document.getElementById('recibeSelect').value.trim();
+  const item = state.numrecibe.find((rec) => rec.concatenarnumrecibe === value);
+  if (!item) return;
+  document.getElementById('recibeNumero').value = item.numero || '';
+}
+
+function handleCuentaSelect() {
+  const value = document.getElementById('cuentaSelect').value.trim();
+  const cuenta = state.cuentas.find((item) => item.nombre === value);
+  if (!cuenta) return;
+  document.getElementById('cuentaBanco').value = cuenta.banco || '';
+}
+
+function handleBaseSelect() {
+  const value = document.getElementById('baseSelect').value.trim();
+  const base = state.bases.find((item) => item.nombre === value);
+  const candidata = state.basesCandidatas.find((item) => String(item.codigo_base) === value);
+  if (base) state.selectedBase = base;
+  if (candidata) state.selectedBase = candidata;
+}
+
+function addPago() {
+  const pendiente = Number(document.getElementById('montoPendiente').value || 0);
+  if (pendiente <= 0) {
+    showAlert('El monto pendiente ya es 0.');
+    return;
+  }
+  const monto = Number(document.getElementById('montoPago').value || 0);
+  if (!monto || monto <= 0) {
+    showAlert('Monto de pago invalido.');
+    return;
+  }
+  if (monto > pendiente) {
+    showAlert('El monto de pago no puede superar el pendiente.');
+    return;
+  }
+  const cuentaNombre = document.getElementById('cuentaSelect').value.trim();
+  const cuenta = state.cuentas.find((item) => item.nombre === cuentaNombre);
+  if (!cuenta) {
+    showAlert('Selecciona una cuenta bancaria valida.');
+    return;
+  }
+  const numdocumento = (state.nextNumeroRecibo || 1) + state.pagos.length;
+  state.pagos.push({ numdocumento, monto, codigo_cuentabancaria: cuenta.codigo_cuentabancaria });
+  const nuevoPendiente = pendiente - monto;
+  document.getElementById('montoPendiente').value = formatNumber(nuevoPendiente);
+  document.getElementById('montoPago').value = formatNumber(nuevoPendiente);
+  if (nuevoPendiente <= 0) {
+    document.getElementById('montoPago').value = '0.00';
+  }
+  renderPagos();
+}
+
+async function loadConfig() {
+  const data = await fetchJson('/api/config');
+  state.config = data;
+}
+
+async function loadClientes() {
+  state.clientes = await fetchJson('/api/clientes');
+  renderClientes();
+}
+
+async function loadProductos() {
+  state.productos = await fetchJson('/api/productos');
+  renderProductos();
+}
+
+async function loadPuntosEntrega(codigoCliente) {
+  state.puntosEntrega = await fetchJson(`/api/puntos-entrega?cliente=${codigoCliente}`);
+  renderPuntosEntrega();
+  state.nextPuntoEntrega = null;
+  try {
+    const data = await fetchJson(`/api/puntos-entrega/next?cliente=${codigoCliente}`);
+    state.nextPuntoEntrega = data.next;
+  } catch (error) {
+    // ignore
+  }
+}
+
+async function loadNextPuntoEntrega(codigoCliente) {
+  if (!codigoCliente) return;
+  try {
+    const data = await fetchJson(`/api/puntos-entrega/next?cliente=${codigoCliente}`);
+    state.nextPuntoEntrega = data.next;
+  } catch (error) {
+    // ignore
+  }
+}
+
+async function loadDepartamentos() {
+  state.departamentos = await fetchJson('/api/ubigeo/departamentos');
+  renderDepartamentos();
+}
+
+async function loadProvincias(codDep) {
+  state.provincias = await fetchJson(`/api/ubigeo/provincias?cod_dep=${codDep}`);
+  renderProvincias();
+}
+
+async function loadDistritos(codDep, codProv) {
+  state.distritos = await fetchJson(`/api/ubigeo/distritos?cod_dep=${codDep}&cod_prov=${codProv}`);
+  renderDistritos();
+}
+
+async function loadNumrecibe(codigoCliente) {
+  state.numrecibe = await fetchJson(`/api/numrecibe?cliente=${codigoCliente}`);
+  renderNumrecibe();
+}
+
+async function loadCuentas() {
+  state.cuentas = await fetchJson('/api/cuentas-bancarias');
+  renderCuentas();
+}
+
+async function loadBases() {
+  state.bases = await fetchJson('/api/bases');
+  renderBases();
+}
+
+async function loadBasesCandidatas() {
+  const payload = {
+    items: state.facturaDetalle.map((row) => ({
+      vFProducto: row.productoCodigo,
+      vFCantidadProducto: Number(row.cantidad || 0),
+      vFPrecioTotal: Number(row.precioTotal || 0)
+    })),
+    fechaPedido: document.getElementById('fechaPedido').value + ' ' + document.getElementById('horaPedido').value
+  };
+  state.basesCandidatas = await fetchJson('/api/bases/candidatas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  renderBases();
+}
+
+async function loadNextCodigoCliente() {
+  const data = await fetchJson('/api/clientes/next');
+  state.nextCodigoCliente = data.next;
+}
+
+async function loadNextCodigoPedido() {
+  const data = await fetchJson('/api/pedidos/next');
+  state.nextCodigoPedido = data.next;
+  document.getElementById('codigoPedido').value = data.next;
+}
+
+async function loadNextNumeroFactura() {
+  const data = await fetchJson('/api/facturas/next');
+  state.nextNumeroFactura = data.next;
+  document.getElementById('numeroFactura').value = data.next;
+}
+
+async function loadNextNumeroRecibo() {
+  const data = await fetchJson('/api/recibos/next');
+  state.nextNumeroRecibo = data.next;
+}
+
+async function loadNextOrdinalRecibe() {
+  const clienteCodigo = getClienteCodigo();
+  if (!clienteCodigo) return;
+  const data = await fetchJson(`/api/numrecibe/next?cliente=${clienteCodigo}`);
+  state.nextOrdinalRecibe = data.next;
+}
+
+function getClienteCodigo() {
+  if (state.clienteModo === 'existente') {
+    const value = document.getElementById('clienteSelect').value.trim();
+    const cliente = state.clientes.find((item) => item.nombre === value);
+    return cliente ? cliente.codigo_cliente : null;
+  }
+  return state.nextCodigoCliente;
+}
+
+function buildPayload() {
+  const fechaPedido = document.getElementById('fechaPedido').value;
+  const horaPedido = document.getElementById('horaPedido').value;
+  const fechaP = `${fechaPedido} ${horaPedido}`;
+
+  const cliente = state.clienteModo === 'existente'
+    ? state.clientes.find((item) => item.nombre === document.getElementById('clienteSelect').value.trim())
+    : {
+        codigo_cliente: state.nextCodigoCliente,
+        nombre: document.getElementById('clienteNombreNuevo').value.trim(),
+        numero: document.getElementById('clienteNumeroNuevo').value.trim()
+      };
+
+  const entrega = buildEntregaPayload(cliente.codigo_cliente);
+  const recibe = buildRecibePayload(cliente.codigo_cliente);
+
+  const baseNombre = document.getElementById('baseSelect').value.trim();
+  const base = state.bases.find((item) => item.nombre === baseNombre) || state.basesCandidatas.find((item) => String(item.codigo_base) === baseNombre) || {};
+
+  return {
+    cliente: { modo: state.clienteModo, ...cliente },
+    pedido: {
+      codigo_pedido: state.nextCodigoPedido,
+      codigo_cliente: cliente.codigo_cliente,
+      fechaP,
+      detalle: state.pedidoDetalle.map((row, index) => ({
+        codigo_producto: row.productoCodigo,
+        cantidad: Number(row.cantidad),
+        precio_total: Number(row.precioTotal),
+        precio_unitario: Number(row.precioTotal) / Number(row.cantidad || 1),
+        ordinal: index + 1
+      }))
+    },
+    factura: {
+      tipo_documento: 'FAC',
+      numero_documento: state.nextNumeroFactura,
+      fechaP,
+      monto: getFacturaMonto(),
+      saldo: getFacturaMonto(),
+      detalle: state.facturaDetalle.map((row, index) => ({
+        codigo_producto: row.productoCodigo,
+        cantidad: Number(row.cantidad),
+        precio_total: Number(row.precioTotal),
+        ordinal: index + 1
+      }))
+    },
+    entrega,
+    recibe,
+    pagos: state.pagos,
+    base: {
+      codigo_base: base.codigo_base
+    }
+  };
+}
+
+function buildEntregaPayload(codigoCliente) {
+  if (state.entregaModo === 'existente') {
+    const punto = state.puntosEntrega.find((item) => item.concatenarpuntoentrega === document.getElementById('puntoEntregaSelect').value.trim());
+    return {
+      modo: 'existente',
+      codigo_puntoentrega: punto.codigo_puntoentrega,
+      codigo_cliente_puntoentrega: punto.codigo_cliente,
+      ubigeo: punto.ubigeo,
+      cod_dep: punto.cod_dep,
+      cod_prov: punto.cod_prov,
+      cod_dist: punto.cod_dist,
+      departamento: punto.departamento,
+      provincia: punto.provincia,
+      distrito: punto.distrito,
+      region_entrega: punto.region_entrega,
+      direccion_linea: punto.direccion_linea,
+      referencia: punto.referencia,
+      nombre: punto.nombre,
+      dni: punto.dni,
+      agencia: punto.agencia,
+      observaciones: punto.observaciones,
+      concatenarpuntoentrega: punto.concatenarpuntoentrega,
+      latitud: punto.latitud,
+      longitud: punto.longitud
+    };
+  }
+
+  const departamento = state.departamentos.find((item) => item.departamento === document.getElementById('departamentoSelect').value.trim()) || {};
+  const provincia = state.provincias.find((item) => item.provincia === document.getElementById('provinciaSelect').value.trim()) || {};
+  const distrito = state.distritos.find((item) => item.distrito === document.getElementById('distritoSelect').value.trim()) || {};
+
+  const region = computeRegion(departamento.cod_dep, provincia.cod_prov);
+  state.regionEntrega = region;
+  const entrega = {
+    modo: 'nuevo',
+    codigo_puntoentrega: state.nextPuntoEntrega,
+    codigo_cliente_puntoentrega: codigoCliente,
+    ubigeo: `${departamento.cod_dep || ''}${provincia.cod_prov || ''}${distrito.cod_dist || ''}`,
+    cod_dep: departamento.cod_dep,
+    cod_prov: provincia.cod_prov,
+    cod_dist: distrito.cod_dist,
+    departamento: departamento.departamento,
+    provincia: provincia.provincia,
+    distrito: distrito.distrito,
+    region_entrega: region,
+    direccion_linea: document.getElementById('direccionLineaNuevo').value.trim(),
+    referencia: document.getElementById('referenciaNuevo').value.trim(),
+    nombre: document.getElementById('entregaNombreNuevo').value.trim(),
+    dni: document.getElementById('entregaDniNuevo').value.trim(),
+    agencia: document.getElementById('entregaAgenciaNuevo').value.trim(),
+    observaciones: document.getElementById('entregaObservacionesNuevo').value.trim(),
+    latitud: document.getElementById('latitud').value.trim(),
+    longitud: document.getElementById('longitud').value.trim()
+  };
+  entrega.concatenarpuntoentrega = buildConcatenarPunto(entrega);
+  return entrega;
+}
+
+function buildRecibePayload(codigoCliente) {
+  if (state.regionEntrega !== 'LIMA') {
+    return { aplica: false };
+  }
+  if (state.recibeModo === 'existente') {
+    const item = state.numrecibe.find((rec) => rec.concatenarnumrecibe === document.getElementById('recibeSelect').value.trim());
+    return {
+      aplica: true,
+      modo: 'existente',
+      codigo_cliente_numrecibe: item.codigo_cliente_numrecibe,
+      ordinal_numrecibe: item.ordinal_numrecibe,
+      numero: item.numero,
+      nombre: item.nombre,
+      concatenarnumrecibe: item.concatenarnumrecibe
+    };
+  }
+  const recibe = {
+    aplica: true,
+    modo: 'nuevo',
+    codigo_cliente_numrecibe: codigoCliente,
+    ordinal_numrecibe: state.nextOrdinalRecibe,
+    numero: document.getElementById('recibeNumeroNuevo').value.trim(),
+    nombre: document.getElementById('recibeNombreNuevo').value.trim()
+  };
+  recibe.concatenarnumrecibe = buildConcatenarRecibe(recibe);
+  return recibe;
+}
+
+async function emitirFactura() {
+  if (!validateStep(8)) return;
+  try {
+    setLoading(true, 'Registrando factura...');
+    const payload = buildPayload();
+    await fetchJson('/api/emitir-factura', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    showAlert('Factura emitida correctamente.', 'success');
+  } catch (error) {
+    showAlert(error.message || 'Error al emitir la factura.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function init() {
+  applyLanguage();
+  setProgress(1);
+  updateRegionBadge();
+  togglePanels();
+  attachEvents();
+  try {
+    setLoading(true, 'Cargando datos...');
+    await loadConfig();
+    await Promise.all([
+      loadClientes(),
+      loadProductos(),
+      loadDepartamentos(),
+      loadCuentas(),
+      loadBases(),
+      loadNextCodigoPedido(),
+      loadNextNumeroFactura(),
+      loadNextNumeroRecibo()
+    ]);
+    const now = new Date();
+    document.getElementById('fechaPedido').value = now.toISOString().slice(0, 10);
+    document.getElementById('horaPedido').value = now.toTimeString().slice(0, 5);
+    addPedidoRow();
+    document.getElementById('montoPendiente').value = formatNumber(0);
+  } catch (error) {
+    showAlert(error.message || 'Error al cargar datos.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+init();

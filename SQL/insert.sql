@@ -1903,9 +1903,9 @@ INSERT INTO `ubigeo` (`ubigeo`, `cod_dep`, `cod_prov`, `cod_dist`, `departamento
   ('250307', '25', '03', '07', 'UCAYALI', 'PADRE ABAD', 'BOQUERON'),
   ('250401', '25', '04', '01', 'UCAYALI', 'PURUS', 'PURUS');
 INSERT INTO `clientes` (`nombre`, `numero`, `codigo_cliente`, `created_at`) VALUES
-  ('Juan Perez', 1, 1, '2026-01-12 22:07:43'),
-  ('Maria Gomez', 2, 2, '2026-01-12 22:07:43'),
-  ('Comercial San Martin', 3, 3, '2026-01-12 22:07:43');
+  ('Juan Perez', 51911111111, 1, '2026-01-12 22:07:43'),
+  ('Maria Gomez', 51922222222, 2, '2026-01-12 22:07:43'),
+  ('Comercial San Martin', 51933333333, 3, '2026-01-12 22:07:43');
 
 INSERT INTO `bases` (`nombre`, `codigo_base`, `created_at`, `latitud`, `longitud`, `direccion`) VALUES
   ('CUSCO', 1, '2026-01-10 16:58:30', -13.53195000, -71.96746000, 'Plaza de Armas, Cusco'),
@@ -2087,15 +2087,21 @@ INSERT INTO `numrecibe` (
   `concatenarnumrecibe`,
   `created_at`
 ) VALUES
-  ('+51911111111', 'Juan Perez', 1, 1, '+51911111111 | Juan Perez', '2026-01-10 16:43:24'),
-  ('+51922222222', 'Maria Gomez', 1, 2, '+51922222222 | Maria Gomez', '2026-01-10 16:43:24'),
-  ('+51933333333', 'Recepción', 2, 2, '+51933333333 | Recepción', '2026-01-10 16:43:24'),
-  ('+51944444444', 'Almacén', 1, 3, '+51944444444 | Almacén', '2026-01-10 16:43:24');
+  (51911111111, 'Juan Perez', 1, 1, '51911111111 | Juan Perez', '2026-01-10 16:43:24'),
+  (51922222222, 'Maria Gomez', 1, 2, '51922222222 | Maria Gomez', '2026-01-10 16:43:24'),
+  (51933333333, 'Recepción', 2, 2, '51933333333 | Recepción', '2026-01-10 16:43:24'),
+  (51944444444, 'Almacén', 1, 3, '51944444444 | Almacén', '2026-01-10 16:43:24');
 
 INSERT INTO `productos` (`nombre`, `codigo_producto`, `created_at`) VALUES
-  ('Producto 1', 1, '2026-01-12 22:30:22'),
-  ('Producto 2', 2, '2026-01-12 22:30:22'),
-  ('Producto 3', 3, '2026-01-12 22:30:22');
+  ('Stand MP', 1, '2026-01-12 22:30:22'),
+  ('Stand', 2, '2026-01-12 22:30:22'),
+  ('Maldi', 3, '2026-01-12 22:30:22'),
+  ('AK47', 4, '2026-01-12 22:30:22'),
+  ('Kosher', 5, '2026-01-12 22:30:22'),
+  ('VAI 96', 6, '2026-01-12 22:30:22'),
+  ('VAI 99', 7, '2026-01-12 22:30:22'),
+  ('Mush Normal', 8, '2026-01-12 22:30:22'),
+  ('Mush Catalogo', 9, '2026-01-12 22:30:22');
 -- Seed opcional: crea/actualiza saldo_stock (10) para todas las combinaciones base x producto
 -- Ajusta el multiplicador (1000000) si tus códigos de producto pueden ser >= 1,000,000.
 INSERT INTO saldo_stock
@@ -2123,10 +2129,9 @@ INSERT INTO `cuentas_bancarias` (`codigo_cuentabancaria`, `nombre`, `banco`, `cr
 -- entrada al modulo 2
 
 INSERT INTO `provedores` (`codigo_provedor`, `nombre`, `created_at`) VALUES
-  (0, 'Proveedor Generico', NOW()),
-  (2001, 'Proveedor Andino', NOW()),
-  (2002, 'Proveedor Pacifico', NOW()),
-  (2003, 'Proveedor Continental', NOW());
+  (1, 'David', NOW()),
+  (2, 'Hongos', NOW()),
+  (3, 'Mabel', NOW());
 
 
 -- etiquetas por defecto

@@ -7,7 +7,6 @@ const yaml = require('yaml');
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
-const REMITO_TIPO = 'REM';
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -116,6 +115,11 @@ async function runQuery(conn, sql, params) {
   return conn.query(sql, params);
 }
 
+function normalizeNumber(value) {
+  if (value === null || value === undefined || value === '') return NaN;
+  return Number(String(value).replace(',', '.'));
+}
+
 const app = express();
 app.use(express.json({ limit: '2mb' }));
 
@@ -126,22 +130,51 @@ app.use((req, res, next) => {
 
 app.use(express.static(ROOT_DIR));
 
-app.get('/api/now', (req, res) => {
-  const now = new Date();
-  res.json({
-    fecha: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  });
-});
-
 app.get('/api/facturas-pendientes', async (req, res) => {
   const sql = 'CALL get_facturascompras_pendientes()';
   try {
     const [resultSets] = await runQuery(req.app.locals.db, sql);
-    const rows = normalizeRows(resultSets).filter((row) => row.tipo_documento_compra === 'FCC');
-    res.json(rows);
+    let facturas = normalizeRows(resultSets) || [];
+    facturas = facturas.filter((factura) => factura.tipo_documento_compra === 'FCC');
+
+    const filtradas = [];
+    for (const factura of facturas) {
+      const detalleSql = 'CALL get_detalle_compra_por_documento(?, ?, ?)';
+      const [detailSets] = await runQuery(req.app.locals.db, detalleSql, [
+        factura.tipo_documento_compra,
+        factura.num_documento_compra,
+        factura.codigo_provedor
+      ]);
+      const detalles = normalizeRows(detailSets) || [];
+      const tienePendiente = detalles.some((item) => {
+        const cantidad = normalizeNumber(item.cantidad || 0);
+        const entregada = normalizeNumber(item.cantidad_entregada || 0);
+        return cantidad > entregada;
+      });
+      if (tienePendiente) {
+        filtradas.push(factura);
+      }
+    }
+
+    res.json(filtradas);
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
     res.status(500).json({ message: 'Error al cargar facturas pendientes.' });
+  }
+});
+
+app.get('/api/detalle-compra', async (req, res) => {
+  const { tipo, num, prov } = req.query;
+  if (!tipo || !num || !prov) {
+    return res.status(400).json({ message: 'Faltan parametros de factura.' });
+  }
+  const sql = 'CALL get_detalle_compra_por_documento(?, ?, ?)';
+  try {
+    const [resultSets] = await runQuery(req.app.locals.db, sql, [tipo, num, prov]);
+    res.json(normalizeRows(resultSets));
+  } catch (error) {
+    logLine(`ERROR: ${error.message}`);
+    res.status(500).json({ message: 'Error al cargar detalle de compra.' });
   }
 });
 
@@ -156,27 +189,32 @@ app.get('/api/bases', async (req, res) => {
   }
 });
 
-app.get('/api/remito/next-num', async (req, res) => {
+app.get('/api/next-numdocumento', async (req, res) => {
+  const tipo = req.query.tipo;
+  if (!tipo) {
+    return res.status(400).json({ message: 'Falta tipodocumentostock.' });
+  }
   const sql =
     'SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ?';
   try {
-    const [rows] = await runQuery(req.app.locals.db, sql, [REMITO_TIPO]);
+    const [rows] = await runQuery(req.app.locals.db, sql, [tipo]);
     res.json({ next: rows[0]?.next || 1 });
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al calcular numero de remito.' });
+    res.status(500).json({ message: 'Error al calcular numero de documento.' });
   }
 });
 
-app.get('/api/remito/next-ordinal', async (req, res) => {
+app.get('/api/next-ordinal', async (req, res) => {
+  const tipo = req.query.tipo;
   const num = req.query.num;
-  if (!num) {
-    return res.status(400).json({ message: 'Falta numero de remito.' });
+  if (!tipo || !num) {
+    return res.status(400).json({ message: 'Falta tipo o numero de documento.' });
   }
   const sql =
     'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
   try {
-    const [rows] = await runQuery(req.app.locals.db, sql, [REMITO_TIPO, num]);
+    const [rows] = await runQuery(req.app.locals.db, sql, [tipo, num]);
     res.json({ next: rows[0]?.next || 1 });
   } catch (error) {
     logLine(`ERROR: ${error.message}`);
@@ -184,55 +222,47 @@ app.get('/api/remito/next-ordinal', async (req, res) => {
   }
 });
 
-app.get('/api/detalle-compra', async (req, res) => {
-  const tipo = req.query.tipo;
-  const num = req.query.num;
-  const proveedor = req.query.proveedor;
-  if (!tipo || !num || !proveedor) {
-    return res.status(400).json({ message: 'Faltan parametros para detalle de compra.' });
-  }
-  const sql = 'CALL get_detalle_compra_por_documento(?, ?, ?)';
-  try {
-    const [resultSets] = await runQuery(req.app.locals.db, sql, [tipo, num, proveedor]);
-    res.json(normalizeRows(resultSets));
-  } catch (error) {
-    logLine(`ERROR: ${error.message}`);
-    res.status(500).json({ message: 'Error al cargar detalle de compra.' });
-  }
-});
-
-app.post('/api/registrar-remito', async (req, res) => {
+app.post('/api/remito', async (req, res) => {
   const payload = req.body || {};
   const detalles = Array.isArray(payload.vDetalleRemitoCompra) ? payload.vDetalleRemitoCompra : [];
-  const detallesValidos = detalles.filter(
-    (item) => item.vcodigo_producto && item.vOrdinalCompra !== undefined && Number(item.vCantidadDisponible || 0) > 0
-  );
 
   if (
+    !payload.vfecha ||
+    !payload.vTipo_documento_compra_remito ||
     !payload.vNum_documento_compra_remito ||
-    !payload.vFecha ||
     !payload.vCodigo_base ||
     !payload.vTipo_documento_compra_origen ||
     !payload.vNum_documento_compra_origen ||
-    !payload.vCodigo_provedor ||
-    !detallesValidos.length
+    !payload.vCodigo_provedor
   ) {
-    return res.status(400).json({ message: 'Faltan datos para registrar el remito.' });
+    return res.status(400).json({ message: 'Datos incompletos para registrar remito.' });
+  }
+
+  if (!detalles.length) {
+    return res.status(400).json({ message: 'Debe registrar al menos un item de remito.' });
+  }
+
+  const detalleValidos = detalles.filter((item) => {
+    const cantidad = normalizeNumber(item.vCantidadDisponible);
+    return !Number.isNaN(cantidad) && cantidad > 0;
+  });
+
+  if (!detalleValidos.length) {
+    return res.status(400).json({ message: 'Debe ingresar cantidades validas para el remito.' });
   }
 
   const conn = await req.app.locals.db.getConnection();
   try {
-    logLine('SQL: START TRANSACTION');
     await conn.beginTransaction();
+    logLine('SQL: BEGIN TRANSACTION');
 
-    const insertMovimientoSql = `INSERT INTO movimiento_stock
+    const insertMovSql = `INSERT INTO movimiento_stock
       (tipodocumentostock, numdocumentostock, fecha, codigo_base, tipo_documento_compra, num_documento_compra, codigo_provedor)
       VALUES (?, ?, ?, ?, ?, ?, ?)`;
-
-    await runQuery(conn, insertMovimientoSql, [
-      REMITO_TIPO,
+    await runQuery(conn, insertMovSql, [
+      payload.vTipo_documento_compra_remito,
       payload.vNum_documento_compra_remito,
-      payload.vFecha,
+      payload.vfecha,
       payload.vCodigo_base,
       payload.vTipo_documento_compra_origen,
       payload.vNum_documento_compra_origen,
@@ -241,24 +271,30 @@ app.post('/api/registrar-remito', async (req, res) => {
 
     const ordinalSql =
       'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?';
-    const [ordinalRows] = await runQuery(conn, ordinalSql, [REMITO_TIPO, payload.vNum_documento_compra_remito]);
+    const [ordinalRows] = await runQuery(conn, ordinalSql, [
+      payload.vTipo_documento_compra_remito,
+      payload.vNum_documento_compra_remito
+    ]);
     let ordinal = ordinalRows[0]?.next || 1;
 
     const insertDetalleSql = `INSERT INTO detalle_movimiento_stock
       (tipodocumentostock, numdocumentostock, ordinal, codigo_producto, cantidad)
       VALUES (?, ?, ?, ?, ?)`;
 
-    for (const item of detallesValidos) {
-      const cantidad = Number(item.vCantidadDisponible || 0);
+    const aplicarEntregaSql =
+      'CALL aplicar_entrega_compra(?, ?, ?, ?, ?)';
+    const updStockSql = 'CALL upd_stock_bases(?, ?, ?, ?, ?)';
+
+    for (const item of detalleValidos) {
+      const cantidad = normalizeNumber(item.vCantidadDisponible);
       await runQuery(conn, insertDetalleSql, [
-        REMITO_TIPO,
+        payload.vTipo_documento_compra_remito,
         payload.vNum_documento_compra_remito,
         ordinal,
         item.vcodigo_producto,
         cantidad
       ]);
 
-      const aplicarEntregaSql = 'CALL aplicar_entrega_compra(?, ?, ?, ?, ?)';
       await runQuery(conn, aplicarEntregaSql, [
         payload.vTipo_documento_compra_origen,
         payload.vNum_documento_compra_origen,
@@ -267,12 +303,11 @@ app.post('/api/registrar-remito', async (req, res) => {
         cantidad
       ]);
 
-      const updStockSql = 'CALL upd_stock_bases(?, ?, ?, ?, ?)';
       await runQuery(conn, updStockSql, [
         payload.vCodigo_base,
         item.vcodigo_producto,
         cantidad,
-        REMITO_TIPO,
+        payload.vTipo_documento_compra_remito,
         payload.vNum_documento_compra_remito
       ]);
 

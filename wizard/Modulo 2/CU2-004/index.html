@@ -23,9 +23,9 @@
       <header class="hero">
         <div>
           <span class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Core</span>
-          <h1 data-i18n="title">Gestion Compras</h1>
+          <h1 data-i18n="title">Gestion de Compras - Remitos</h1>
           <p class="subtitle" data-i18n="subtitle">
-            Gestiona remitos de compra con trazabilidad completa y sincronizacion inmediata.
+            Orquesta remitos de compra con visibilidad total y actualizacion en tiempo real.
           </p>
         </div>
         <div class="status-chip">
@@ -37,9 +37,9 @@
       <section class="wizard-card">
         <div class="wizard-progress">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div class="step-badge" data-step="0" data-i18n="step1Title">1. Factura pendiente</div>
-            <div class="step-badge" data-step="1" data-i18n="step2Title">2. Definir remito</div>
-            <div class="step-badge" data-step="2" data-i18n="step3Title">3. Confirmar registro</div>
+            <div class="step-badge" data-step="0" data-i18n="step1Title">1. Seleccionar Factura</div>
+            <div class="step-badge" data-step="1" data-i18n="step2Title">2. Definir Remito</div>
+            <div class="step-badge" data-step="2" data-i18n="step3Title">3. Confirmar y registrar</div>
           </div>
           <div class="progress" role="progressbar" aria-label="Progreso">
             <div class="progress-bar" id="wizardProgress" style="width: 0%"></div>
@@ -49,47 +49,80 @@
         <div class="alert alert-danger d-none" id="errorAlert"></div>
         <div class="alert alert-success d-none" id="successAlert"></div>
 
+        <!--
+        vFacturasPendientes = Llamada SP: get_facturascompras_pendientes() (devuelve campo_visible)
+        Campos devueltos
+        vfecha=fecha (visible, no editable)
+        vtipo_documento_compra=tipo_documento_compra (visible, no editable)
+        vnum_documento_compra=num_documento_compra (visible, no editable)
+        vcodigo_provedor=codigo_provedor (no visible, no editable)
+        vnombre_provedor=nombre_provedor (visible, no editable)
+        Variables
+        vTipo_documento_compra_origen (no visible, no editable)
+        vNum_documento_compra_origen (no visible, no editable)
+        vCodigo_provedor (no visible, no editable)
+
+        vDetalleRemitoCompra = Llamada SP: get_detalle_compra_por_documento(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor) (devuelve campo_visible)
+        Campos devueltos
+        vOrdinalCompra=ordinal (no visible, no editable)
+        vcodigo_producto=codigo_producto (no visible, no editable)
+        vnombre_producto=nombre_producto (visible, no editable)
+        vCantidad= cantidad (no visible, no editable)
+        vCantidad_entregada=cantidad_entregada (no visible, no editable)
+        vSaldo=saldo (no visible, no editable)
+        Variables
+        vCantidadDisponible=cantidad-cantidad_entregada (visible, editable)
+        vTipo_documento_compra_remito (visible, no editable)
+        vNum_documento_compra_remito (visible, no editable)
+        vOrdinal (visible, no editable)
+        vCodigo_base (visible, editable)
+        vfecha (visible, no editable)
+
+        vBases = Llamada SP: get_bases() (devuelve campo_visible)
+        Campos devueltos
+        vCodigo_base=codigo_base (visible, editable)
+        vNombre_base=nombre (visible, no editable)
+        Variables
+        vBaseSeleccionada (no visible, no editable)
+        -->
+
         <form id="remitoForm" autocomplete="off">
           <div class="wizard-step" data-step="0">
-            <div class="section-head">
+            <div class="d-flex flex-wrap gap-3 align-items-center mb-3">
               <div>
-                <h2 data-i18n="facturasTitle">Facturas de compra pendientes</h2>
-                <p class="helper" data-i18n="facturasHelp">
-                  Seleccione una factura FCC con items pendientes para generar el remito de compra.
-                </p>
+                <label class="form-label" data-i18n="buscarFactura">Buscar factura</label>
+                <input type="text" class="form-control" id="facturaSearch" placeholder="FCC-001" />
               </div>
-              <button class="btn btn-outline-light" type="button" id="refreshFacturas" data-i18n="refresh">
-                Actualizar
-              </button>
+              <div class="badge-soft" id="facturaCount">0 facturas</div>
             </div>
 
             <div class="table-responsive">
-              <table class="table table-dark table-striped align-middle" id="facturasTable">
+              <table class="table table-dark table-striped align-middle facturas-grid" id="facturasTable">
                 <thead>
                   <tr>
-                    <th data-i18n="colSelect">Seleccionar</th>
+                    <th></th>
                     <th data-i18n="colFecha">Fecha</th>
-                    <th data-i18n="colTipo">Tipo</th>
-                    <th data-i18n="colNumero">Numero</th>
+                    <th data-i18n="colTipo">Tipo doc.</th>
+                    <th data-i18n="colNumero">Numero doc.</th>
                     <th data-i18n="colProveedor">Proveedor</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
-            <p class="helper d-none" id="emptyFacturas" data-i18n="facturasEmpty">
-              No hay facturas pendientes disponibles.
+            <p class="helper" data-i18n="step1Help">
+              Selecciona una factura FCC pendiente con items sin entregar para continuar.
             </p>
           </div>
 
           <div class="wizard-step" data-step="1">
             <div class="row g-3">
               <div class="col-md-3">
-                <label class="form-label" data-i18n="fecha">Fecha remito</label>
+                <label class="form-label" data-i18n="fecha">Fecha</label>
                 <input type="date" class="form-control" id="vfecha" name="vfecha" readonly />
               </div>
               <div class="col-md-3">
-                <label class="form-label" data-i18n="tipoRemito">Tipo remito</label>
+                <label class="form-label" data-i18n="tipoRemito">Tipo documento</label>
                 <input
                   type="text"
                   class="form-control"
@@ -99,7 +132,7 @@
                 />
               </div>
               <div class="col-md-3">
-                <label class="form-label" data-i18n="numeroRemito">Numero remito</label>
+                <label class="form-label" data-i18n="numRemito">Numero documento</label>
                 <input
                   type="text"
                   class="form-control"
@@ -109,33 +142,29 @@
                 />
               </div>
               <div class="col-md-3">
-                <label class="form-label" data-i18n="ordinal">Ordinal inicial</label>
+                <label class="form-label" data-i18n="ordinalRemito">Ordinal</label>
                 <input type="text" class="form-control" id="vOrdinal" name="vOrdinal" readonly />
               </div>
 
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label" data-i18n="base">Base destino</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="vCodigo_base_nombre"
-                  name="vCodigo_base_nombre"
-                  list="basesList"
-                  placeholder="Seleccione..."
-                  required
-                />
-                <datalist id="basesList"></datalist>
+                <div class="typeahead-input">
+                  <input
+                    class="form-control"
+                    id="vCodigo_base_label"
+                    list="basesList"
+                    placeholder="Base Central"
+                  />
+                  <datalist id="basesList"></datalist>
+                  <small data-i18n="baseHint">Escribe para filtrar la base.</small>
+                  <div class="invalid-feedback" id="baseError" data-i18n="baseError">Seleccione una base valida.</div>
+                </div>
                 <input type="hidden" id="vCodigo_base" name="vCodigo_base" />
-                <div class="invalid-feedback" data-i18n="baseError">Seleccione una base valida.</div>
-              </div>
-              <div class="col-md-8">
-                <label class="form-label" data-i18n="facturaSeleccionada">Factura seleccionada</label>
-                <div class="factura-summary" id="facturaSummary">-</div>
               </div>
             </div>
 
             <div class="section-head">
-              <h2 data-i18n="detalleTitle">Detalle remito de compra</h2>
+              <h2 data-i18n="detalleRemito">Detalle Remito</h2>
             </div>
 
             <div class="table-responsive">
@@ -143,14 +172,15 @@
                 <thead>
                   <tr>
                     <th data-i18n="colProducto">Producto</th>
-                    <th data-i18n="colCantidad">Cantidad a entregar</th>
+                    <th data-i18n="colDisponible">Cantidad disponible</th>
+                    <th data-i18n="colEntregar">Cantidad a entregar</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
-            <p class="helper" data-i18n="detalleHelp">
-              Ajuste la cantidad a entregar, sin superar el saldo pendiente de cada item.
+            <p class="helper" data-i18n="step2Help">
+              Ajusta las cantidades a remitir. No puede superar la cantidad disponible.
             </p>
           </div>
 
@@ -163,16 +193,16 @@
                   <strong id="summaryFecha">-</strong>
                 </div>
                 <div>
-                  <span data-i18n="numeroRemito">Numero remito</span>
+                  <span data-i18n="numRemito">Numero documento</span>
                   <strong id="summaryNumero">-</strong>
                 </div>
                 <div>
-                  <span data-i18n="base">Base</span>
+                  <span data-i18n="base">Base destino</span>
                   <strong id="summaryBase">-</strong>
                 </div>
                 <div>
-                  <span data-i18n="factura">Factura</span>
-                  <strong id="summaryFactura">-</strong>
+                  <span data-i18n="proveedor">Proveedor</span>
+                  <strong id="summaryProveedor">-</strong>
                 </div>
               </div>
               <div class="table-responsive">
@@ -180,7 +210,7 @@
                   <thead>
                     <tr>
                       <th data-i18n="colProducto">Producto</th>
-                      <th data-i18n="colCantidad">Cantidad</th>
+                      <th data-i18n="colEntregar">Cantidad a entregar</th>
                     </tr>
                   </thead>
                   <tbody></tbody>
@@ -195,25 +225,30 @@
               </label>
               <div class="invalid-feedback" data-i18n="confirmacionError">Debe confirmar la operacion.</div>
             </div>
-            <p class="helper" data-i18n="step3Help">Confirme para registrar el remito y actualizar el stock.</p>
+
+            <div class="execution-panel mt-3">
+              <div class="loading-state" id="loadingState">
+                <div class="spinner-border text-info" role="status"></div>
+                <div>
+                  <h3 data-i18n="step3Title">3. Confirmar y registrar</h3>
+                  <p data-i18n="step3Help">Al confirmar, se registrara el remito en el ERP.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </form>
 
         <div class="wizard-actions">
           <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="prev">Anterior</button>
           <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="next">Siguiente</button>
-          <button class="btn btn-success" type="button" id="registrarBtn" data-i18n="registrar">
+          <button class="btn btn-accent" type="button" id="registrarBtn" data-i18n="registrar">
             Registrar Remito
           </button>
-        </div>
-
-        <div class="loading-state d-none" id="loadingState">
-          <div class="spinner-border" role="status"></div>
-          <span data-i18n="loading">Procesando...</span>
         </div>
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

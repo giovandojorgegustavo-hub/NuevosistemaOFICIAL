@@ -78,35 +78,56 @@ Emitir Factura.
 
 # **Pasos del formulario-multipaso.
 
-1. Crear Pedido
+1. Seleccionar o Crear Cliente.
 
-2. Crear Factura.
+2. Crear Pedido.
 
-3. Datos Entrega.
+3. Crear Factura.
 
-4. Datos Recibe (solo si vRegion_Entrega = "LIMA").
+4. Datos Entrega.
 
-5. Registro de Pago (Recibo).
+5. Datos Recibe (solo si vRegion_Entrega = "LIMA").
 
-6. Asignar Base.
+6. Registro de Pago (Recibo).
 
-7. Resumen y Emitir Factura.
+7. Asignar Base.
+
+8. Resumen y Emitir Factura.
 
 # **Descripcion de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
 
-## Paso 1  Crear Pedido.
+## Paso 1. Seleccionar o Crear Cliente.
 
-vFechaPedido = Inicializar con la fecha del sistema.
-vHoraPedido = Inicializar con la hora del sistema.
+Mostrar un checklist/radio con opciones: "Cliente existente" y "Cliente nuevo".
+
+Cliente existente (opcion por defecto):
 vClienteNombre = Select (Llamada SP: `get_clientes()` devuelve `nombre`)
 Campos devueltos: `codigo_cliente`, `nombre`, `numero`
 Variables:
 vClienteSeleted = `codigo_cliente` (no visible)
 vClienteNombre = `nombre` (visible)
 vClienteNumero = `numero` (no visible)
+Solo es visible el select de clientes. No mostrar campos de cliente nuevo.
+
+Cliente nuevo:
+vCodigo_cliente = regla sin ambiguedad:
+- Si el cliente es NUEVO: calcular con SQL `SELECT COALESCE(MAX(codigo_cliente), 0) + 1 AS next FROM clientes`.
+- Si YA EXISTE: mantener el valor actual de vCodigo_cliente.
+No visible.
+vClienteNombre = campo visible y editable.
+vClienteNumero = campo visible y editable.
+vClienteSeleted = debe tomar el valor de vCodigo_cliente.
+Los campos nombre y numero solo son visibles si se elige "Cliente nuevo". Si no se completan, no puede continuar.
+Al emitir factura, si el cliente NO existe en `clientes`, registrar primero en `clientes` y `saldos_clientes` dentro de la misma transaccion (con saldo inicial 0). Luego continuar con pedidos/factura.
+
+
+## Paso 2. Crear Pedido.
+
+vFechaPedido = Inicializar con la fecha del sistema.
+vHoraPedido = Inicializar con la hora del sistema.
 
 vcodigo_pedido = regla sin ambiguedad:
 - Si el pedido es NUEVO: calcular con SQL `SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos`.
@@ -135,7 +156,7 @@ Con estos requerimientos:
 Permitir agregar nuevas lineas, borrar y editar lineas existentes.
 
 
-## Paso 2. Crear Factura.
+## Paso 3. Crear Factura.
 
 vFechaemision= vFechaPedido no editable
 vHoraemision = vHoraPedido no editable
@@ -151,7 +172,8 @@ vFCantidadProducto = iniciar con el valor de vCantidadProducto, editable. Acepta
 vFPrecioTotal = inicia con un valor calculado y recalculado cada que vFCantidadProducto cambia. Aparece pero no es editable
 
 
-Vfsaldo=vFPrecioTotal es la suma cada item del Grid vProdFactura
+VfMonto = suma de cada item del Grid vProdFactura. Guardar en mov_contable.monto.
+Vfsaldo = VfMonto (saldo inicial).
 vOrdinalDetMovCont = regla sin ambiguedad:
 - Si la factura es NUEVA: asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid.
 - Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_detalle WHERE tipo_documento = vTipo_documento AND numero_documento = vNumero_documento`.
@@ -174,7 +196,7 @@ Si el usuario edita cantidad_factura (por ejemplo de 12 a 11), recalcular inmedi
 
 
 
-## Paso 3. Datos Entrega.
+## Paso 4. Datos Entrega.
 
 Mostrar un checklist que tenga como opcion :nuevo, existe 
 
@@ -195,6 +217,14 @@ Si el cliente no tiene puntos de entrega, no mostrar esta opcion.
 Para mostrar el texto en la lista usar el campo `concatenarpuntoentrega` devuelto por el procedimiento.
 
 Nuevo: se puede darle click para entrar a otros campos
+Al seleccionar "Nuevo", mostrar un mapa interactivo de Google Maps para elegir el punto de entrega.
+Al seleccionar un punto en el mapa:
+- Autocompletar la direccion en vDireccionLinea (visible y editable).
+- Mostrar vLatitud y vLongitud (visibles solo lectura).
+- Permitir ajustar manualmente vDireccionLinea si la geocodificacion no es exacta.
+Datos tipicos a capturar desde el mapa: direccion formateada, latitud, longitud.
+El mapa debe cargar centrado en Lima, Peru, con zoom aproximado 12 (usar centro por defecto).
+La API key de Google Maps se lee desde erp.yml (google_maps.api_key).
 
 
 vDepartamento = Select (Llamada SP: `get_ubigeo_departamentos()` devuelve `departamento`)
@@ -224,6 +254,8 @@ No mostrar selector de region al usuario.
 Ahora si es LIMA mostrar
 Vdireccion_linea=campo para escribir
 Vreferencia=campo para escribir
+vLatitud=campo solo lectura (visible si LIMA y se selecciono en mapa)
+vLongitud=campo solo lectura (visible si LIMA y se selecciono en mapa)
 
 Ahora si es PROV mostrar
 region_entrega
@@ -234,14 +266,14 @@ Vdni=campo para escribir
 Vagencia=campo para escribir
 Vobservaciones=campo para escribir
 
-si vRegion_Entrega es LIMA entonces pasamos al paso 4. sino vamos al paso 5
+si vRegion_Entrega es LIMA entonces pasamos al paso 5. sino vamos al paso 6
 
 Vconcatenarpuntoentrega se define asi
 Si vRegion_Entrega = "LIMA": `Vdireccion_linea | distrito | Vreferencia` (omite Vreferencia si esta vacia).
 Si vRegion_Entrega = "PROV": `Vnombre | Vdni | Vagencia | Vobservaciones` (omite campos vacios).
 
 
-## Paso 4. Datos Recibe (solo si vRegion_Entrega = "LIMA").
+## Paso 5. Datos Recibe (solo si vRegion_Entrega = "LIMA").
 
 
 Mostrar un checklist que tenga como opcion :nuevo, existe 
@@ -271,12 +303,12 @@ vOrdinal_paquetedetalle = regla sin ambiguedad:
 
 Vconcatenarnumrecibe = `numero | nombre` (omite campos vacios).
 
-## Paso 5. Registro de Pago (Recibo).
+## Paso 6. Registro de Pago (Recibo).
 
 vTipo_documento_pago = "RCP"
 
 vNumero_documento_pago = regla sin ambiguedad:
-- Si el recibo es NUEVO: calcular con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'`.
+- Si el recibo es NUEVO: calcular con SQL `SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'`.
 - Si YA EXISTE: mantener el valor actual de vNumero_documento_pago.
 
 vCuentaNombre = Select (Llamada SP: `get_cuentasbancarias()` devuelve `nombre`)
@@ -294,16 +326,41 @@ Permitir registrar mas de un pago: cada pago se agrega a una lista `vPagos`.
 Al confirmar un pago, recalcular vMontoPendiente = vMontoPendiente - vMontoPago y prellenar el siguiente vMontoPago con ese nuevo vMontoPendiente.
 Bloquear pagos cuando vMontoPendiente sea 0.
 
-## Paso 6. Asignar Base.
+## Paso 7. Asignar Base.
 
 vBaseNombre = Select (Llamada SP: `get_bases()` devuelve `nombre`)
-Campos devueltos: `codigo_base`, `nombre`
+Campos devueltos: `codigo_base`, `nombre`, `latitud`, `longitud`
 Variables:
 vCodigo_base = `codigo_base` (no visible, editable)
 vBaseNombre = `nombre` (visible)
 
-En este paso, cargar el contenido del grid “vProdFactura” en un JSON para pasarlo como parametro a un SP en MySQL.
-Con el contenido armame un json de esta forma
+En este paso, primero construir un JSON con el contenido del grid “vProdFactura” y usarlo junto con la fecha del pedido ya definida (vFechaPedido) para consultar las bases candidatas.
+
+Llamada SP: `get_bases_candidatas(p_vProdFactura JSON, vFechaPedido DATETIME)`
+Campos devueltos: `codigo_base`, `latitud`, `longitud`
+Uso: mostrar estas bases candidatas como ayuda/preview para decidir la base a asignar. Si hay bases candidatas, priorizarlas en la lista.
+
+Seleccion automatica de base por tiempo de llegada (obligatorio):
+Variables involucradas:
+vLatitud, vLongitud (origen)
+codigo_base, nombre, latitud, longitud (bases)
+vCodigo_base, vBaseNombre (salida)
+
+Si vLatitud y vLongitud estan definidos, llamar Google Distance Matrix API con:
+origins = vLatitud,vLongitud
+destinations = bases.latitud,bases.longitud
+mode = driving
+
+Seleccionar la base con menor duration.value.
+Asignar automaticamente:
+vCodigo_base = codigo_base de la base seleccionada
+vBaseNombre = nombre de la base seleccionada
+
+El campo vBaseNombre sigue siendo select editable con valor inicial sugerido.
+Si la API falla o faltan coordenadas, no sugerir base.
+Recalcular cada vez que cambien vLatitud o vLongitud.
+
+Formato del JSON (ejemplo):
 [
   {
     "vFProducto": 1001,
@@ -317,9 +374,8 @@ Con el contenido armame un json de esta forma
   }
 ]
 
-debe permitir funciona el solo editar la base apenas elijo ya esta asignada la base que se usa para registrarlo 
 
-## Paso 7. Resumen y Emitir Factura.
+## Paso 8. Resumen y Emitir Factura.
 
 
 Mostrar resumen de Pedido, Factura y Entrega, con boton "Emitir Factura".
@@ -334,7 +390,7 @@ Mostrar si el numrecibe es EXISTENTE o NUEVO (se registrara).
 
 Emitir Factura. Al terminar el formulario multipasos, cuando el usuario da click al boton "Emitir Factura" el sistema debera realizar las siguientes transacciones sobre la DB:
 
-Grabar el Pedido. Tomar los datos capturados en el paso 1:
+Grabar el Pedido. Tomar los datos capturados en el paso 2:
 
 
 ## registrarlos en la tabla pedidos:
@@ -352,11 +408,11 @@ saldo=vCantidadProducto
 precio_unitario=vPrecioUnitario
 
 
-Grabar el Punto_entrega si hubiera. Tomar los datos capturados en el paso 3:
+Grabar el Punto_entrega si hubiera. Tomar los datos capturados en el paso 4:
 ## registrarlos en la tabla puntos_entrega
 ubigeo=Vubigeo
 codigo_puntoentrega=Vcodigo_puntoentrega
-codigo_cliente=Vcodigo_cliente
+codigo_cliente_puntoentrega=Vcodigo_cliente
 direccion_linea=Vdireccion_linea
 referencia=Vreferencia
 nombre=Vnombre
@@ -367,7 +423,7 @@ region_entrega=vRegion_Entrega
 concatenarpuntoentrega = Vconcatenarpuntoentrega
 
 
-Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 4:
+Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 5:
 ## registrarlos en la tabla numrecibe
 ordinal_numrecibe=Vordinal_numrecibe
 numero=Vnumero
@@ -377,13 +433,14 @@ concatenarnumrecibe = Vconcatenarnumrecibe
 
 
 
-Grabar Factura. Tomar los datos capturados en el paso 2:
+Grabar Factura. Tomar los datos capturados en el paso 3:
 ## Guardar en la tabla "mov_contable". 
 codigo_pedido=vcodigo_pedido
 fecha_emision=vFechaP
 fecha_vencimiento=vFechaP
 fecha_valor=vFechaP
 codigo_cliente=Vcodigo_cliente
+monto=Vfsaldo
 saldo=Vfsaldo
 tipo_documento="FAC"
 numero_documento=vNumero_documento
@@ -427,17 +484,7 @@ Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclient
 ## Registrar Recibo (Pago)
 Si existen pagos en `vPagos`:
 Por cada pago en `vPagos`, usar un numero_documento incrementado (secuencial desde vNumero_documento_pago) y registrar el recibo con el monto del pago.
-Guardar en la tabla "mov_contable" el recibo de pago:
-fecha_emision=vFechaP
-fecha_vencimiento=vFechaP
-fecha_valor=vFechaP
-tipo_documento="RCP"
-numero_documento=vNumero_documento_pago (secuencial por pago)
-codigo_cliente=Vcodigo_cliente
-codigo_cuentabancaria=vCuentaBancaria
-saldo=monto_pago
-
-Guardar en la tabla "mov_operaciones_contables" (actualiza bancos):
+Guardar solo en la tabla "mov_operaciones_contables" (actualiza bancos):
 tipodocumento="RCP"
 numdocumento=vNumero_documento_pago (secuencial por pago)
 fecha=vFechaP
@@ -447,7 +494,7 @@ codigo_cuentabancaria_destino=NULL
 descripcion="Recibo cliente" (opcional)
 
 Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
-`CALL aplicar_recibo_a_facturas(vClienteSeleted, "RCP", vNumero_documento_pago, monto_pago)`
+`CALL aplicar_recibo_a_facturas(vClienteSeleted, vNumero_documento_pago, monto_pago)`
 
 Actualizar saldo del cliente por el pago:
 `CALL actualizarsaldosclientes(vClienteSeleted, "RCP", monto_pago)`

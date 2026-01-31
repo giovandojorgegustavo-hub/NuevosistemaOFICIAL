@@ -1,8 +1,0 @@
-[2026-01-23T19:49:54.418Z] CONFIG | DB name=erpdb
-[2026-01-23T19:49:54.448Z] SERVER | Inicio del servidor
-[2026-01-23T19:49:54.452Z] SERVER | Servidor escuchando en puerto 3000
-[2026-01-23T19:49:58.903Z] ENDPOINT | GET /
-[2026-01-23T19:49:59.476Z] ENDPOINT | GET /styles.css
-[2026-01-23T19:49:59.611Z] ENDPOINT | GET /app.js
-[2026-01-23T19:49:59.884Z] ENDPOINT | GET /api/paquetes-standby
-[2026-01-23T19:49:59.884Z] SQL | CALL get_paquetes_por_estado(?) | params=["standby"]

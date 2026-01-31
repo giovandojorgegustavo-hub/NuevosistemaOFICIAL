@@ -8,23 +8,29 @@ class FormWizard {
     this.loadingState = document.getElementById('loadingState');
     this.alertArea = document.getElementById('alertArea');
     this.statusHint = document.getElementById('statusHint');
-    this.baseSelect = document.getElementById('baseSelect');
-    this.codigoViajeInput = document.getElementById('codigoViaje');
-    this.fechaViajeInput = document.getElementById('fechaViaje');
-    this.nombreMotorizadoInput = document.getElementById('nombreMotorizado');
-    this.linkInput = document.getElementById('link');
-    this.numeroWspInput = document.getElementById('numeroWsp');
-    this.numeroLlamadasInput = document.getElementById('numeroLlamadas');
-    this.numeroYapeInput = document.getElementById('numeroYape');
-    this.observacionInput = document.getElementById('observacion');
     this.paquetesBody = document.getElementById('paquetesBody');
     this.selectedCount = document.getElementById('selectedCount');
-    this.summaryCard = document.getElementById('summaryCard');
-    this.logContent = document.getElementById('logContent');
-    this.logStatus = document.getElementById('logStatus');
+    this.resumenViaje = document.getElementById('resumenViaje');
+    this.resumenPaquetes = document.getElementById('resumenPaquetes');
 
-    this.bases = [];
+    this.baseInput = document.getElementById('baseInput');
+    this.codigoBase = document.getElementById('codigoBase');
+    this.baseOptions = document.getElementById('baseOptions');
+    this.codigoViaje = document.getElementById('codigoViaje');
+    this.viajeExistente = document.getElementById('viajeExistente');
+    this.fecha = document.getElementById('fecha');
+    this.nombreMotorizado = document.getElementById('nombreMotorizado');
+    this.link = document.getElementById('link');
+    this.numeroWsp = document.getElementById('numeroWsp');
+    this.numLlamadas = document.getElementById('numLlamadas');
+    this.numYape = document.getElementById('numYape');
+    this.observacion = document.getElementById('observacion');
+
+    this.searchPaquetes = document.getElementById('searchPaquetes');
+
+    this.paquetes = [];
     this.selectedPaquetes = new Map();
+    this.baseMap = new Map();
 
     this.init();
   }
@@ -32,10 +38,12 @@ class FormWizard {
   init() {
     this.setLanguage();
     this.applyLanguage();
-    this.updateSelectedCount();
     this.updateButtons();
     this.attachEvents();
-    this.loadInitialData();
+    this.loadBases();
+    this.loadPaquetes();
+    this.loadNextCodigoViaje();
+    this.setFechaSistema();
   }
 
   setLanguage() {
@@ -59,18 +67,12 @@ class FormWizard {
     this.nextBtn.addEventListener('click', () => this.handleNext());
     this.prevBtn.addEventListener('click', () => this.handlePrev());
     document.getElementById('refreshPaquetes').addEventListener('click', () => this.loadPaquetes());
-    document.getElementById('viewLogsBtn').addEventListener('click', () => this.loadLogs());
-
-    [
-      this.baseSelect,
-      this.nombreMotorizadoInput,
-      this.linkInput,
-      this.numeroWspInput,
-      this.numeroLlamadasInput,
-      this.numeroYapeInput
-    ].forEach((input) => {
-      input.addEventListener('change', () => input.classList.remove('is-invalid'));
-    });
+    document.getElementById('viewLogs').addEventListener('click', () => this.openLogs());
+    document.getElementById('selectAll').addEventListener('click', () => this.selectAllPaquetes());
+    document.getElementById('clearSelection').addEventListener('click', () => this.clearSelection());
+    this.searchPaquetes.addEventListener('input', () => this.renderPaquetes());
+    this.baseInput.addEventListener('input', () => this.resolveBaseCode());
+    this.viajeExistente.addEventListener('change', () => this.toggleViajeExistente());
   }
 
   setLoading(message) {
@@ -95,7 +97,14 @@ class FormWizard {
 
   updateButtons() {
     this.prevBtn.disabled = this.currentStep === 0;
-    this.nextBtn.textContent = this.currentStep === this.steps.length - 1 ? this.dict.save : this.dict.next;
+    if (this.currentStep === 0) {
+      this.nextBtn.disabled = false;
+    } else if (this.currentStep === 1) {
+      this.nextBtn.disabled = this.selectedPaquetes.size === 0;
+    } else {
+      this.nextBtn.disabled = false;
+    }
+    this.nextBtn.textContent = this.currentStep === this.steps.length - 1 ? this.dict.confirm : this.dict.next;
     const progress = ((this.currentStep + 1) / this.steps.length) * 100;
     this.progressBar.style.width = `${progress}%`;
   }
@@ -108,6 +117,7 @@ class FormWizard {
   }
 
   async handleNext() {
+    this.clearAlert();
     const valid = this.validateStep();
     if (!valid) return;
 
@@ -117,11 +127,8 @@ class FormWizard {
     }
 
     this.goToStep(this.currentStep + 1);
-    if (this.currentStep === 1) {
-      await this.loadPaquetes();
-    }
     if (this.currentStep === 2) {
-      this.renderSummary();
+      this.renderResumen();
     }
   }
 
@@ -132,41 +139,22 @@ class FormWizard {
   }
 
   validateStep() {
-    this.clearAlert();
-
     if (this.currentStep === 0) {
-      const nameRegex = /^[A-Za-z0-9\s'.-]{2,}$/;
       const linkRegex = /^(https?:\/\/|www\.)[^\s]+$/i;
-      const phoneRegex = /^[0-9+()\s-]{6,20}$/;
-
-      if (!this.baseSelect.value) {
-        this.baseSelect.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.base);
+      if (!this.codigoBase.value) {
+        this.showAlert('warning', this.dict.baseRequired);
         return false;
       }
-      if (!nameRegex.test(this.nombreMotorizadoInput.value.trim())) {
-        this.nombreMotorizadoInput.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.motorizado);
+      if (!this.nombreMotorizado.value.trim()) {
+        this.showAlert('warning', this.dict.motorizadoRequired);
         return false;
       }
-      if (!linkRegex.test(this.linkInput.value.trim())) {
-        this.linkInput.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.link);
+      if (!linkRegex.test(this.link.value.trim())) {
+        this.showAlert('warning', this.dict.linkInvalid);
         return false;
       }
-      if (this.numeroWspInput.value && !phoneRegex.test(this.numeroWspInput.value.trim())) {
-        this.numeroWspInput.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.telefono);
-        return false;
-      }
-      if (this.numeroLlamadasInput.value && !phoneRegex.test(this.numeroLlamadasInput.value.trim())) {
-        this.numeroLlamadasInput.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.telefono);
-        return false;
-      }
-      if (this.numeroYapeInput.value && !phoneRegex.test(this.numeroYapeInput.value.trim())) {
-        this.numeroYapeInput.classList.add('is-invalid');
-        this.showAlert('warning', this.dict.errors.telefono);
+      if (this.viajeExistente.checked && !this.codigoViaje.value.trim()) {
+        this.showAlert('warning', this.dict.codigoRequired);
         return false;
       }
       return true;
@@ -174,16 +162,7 @@ class FormWizard {
 
     if (this.currentStep === 1) {
       if (this.selectedPaquetes.size === 0) {
-        this.showAlert('warning', this.dict.errors.paquetes);
-        return false;
-      }
-      return true;
-    }
-
-    if (this.currentStep === 2) {
-      const confirm = document.getElementById('confirmCheck').checked;
-      if (!confirm) {
-        this.showAlert('warning', this.dict.errors.confirm);
+        this.showAlert('warning', this.dict.paquetesRequired);
         return false;
       }
       return true;
@@ -192,241 +171,239 @@ class FormWizard {
     return true;
   }
 
-  async fetchJson(url) {
-    const response = await fetch(url);
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Request failed');
-    }
-    return data;
+  setFechaSistema() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    this.fecha.value = local.toISOString().slice(0, 16);
   }
 
-  async loadInitialData() {
-    try {
-      this.setLoading(this.dict.loadingInit);
-      const [now, bases, next] = await Promise.all([
-        this.fetchJson('/api/now'),
-        this.fetchJson('/api/bases'),
-        this.fetchJson('/api/viajes/next')
-      ]);
-      this.bases = Array.isArray(bases) ? bases : [];
-      this.codigoViajeInput.value = next.next || '';
-      this.fechaViajeInput.value = `${now.fecha || ''} ${now.hora || ''}`.trim();
-      this.renderBases();
+  toggleViajeExistente() {
+    if (this.viajeExistente.checked) {
+      this.codigoViaje.removeAttribute('readonly');
+      this.codigoViaje.value = '';
+      this.statusHint.textContent = this.dict.existingHint;
+    } else {
+      this.codigoViaje.setAttribute('readonly', 'readonly');
+      this.loadNextCodigoViaje();
       this.statusHint.textContent = this.dict.statusHint;
+    }
+  }
+
+  resolveBaseCode() {
+    const input = this.baseInput.value.trim();
+    if (!input) {
+      this.codigoBase.value = '';
+      return;
+    }
+    if (this.baseMap.has(input)) {
+      this.codigoBase.value = input;
+      return;
+    }
+    for (const [code, name] of this.baseMap.entries()) {
+      const combo = `${code} - ${name}`;
+      if (combo.toLowerCase() === input.toLowerCase()) {
+        this.codigoBase.value = code;
+        return;
+      }
+    }
+    this.codigoBase.value = '';
+  }
+
+  async loadBases() {
+    this.setLoading(this.dict.loadingBases);
+    try {
+      const response = await fetch('/api/bases');
+      if (!response.ok) throw new Error('Error al cargar bases.');
+      const data = await response.json();
+      this.baseOptions.innerHTML = '';
+      this.baseMap.clear();
+      data.forEach((row) => {
+        const code = row.codigo_base || row.vcodigo_base || row.Vcodigo_base;
+        const name = row.nombre || row.vnombre || row.Vnombre;
+        if (!code) return;
+        this.baseMap.set(String(code), name || '');
+        const option = document.createElement('option');
+        option.value = `${code} - ${name || ''}`.trim();
+        this.baseOptions.appendChild(option);
+      });
     } catch (error) {
-      this.showAlert('danger', error.message || this.dict.errors.init);
+      this.showAlert('danger', this.dict.baseError);
     } finally {
       this.setLoading('');
     }
-  }
-
-  renderBases() {
-    const placeholder = `<option value="">${this.dict.select}</option>`;
-    const options = this.bases.map((row) => {
-      const codigo = row.codigo_base || row.Vcodigo_base || row.vcodigo_base || row.codigo || '';
-      const nombre = row.descripcion || row.descripcion_base || row.vdescripcion || row.nombre || '';
-      return `<option value="${codigo}">${codigo} - ${nombre}</option>`;
-    });
-    this.baseSelect.innerHTML = [placeholder, ...options].join('');
   }
 
   async loadPaquetes() {
+    this.setLoading(this.dict.loadingPaquetes);
     try {
-      this.setLoading(this.dict.loadingPaquetes);
-      const data = await this.fetchJson('/api/paquetes?estado=empacado');
-      this.renderPaquetes(Array.isArray(data) ? data : []);
+      const response = await fetch('/api/paquetes?estado=empacado');
+      if (!response.ok) throw new Error('Error al cargar paquetes.');
+      this.paquetes = await response.json();
+      this.renderPaquetes();
     } catch (error) {
-      this.showAlert('danger', error.message || this.dict.errors.paquetesLoad);
+      this.showAlert('danger', this.dict.paquetesError);
     } finally {
       this.setLoading('');
     }
   }
 
-  renderPaquetes(paquetes) {
-    this.paquetesBody.innerHTML = '';
-    if (!Array.isArray(paquetes) || paquetes.length === 0) {
-      this.paquetesBody.innerHTML = `<tr><td colspan="7" class="text-muted">${this.dict.emptyPaquetes}</td></tr>`;
-      return;
-    }
-
-    paquetes.forEach((paquete) => {
-      const codigo = paquete.codigo_paquete || paquete.vcodigo_paquete || '';
-      const row = document.createElement('tr');
-      row.dataset.codigo = codigo;
-      row.innerHTML = `
-        <td><input class="form-check-input" type="checkbox" /></td>
-        <td>${codigo}</td>
-        <td>${paquete.fecha_actualizado || paquete.vfecha || ''}</td>
-        <td>${paquete.nombre_cliente || paquete.vnombre_cliente || ''}</td>
-        <td>${paquete.num_cliente || paquete.vnum_cliente || ''}</td>
-        <td>${paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || ''}</td>
-        <td>${paquete.concatenarnumrecibe || paquete.vconcatenarnumrecibe || ''}</td>
-      `;
-      const checkbox = row.querySelector('input');
-      checkbox.addEventListener('change', () => this.togglePaquete(paquete, row, checkbox));
-      row.addEventListener('click', (event) => {
-        if (event.target.tagName.toLowerCase() === 'input') return;
-        checkbox.checked = !checkbox.checked;
-        this.togglePaquete(paquete, row, checkbox);
-      });
-      if (this.selectedPaquetes.has(codigo)) {
-        checkbox.checked = true;
-        row.classList.add('selected');
-      }
-      this.paquetesBody.appendChild(row);
+  renderPaquetes() {
+    const term = this.searchPaquetes.value.trim().toLowerCase();
+    const rows = this.paquetes.filter((row) => {
+      const searchable = [
+        row.codigo_paquete,
+        row.nombre_cliente,
+        row.num_cliente,
+        row.concatenarpuntoentrega,
+        row.concatenarnumrecibe,
+        row.fecha_actualizado
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return searchable.includes(term);
     });
+
+    this.paquetesBody.innerHTML = '';
+    rows.forEach((row, index) => {
+      const codigo = row.codigo_paquete || row.vcodigo_paquete || row.Vcodigo_paquete;
+      const selected = this.selectedPaquetes.has(String(codigo));
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <input class="form-check-input" type="checkbox" ${selected ? 'checked' : ''} data-codigo="${codigo}" data-index="${index}" />
+        </td>
+        <td>${codigo || ''}</td>
+        <td>${row.fecha_actualizado || ''}</td>
+        <td>${row.nombre_cliente || ''}</td>
+        <td>${row.num_cliente || ''}</td>
+        <td>${row.concatenarpuntoentrega || ''}</td>
+        <td>${row.concatenarnumrecibe || ''}</td>
+      `;
+      tr.querySelector('input').addEventListener('change', (event) => this.togglePaquete(event, row, index));
+      this.paquetesBody.appendChild(tr);
+    });
+    this.updateSelectedCount();
   }
 
-  togglePaquete(paquete, row, checkbox) {
-    const codigo = paquete.codigo_paquete || paquete.vcodigo_paquete || '';
-    if (!codigo) return;
-
-    if (checkbox.checked) {
-      this.selectedPaquetes.set(codigo, {
-        codigo_paquete: codigo,
-        fecha: paquete.fecha_actualizado || paquete.vfecha || '',
-        nombre_cliente: paquete.nombre_cliente || paquete.vnombre_cliente || '',
-        num_cliente: paquete.num_cliente || paquete.vnum_cliente || '',
-        entrega: paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || '',
-        recibe: paquete.concatenarnumrecibe || paquete.vconcatenarnumrecibe || ''
-      });
-      row.classList.add('selected');
+  togglePaquete(event, row, index) {
+    const codigo = String(row.codigo_paquete || row.vcodigo_paquete || row.Vcodigo_paquete);
+    if (event.target.checked) {
+      this.selectedPaquetes.set(codigo, { row, index });
     } else {
       this.selectedPaquetes.delete(codigo);
-      row.classList.remove('selected');
     }
-
     this.updateSelectedCount();
   }
 
   updateSelectedCount() {
-    this.selectedCount.textContent = `${this.selectedPaquetes.size} ${this.dict.selected}`;
+    const count = this.selectedPaquetes.size;
+    this.selectedCount.textContent = this.dict.selectedCount.replace('{count}', count);
+    this.updateButtons();
   }
 
-  renderSummary() {
-    const baseText = this.baseSelect.options[this.baseSelect.selectedIndex]?.text || '-';
-    const paquetes = Array.from(this.selectedPaquetes.values());
+  selectAllPaquetes() {
+    this.paquetes.forEach((row, index) => {
+      const codigo = String(row.codigo_paquete || row.vcodigo_paquete || row.Vcodigo_paquete);
+      this.selectedPaquetes.set(codigo, { row, index });
+    });
+    this.renderPaquetes();
+  }
 
-    const paquetesRows = paquetes
-      .map((paquete) => {
-        return `
-          <tr>
-            <td>${paquete.codigo_paquete}</td>
-            <td>${paquete.nombre_cliente || '-'}</td>
-            <td>${paquete.num_cliente || '-'}</td>
-            <td>${paquete.entrega || '-'}</td>
-          </tr>`;
-      })
-      .join('');
+  clearSelection() {
+    this.selectedPaquetes.clear();
+    this.renderPaquetes();
+  }
 
-    this.summaryCard.innerHTML = `
-      <div class="row g-3">
-        <div class="col-md-4">
-          <p class="text-muted mb-1">${this.dict.codigoViaje}</p>
-          <p>${this.codigoViajeInput.value || '-'}</p>
-        </div>
-        <div class="col-md-4">
-          <p class="text-muted mb-1">${this.dict.fecha}</p>
-          <p>${this.fechaViajeInput.value || '-'}</p>
-        </div>
-        <div class="col-md-4">
-          <p class="text-muted mb-1">${this.dict.base}</p>
-          <p>${baseText}</p>
-        </div>
-        <div class="col-md-6">
-          <p class="text-muted mb-1">${this.dict.motorizado}</p>
-          <p>${this.nombreMotorizadoInput.value || '-'}</p>
-        </div>
-        <div class="col-md-6">
-          <p class="text-muted mb-1">${this.dict.link}</p>
-          <p>${this.linkInput.value || '-'}</p>
-        </div>
-        <div class="col-12">
-          <p class="text-muted mb-1">${this.dict.observacion}</p>
-          <p>${this.observacionInput.value || '-'}</p>
-        </div>
-      </div>
-      <div class="table-responsive mt-3">
-        <table class="table table-striped">
-          <thead>
-            <tr>
-              <th>${this.dict.codigo}</th>
-              <th>${this.dict.cliente}</th>
-              <th>${this.dict.telefono}</th>
-              <th>${this.dict.entrega}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${paquetesRows || `<tr><td colspan="4" class="text-muted">${this.dict.emptyPaquetes}</td></tr>`}
-          </tbody>
-        </table>
-      </div>
+  async loadNextCodigoViaje() {
+    try {
+      const response = await fetch('/api/viajes/next-codigo');
+      if (!response.ok) throw new Error('Error al cargar codigo de viaje.');
+      const data = await response.json();
+      this.codigoViaje.value = data.next || '';
+    } catch (error) {
+      this.showAlert('danger', this.dict.codigoError);
+    }
+  }
+
+  renderResumen() {
+    this.resumenViaje.innerHTML = `
+      <li><strong>${this.dict.codigoViaje}:</strong> ${this.codigoViaje.value}</li>
+      <li><strong>${this.dict.codigoBase}:</strong> ${this.codigoBase.value}</li>
+      <li><strong>${this.dict.motorizado}:</strong> ${this.nombreMotorizado.value}</li>
+      <li><strong>${this.dict.link}:</strong> ${this.link.value}</li>
+      <li><strong>${this.dict.fecha}:</strong> ${this.fecha.value}</li>
     `;
-  }
 
-  buildPayload() {
-    return {
-      codigo_base: this.baseSelect.value,
-      nombre_motorizado: this.nombreMotorizadoInput.value.trim(),
-      numero_wsp: this.numeroWspInput.value.trim(),
-      num_llamadas: this.numeroLlamadasInput.value.trim(),
-      num_yape: this.numeroYapeInput.value.trim(),
-      link: this.linkInput.value.trim(),
-      observacion: this.observacionInput.value.trim(),
-      paquetes: Array.from(this.selectedPaquetes.keys())
-    };
+    this.resumenPaquetes.innerHTML = '';
+    Array.from(this.selectedPaquetes.values()).forEach(({ row }) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${row.codigo_paquete || ''}</td>
+        <td>${row.nombre_cliente || ''}</td>
+        <td>${row.concatenarpuntoentrega || ''}</td>
+      `;
+      this.resumenPaquetes.appendChild(tr);
+    });
   }
 
   async saveViaje() {
+    this.setLoading(this.dict.saving);
+    this.nextBtn.disabled = true;
     try {
-      this.setLoading(this.dict.saving);
-      const payload = this.buildPayload();
-      const response = await fetch('/api/viajes/assign', {
+      const payload = {
+        viaje: {
+          codigo_base: this.codigoBase.value.trim(),
+          nombre_motorizado: this.nombreMotorizado.value.trim(),
+          numero_wsp: this.numeroWsp.value.trim(),
+          num_llamadas: this.numLlamadas.value.trim(),
+          num_yape: this.numYape.value.trim(),
+          link: this.link.value.trim(),
+          observacion: this.observacion.value.trim(),
+          fecha: this.fecha.value,
+          codigo_viaje: this.codigoViaje.value.trim(),
+          es_existente: this.viajeExistente.checked
+        },
+        paquetes: Array.from(this.selectedPaquetes.values()).map(({ row, index }) => ({
+          codigo_paquete: row.codigo_paquete,
+          index
+        }))
+      };
+
+      const response = await fetch('/api/asignar-viaje', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
+
       if (!response.ok) {
-        this.showAlert('danger', result.message || this.dict.errors.save);
-        return;
+        const data = await response.json();
+        throw new Error(data.message || 'Error al guardar viaje.');
       }
-      this.showAlert('success', this.dict.success.replace('{id}', result.codigoviaje));
-      await this.resetWizard();
+
+      this.showAlert('success', this.dict.success);
+      this.selectedPaquetes.clear();
+      this.renderPaquetes();
+      this.goToStep(0);
+      this.loadNextCodigoViaje();
     } catch (error) {
-      this.showAlert('danger', this.dict.errors.save);
+      this.showAlert('danger', error.message || this.dict.saveError);
     } finally {
       this.setLoading('');
+      this.nextBtn.disabled = false;
     }
   }
 
-  async resetWizard() {
-    this.selectedPaquetes.clear();
-    this.updateSelectedCount();
-    this.summaryCard.innerHTML = '';
-    document.getElementById('confirmCheck').checked = false;
-    this.baseSelect.value = '';
-    this.nombreMotorizadoInput.value = '';
-    this.linkInput.value = '';
-    this.numeroWspInput.value = '';
-    this.numeroLlamadasInput.value = '';
-    this.numeroYapeInput.value = '';
-    this.observacionInput.value = '';
-    this.goToStep(0);
-    await this.loadInitialData();
-    await this.loadPaquetes();
-  }
-
-  async loadLogs() {
+  async openLogs() {
     try {
-      this.logStatus.textContent = this.dict.loadingLogs;
-      const data = await this.fetchJson('/api/logs/latest');
-      this.logContent.textContent = data.content || '';
-      this.logStatus.textContent = this.dict.logsReady;
+      const response = await fetch('/api/logs');
+      if (!response.ok) throw new Error('Error al cargar logs.');
+      const data = await response.json();
+      document.getElementById('logsContent').textContent = data.content || '';
+      const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+      modal.show();
     } catch (error) {
-      this.logContent.textContent = error.message || this.dict.errors.logs;
-      this.logStatus.textContent = this.dict.errors.logs;
+      this.showAlert('danger', this.dict.logsError);
     }
   }
 }
@@ -435,116 +412,118 @@ const translations = {
   es: {
     tag: 'IaaS + PaaS Global',
     title: 'Asignar viajes',
-    subtitle: 'Wizard multi-paso para coordinar viajes y paquetes en tiempo real.',
+    subtitle: 'Wizard multi-paso para asignar paquetes empacados a un viaje.',
     status: 'Estado del flujo',
-    statusHint: 'Completa los datos del viaje para iniciar.',
-    viewLogs: 'Ver logs SQL',
+    statusHint: 'Completa los datos del viaje para continuar.',
+    existingHint: 'Ingresa el codigo del viaje existente.',
     refresh: 'Actualizar paquetes',
+    viewLogs: 'Ver logs SQL',
     step1Title: '1. Datos del viaje',
-    step1Subtitle: 'Registra la cabecera del viaje y la base operativa.',
+    step1Subtitle: 'Registra la cabecera del viaje y la base de salida.',
     step2Title: '2. Detalle del viaje',
-    step2Subtitle: 'Selecciona los paquetes empacados para asignarlos.',
+    step2Subtitle: 'Selecciona paquetes empacados para asignarlos.',
     step3Title: '3. Confirmar y guardar',
-    step3Subtitle: 'Verifica la informacion antes de asignar el viaje.',
-    required: 'Campos obligatorios marcados',
-    ready: 'Listo para asignar',
-    codigoViaje: 'Codigo de viaje',
-    fecha: 'Fecha/Hora',
-    base: 'Base operativa',
-    motorizado: 'Nombre motorizado',
+    step3Subtitle: 'Revisa el resumen antes de confirmar.',
+    required: 'Campos requeridos',
+    codigoViaje: 'Codigo viaje',
+    viajeExistente: 'Marcar si el viaje ya existe.',
+    codigoBase: 'Base de salida',
+    fecha: 'Fecha',
+    motorizado: 'Nombre del motorizado',
     link: 'Link de seguimiento',
     wsp: 'Numero WhatsApp',
     llamadas: 'Numero llamadas',
     yape: 'Numero Yape',
     observacion: 'Observacion',
+    buscar: 'Buscar paquete',
+    selectAll: 'Seleccionar todos',
+    clear: 'Limpiar',
+    sel: 'Sel',
     codigo: 'Codigo',
     cliente: 'Cliente',
     telefono: 'Telefono',
     entrega: 'Punto entrega',
     recibe: 'Recibe',
+    selectedNone: '0 seleccionados',
+    selectedCount: '{count} seleccionados',
+    resumenViaje: 'Resumen del viaje',
+    resumenPaquetes: 'Paquetes seleccionados',
+    confirm: 'Confirmar operacion',
     prev: 'Anterior',
     next: 'Siguiente',
-    save: 'Guardar',
-    confirm: 'Confirmo la operacion.',
-    select: 'Seleccione...',
-    selected: 'seleccionados',
-    loadingInit: 'Cargando datos iniciales...',
+    loadingBases: 'Cargando bases...',
     loadingPaquetes: 'Cargando paquetes empacados...',
-    saving: 'Guardando asignacion...',
-    logsTitle: 'SQL Logs (ultima ejecucion)',
-    loadingLogs: 'Cargando logs...',
-    logsReady: 'Listo',
-    emptyPaquetes: 'No hay paquetes empacados disponibles.',
-    success: 'Viaje asignado con codigo {id}.',
-    errors: {
-      base: 'Selecciona una base operativa.',
-      motorizado: 'Nombre de motorizado invalido.',
-      link: 'Link invalido. Usa http://, https:// o www.',
-      telefono: 'Numero invalido. Usa solo digitos y simbolos basicos.',
-      paquetes: 'Selecciona al menos un paquete empacado.',
-      confirm: 'Confirma la operacion para continuar.',
-      init: 'No se pudieron cargar los datos iniciales.',
-      paquetesLoad: 'No se pudieron cargar los paquetes.',
-      save: 'No se pudo guardar la asignacion.',
-      logs: 'No se pudieron cargar los logs.'
-    }
+    baseRequired: 'Selecciona una base valida.',
+    motorizadoRequired: 'El nombre del motorizado es requerido.',
+    linkInvalid: 'Ingresa un link valido (http://, https:// o www).',
+    codigoRequired: 'Ingresa el codigo del viaje existente.',
+    paquetesRequired: 'Selecciona al menos un paquete.',
+    baseError: 'No se pudieron cargar las bases.',
+    paquetesError: 'No se pudieron cargar los paquetes.',
+    codigoError: 'No se pudo calcular el codigo del viaje.',
+    saving: 'Guardando viaje y paquetes...',
+    success: 'Viaje asignado correctamente.',
+    saveError: 'No se pudo guardar el viaje.',
+    logsError: 'No se pudieron cargar los logs.',
+    logsTitle: 'Logs SQL'
   },
   en: {
     tag: 'Global IaaS + PaaS',
-    title: 'Assign trips',
-    subtitle: 'Multi-step wizard to coordinate trips and packages in real time.',
+    title: 'Assign Trips',
+    subtitle: 'Multi-step wizard to assign packed packages to a trip.',
     status: 'Flow status',
-    statusHint: 'Complete trip data to start.',
-    viewLogs: 'View SQL logs',
+    statusHint: 'Complete trip data to continue.',
+    existingHint: 'Enter the existing trip code.',
     refresh: 'Refresh packages',
+    viewLogs: 'View SQL logs',
     step1Title: '1. Trip data',
-    step1Subtitle: 'Register the trip header and operating base.',
+    step1Subtitle: 'Register the trip header and base.',
     step2Title: '2. Trip detail',
-    step2Subtitle: 'Select packed packages to assign them.',
+    step2Subtitle: 'Select packed packages to assign.',
     step3Title: '3. Confirm and save',
-    step3Subtitle: 'Review the information before assigning the trip.',
-    required: 'Required fields highlighted',
-    ready: 'Ready to assign',
+    step3Subtitle: 'Review the summary before confirming.',
+    required: 'Required fields',
     codigoViaje: 'Trip code',
-    fecha: 'Date/Time',
-    base: 'Operating base',
+    viajeExistente: 'Check if trip already exists.',
+    codigoBase: 'Base',
+    fecha: 'Date',
     motorizado: 'Driver name',
     link: 'Tracking link',
     wsp: 'WhatsApp number',
-    llamadas: 'Call number',
+    llamadas: 'Calls number',
     yape: 'Yape number',
-    observacion: 'Observation',
+    observacion: 'Notes',
+    buscar: 'Search package',
+    selectAll: 'Select all',
+    clear: 'Clear',
+    sel: 'Sel',
     codigo: 'Code',
     cliente: 'Client',
     telefono: 'Phone',
-    entrega: 'Delivery point',
+    entrega: 'Drop-off',
     recibe: 'Receiver',
-    prev: 'Previous',
+    selectedNone: '0 selected',
+    selectedCount: '{count} selected',
+    resumenViaje: 'Trip summary',
+    resumenPaquetes: 'Selected packages',
+    confirm: 'Confirm operation',
+    prev: 'Back',
     next: 'Next',
-    save: 'Save',
-    confirm: 'I confirm the operation.',
-    select: 'Select...',
-    selected: 'selected',
-    loadingInit: 'Loading initial data...',
+    loadingBases: 'Loading bases...',
     loadingPaquetes: 'Loading packed packages...',
-    saving: 'Saving assignment...',
-    logsTitle: 'SQL Logs (latest run)',
-    loadingLogs: 'Loading logs...',
-    logsReady: 'Ready',
-    emptyPaquetes: 'No packed packages available.',
-    success: 'Trip assigned with code {id}.',
-    errors: {
-      base: 'Select an operating base.',
-      motorizado: 'Invalid driver name.',
-      link: 'Invalid link. Use http://, https:// or www.',
-      telefono: 'Invalid number. Use digits and basic symbols only.',
-      paquetes: 'Select at least one packed package.',
-      confirm: 'Please confirm to continue.',
-      init: 'Unable to load initial data.',
-      paquetesLoad: 'Unable to load packages.',
-      save: 'Unable to save assignment.',
-      logs: 'Unable to load logs.'
-    }
+    baseRequired: 'Select a valid base.',
+    motorizadoRequired: 'Driver name is required.',
+    linkInvalid: 'Enter a valid link (http://, https://, or www).',
+    codigoRequired: 'Enter the existing trip code.',
+    paquetesRequired: 'Select at least one package.',
+    baseError: 'Could not load bases.',
+    paquetesError: 'Could not load packages.',
+    codigoError: 'Could not calculate trip code.',
+    saving: 'Saving trip and packages...',
+    success: 'Trip assigned successfully.',
+    saveError: 'Could not save trip.',
+    logsError: 'Could not load logs.',
+    logsTitle: 'SQL logs'
   }
 };
 

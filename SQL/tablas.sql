@@ -21,6 +21,7 @@ CREATE TABLE `base_horarios` (
   `hr_cierre` datetime NOT NULL,
   `maximo_pedidos` int DEFAULT '4',
   `cantidad_pedidos` int DEFAULT '0',
+  `estado` varchar(1) COLLATE utf8mb4_unicode_ci DEFAULT 'A',
   PRIMARY KEY (`codigo_base`, `dia`, `hr_apertura`),
   CONSTRAINT `fk_base_horarios_bases` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -178,6 +179,7 @@ CREATE TABLE `mov_contable` (
   `fecha_vencimiento` datetime DEFAULT CURRENT_TIMESTAMP,
   `fecha_valor` datetime DEFAULT CURRENT_TIMESTAMP,
   `codigo_cliente` numeric(12,0) NOT NULL,
+  `monto` numeric(12,2) DEFAULT NULL,
   `saldo` numeric(12,2) DEFAULT NULL,
   `tipo_documento` varchar(3) NOT NULL,
   `numero_documento` numeric(12,0) NOT NULL,
@@ -371,10 +373,6 @@ CREATE TABLE `detalle_mov_contable_prov` (
   `saldo` numeric(12,3) NOT NULL DEFAULT '0.000',
   `monto` numeric(12,2) NOT NULL,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `ordinal`),
-  UNIQUE KEY `tipo_documento_compra_UNIQUE` (`tipo_documento_compra`),
-  UNIQUE KEY `num_documento_compra_UNIQUE` (`num_documento_compra`),
-  UNIQUE KEY `codigo_provedor_UNIQUE` (`codigo_provedor`),
-  UNIQUE KEY `codigo_producto_UNIQUE` (`codigo_producto`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
   FOREIGN KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`) REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;

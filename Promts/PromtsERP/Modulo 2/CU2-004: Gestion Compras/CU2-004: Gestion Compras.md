@@ -13,6 +13,7 @@ Toda variable/campo empieza con `v` y se lista sin `-`.
 Cada variable debe indicar si es visible / no visible y si es editable / no editable.
 En SPs de lectura: primero declarar `vX = Llamada SP: ... (devuelve campo_visible)`, luego listar `Campos devueltos` y despues `Variables` con su visibilidad/edicion.
 Todo campo tipo Select debe permitir escribir y filtrar la lista conforme se escribe (typeahead) para soportar miles de registros.
+Para cualquier campo de cantidad, aceptar decimales con `.` o `,` y normalizar a `.` antes de enviar al backend.
 
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso. Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
@@ -149,6 +150,8 @@ Al dar click en “Registrar Remito”, ejecutar transaccion:
    - `p_cantidad = vCantidadDisponible`
    - `p_tipodoc = vTipo_documento_compra_remito` (REM, entrada positiva)
    - `p_numdoc = vNum_documento_compra_remito`
+
+
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

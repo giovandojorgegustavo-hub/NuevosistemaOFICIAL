@@ -19,7 +19,7 @@
   vnumero
   Variables
   vClienteSeleted no visible no editable
-  vClienteNombre visible editable
+  vClienteNombre visible no editable
   vClienteNumero no visible no editable
 
   vProductos = Llamada SP: get_productos() (devuelve campo_visible)
@@ -28,7 +28,7 @@
   vnombre
   Variables
   vProductoCodigo no visible no editable
-  vProductoNombre visible editable
+  vProductoNombre visible no editable
 
   vPuntosEntrega = Llamada SP: get_puntos_entrega(p_codigo_cliente) (devuelve campo_visible)
   Campos devueltos
@@ -51,7 +51,7 @@
   vconcatenarpuntoentrega
   vestado
   Variables
-  vPuntoEntregaTexto visible editable
+  vPuntoEntregaTexto visible no editable
   vRegion_Entrega no visible no editable
   vDireccionLinea visible no editable
   vReferencia visible no editable
@@ -65,21 +65,21 @@
   vcod_dep
   vdepartamento
   Variables
-  vDepartamento visible editable
+  vDepartamento visible no editable
 
   vProvincias = Llamada SP: get_ubigeo_provincias(p_cod_dep) (devuelve campo_visible)
   Campos devueltos
   vcod_prov
   vprovincia
   Variables
-  vProvincia visible editable
+  vProvincia visible no editable
 
   vDistritos = Llamada SP: get_ubigeo_distritos(p_cod_dep, p_cod_prov) (devuelve campo_visible)
   Campos devueltos
   vcod_dist
   vdistrito
   Variables
-  vDistrito visible editable
+  vDistrito visible no editable
 
   vNumRecibe = Llamada SP: get_numrecibe(p_codigo_cliente) (devuelve campo_visible)
   Campos devueltos
@@ -92,15 +92,15 @@
   vOrdinal_numrecibe no visible no editable
   vNumeroRecibe no visible no editable
   vNombreRecibe no visible no editable
-  vConcatenarnumrecibe visible editable
+  vConcatenarnumrecibe visible no editable
 
-  vCuentasBancarias = Llamada SP: get_cuentasbancarias() (devuelve campo_visible)
+  vCuentas = Llamada SP: get_cuentasbancarias() (devuelve campo_visible)
   Campos devueltos
   vcodigo_cuentabancaria
   vnombre
   vbanco
   Variables
-  vCuentaNombre visible editable
+  vCuentaNombre visible no editable
   vCuentaBanco visible no editable
 
   vBases = Llamada SP: get_bases() (devuelve campo_visible)
@@ -108,24 +108,35 @@
   vcodigo_base
   vnombre
   Variables
-  vCodigo_base no visible editable
-  vBaseNombre visible editable
+  vCodigo_base no visible no editable
+  vBaseNombre visible no editable
+
+  vBasesCandidatas = Llamada SP: get_bases_candidatas(p_vProdFactura JSON, vFechaPedido DATETIME) (devuelve campo_visible)
+  Campos devueltos
+  vcodigo_base
+  vlatitud
+  vlongitud
+  Variables
+  vCodigo_base visible no editable
+  vLatitud visible no editable
+  vLongitud visible no editable
   -->
   <div class="page">
     <header class="app-header">
       <div>
         <span class="badge badge-tech" data-i18n="tag">IaaS + PaaS Global</span>
         <h1 data-i18n="title">Pedidos</h1>
-        <p class="lead" data-i18n="subtitle">Wizard multi-paso para crear pedidos, facturas y entregas con trazabilidad total.</p>
+        <p class="lead" data-i18n="subtitle">Wizard multi-paso para registrar pedidos, factura, entrega y pagos.</p>
       </div>
       <div class="status-card">
         <p class="text-muted" data-i18n="status">Estado del flujo</p>
         <div class="progress" role="progressbar" aria-label="Progress">
           <div id="progressBar" class="progress-bar"></div>
         </div>
-        <small id="statusHint" class="text-muted" data-i18n="statusHint">Completa el pedido para continuar.</small>
+        <small id="statusHint" class="text-muted" data-i18n="statusHint">Completa cada paso para emitir la factura.</small>
         <div class="d-flex gap-2 flex-wrap">
-          <span class="badge badge-soft" data-i18n="steps">7 pasos</span>
+          <span class="badge badge-soft" id="stepBadge">Paso 1/8</span>
+          <span class="badge badge-soft" id="regionBadge">Region: -</span>
         </div>
       </div>
     </header>
@@ -137,39 +148,74 @@
       <section class="step active" data-step="1">
         <div class="step-header">
           <div>
-            <h2 data-i18n="step1Title">1. Crear Pedido</h2>
-            <p class="text-muted" data-i18n="step1Subtitle">Registra cliente, fecha y detalle del pedido.</p>
+            <h2 data-i18n="step1Title">1. Seleccionar o crear cliente</h2>
+            <p class="text-muted" data-i18n="step1Subtitle">Define si trabajaras con un cliente existente o uno nuevo.</p>
           </div>
-          <span class="badge badge-soft" data-i18n="required">Campos obligatorios marcados</span>
+          <span class="badge badge-soft" data-i18n="required">Requerido</span>
         </div>
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label" data-i18n="fechaPedido">Fecha pedido</label>
-            <input id="fechaPedido" class="form-control" type="text" readonly />
+        <div class="card-section">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="clienteModo" id="clienteExistente" value="existente" checked>
+            <label class="form-check-label" for="clienteExistente" data-i18n="clienteExistente">Cliente existente</label>
           </div>
-          <div class="col-md-3">
-            <label class="form-label" data-i18n="horaPedido">Hora pedido</label>
-            <input id="horaPedido" class="form-control" type="text" readonly />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" data-i18n="cliente">Cliente *</label>
-            <div class="typeahead">
-              <input id="clienteInput" class="form-control typeahead-input" type="text" placeholder="Buscar cliente" autocomplete="off" />
-              <div id="clienteList" class="typeahead-list"></div>
-            </div>
-            <small id="clienteNumero" class="text-muted"></small>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="clienteModo" id="clienteNuevo" value="nuevo">
+            <label class="form-check-label" for="clienteNuevo" data-i18n="clienteNuevo">Cliente nuevo</label>
           </div>
         </div>
+        <div id="clienteExistentePanel" class="grid-2">
+          <div>
+            <label class="form-label" data-i18n="cliente">Cliente</label>
+            <input id="clienteSelect" class="form-control" list="clientesList" placeholder="Buscar cliente" />
+            <datalist id="clientesList"></datalist>
+          </div>
+          <div>
+            <label class="form-label" data-i18n="numero">Numero</label>
+            <input id="clienteNumero" class="form-control" type="text" readonly />
+          </div>
+        </div>
+        <div id="clienteNuevoPanel" class="grid-2 hidden">
+          <div>
+            <label class="form-label" data-i18n="clienteNombre">Nombre</label>
+            <input id="clienteNombreNuevo" class="form-control" type="text" placeholder="Nombre del cliente" />
+          </div>
+          <div>
+            <label class="form-label" data-i18n="clienteNumero">Numero</label>
+            <input id="clienteNumeroNuevo" class="form-control" type="text" placeholder="Numero de contacto" />
+          </div>
+        </div>
+      </section>
 
-        <div class="section-title" data-i18n="detallePedido">Detalle del pedido</div>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
+      <section class="step" data-step="2">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step2Title">2. Crear pedido</h2>
+            <p class="text-muted" data-i18n="step2Subtitle">Agrega productos, cantidades y precios.</p>
+          </div>
+          <span class="badge badge-soft" data-i18n="editable">Editable</span>
+        </div>
+        <div class="grid-3">
+          <div>
+            <label class="form-label" data-i18n="fechaPedido">Fecha pedido</label>
+            <input id="fechaPedido" class="form-control" type="date" readonly />
+          </div>
+          <div>
+            <label class="form-label" data-i18n="horaPedido">Hora pedido</label>
+            <input id="horaPedido" class="form-control" type="time" readonly />
+          </div>
+          <div>
+            <label class="form-label" data-i18n="codigoPedido">Codigo pedido</label>
+            <input id="codigoPedido" class="form-control" type="text" readonly />
+          </div>
+        </div>
+        <div class="table-responsive mt-3">
+          <table class="table table-dark align-middle">
             <thead>
               <tr>
-                <th data-i18n="producto">Producto *</th>
-                <th data-i18n="cantidad">Cantidad *</th>
-                <th data-i18n="precioTotal">Precio total *</th>
-                <th></th>
+                <th data-i18n="producto">Producto</th>
+                <th data-i18n="cantidad">Cantidad</th>
+                <th data-i18n="precioTotal">Precio total</th>
+                <th data-i18n="acciones">Acciones</th>
               </tr>
             </thead>
             <tbody id="pedidoBody"></tbody>
@@ -178,168 +224,168 @@
         <button id="addPedidoRow" class="btn btn-outline-light btn-sm" type="button" data-i18n="agregarLinea">Agregar linea</button>
       </section>
 
-      <section class="step" data-step="2">
+      <section class="step" data-step="3">
         <div class="step-header">
           <div>
-            <h2 data-i18n="step2Title">2. Crear Factura</h2>
-            <p class="text-muted" data-i18n="step2Subtitle">Ajusta cantidades a facturar y verifica totales.</p>
+            <h2 data-i18n="step3Title">3. Crear factura</h2>
+            <p class="text-muted" data-i18n="step3Subtitle">Valida cantidades y montos de factura.</p>
           </div>
-          <span class="badge badge-soft" data-i18n="auto">Generado automaticamente</span>
+          <span class="badge badge-soft" data-i18n="required">Requerido</span>
         </div>
-        <div class="row g-3">
-          <div class="col-md-3">
+        <div class="grid-3">
+          <div>
             <label class="form-label" data-i18n="fechaEmision">Fecha emision</label>
             <input id="fechaEmision" class="form-control" type="text" readonly />
           </div>
-          <div class="col-md-3">
+          <div>
             <label class="form-label" data-i18n="horaEmision">Hora emision</label>
             <input id="horaEmision" class="form-control" type="text" readonly />
           </div>
-          <div class="col-md-3">
-            <label class="form-label" data-i18n="tipoDoc">Tipo documento</label>
-            <input id="tipoDocumento" class="form-control" type="text" readonly />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" data-i18n="numeroDoc">Numero documento</label>
-            <input id="numeroDocumento" class="form-control" type="text" readonly />
+          <div>
+            <label class="form-label" data-i18n="numeroFactura">Numero documento</label>
+            <input id="numeroFactura" class="form-control" type="text" readonly />
           </div>
         </div>
         <div class="table-responsive mt-3">
-          <table class="table table-hover align-middle">
+          <table class="table table-striped align-middle">
             <thead>
               <tr>
                 <th data-i18n="producto">Producto</th>
-                <th data-i18n="cantidadFactura">Cantidad factura</th>
+                <th data-i18n="cantidad">Cantidad</th>
                 <th data-i18n="precioTotal">Precio total</th>
-                <th></th>
+                <th data-i18n="acciones">Acciones</th>
               </tr>
             </thead>
             <tbody id="facturaBody"></tbody>
           </table>
         </div>
-        <div class="d-flex justify-content-end">
-          <div class="total-box">
-            <span data-i18n="saldoFactura">Saldo factura</span>
-            <strong id="saldoFactura">0.00</strong>
-          </div>
-        </div>
-      </section>
-
-      <section class="step" data-step="3">
-        <div class="step-header">
-          <div>
-            <h2 data-i18n="step3Title">3. Datos Entrega</h2>
-            <p class="text-muted" data-i18n="step3Subtitle">Selecciona un punto existente o registra uno nuevo.</p>
-          </div>
-          <span class="badge badge-soft" data-i18n="entrega">Entrega</span>
-        </div>
-        <div class="choice-group">
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="entregaTipo" id="entregaExiste" value="existe" checked>
-            <label class="form-check-label" for="entregaExiste" data-i18n="existe">Existe</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="entregaTipo" id="entregaNuevo" value="nuevo">
-            <label class="form-check-label" for="entregaNuevo" data-i18n="nuevo">Nuevo</label>
-          </div>
-        </div>
-        <div id="entregaExistente" class="option-card">
-          <label class="form-label" data-i18n="puntoEntrega">Punto de entrega</label>
-          <div class="typeahead">
-            <input id="puntoEntregaInput" class="form-control typeahead-input" type="text" placeholder="Buscar punto" autocomplete="off" />
-            <div id="puntoEntregaList" class="typeahead-list"></div>
-          </div>
-          <div id="entregaExistenteInfo" class="info-grid"></div>
-        </div>
-        <div id="entregaNuevo" class="option-card d-none">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="departamento">Departamento *</label>
-              <div class="typeahead">
-                <input id="departamentoInput" class="form-control typeahead-input" type="text" placeholder="Buscar" autocomplete="off" />
-                <div id="departamentoList" class="typeahead-list"></div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="provincia">Provincia *</label>
-              <div class="typeahead">
-                <input id="provinciaInput" class="form-control typeahead-input" type="text" placeholder="Buscar" autocomplete="off" />
-                <div id="provinciaList" class="typeahead-list"></div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="distrito">Distrito *</label>
-              <div class="typeahead">
-                <input id="distritoInput" class="form-control typeahead-input" type="text" placeholder="Buscar" autocomplete="off" />
-                <div id="distritoList" class="typeahead-list"></div>
-              </div>
-            </div>
-          </div>
-          <div id="entregaLimaFields" class="row g-3 mt-2 d-none">
-            <div class="col-md-8">
-              <label class="form-label" data-i18n="direccion">Direccion *</label>
-              <input id="direccionInput" class="form-control" type="text" placeholder="Av. Tecnologica 123" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="referencia">Referencia</label>
-              <input id="referenciaInput" class="form-control" type="text" placeholder="Frente a..." />
-            </div>
-          </div>
-          <div id="entregaProvFields" class="row g-3 mt-2 d-none">
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="nombre">Nombre *</label>
-              <input id="nombreProvInput" class="form-control" type="text" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="dni">DNI *</label>
-              <input id="dniProvInput" class="form-control" type="text" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" data-i18n="agencia">Agencia</label>
-              <input id="agenciaProvInput" class="form-control" type="text" />
-            </div>
-            <div class="col-12">
-              <label class="form-label" data-i18n="observaciones">Observaciones</label>
-              <input id="observacionesProvInput" class="form-control" type="text" />
-            </div>
-          </div>
+        <div class="summary-inline">
+          <span data-i18n="montoFactura">Monto factura</span>
+          <strong id="montoFactura">0.00</strong>
         </div>
       </section>
 
       <section class="step" data-step="4">
         <div class="step-header">
           <div>
-            <h2 data-i18n="step4Title">4. Datos Recibe (solo LIMA)</h2>
-            <p class="text-muted" data-i18n="step4Subtitle">Define quien recibe en Lima Metropolitana.</p>
+            <h2 data-i18n="step4Title">4. Datos entrega</h2>
+            <p class="text-muted" data-i18n="step4Subtitle">Selecciona un punto existente o crea uno nuevo.</p>
           </div>
-          <span class="badge badge-soft" data-i18n="recibe">Recibe</span>
+          <span class="badge badge-soft" data-i18n="required">Requerido</span>
         </div>
-        <div class="choice-group">
+        <div class="card-section">
+          <div class="form-check form-check-inline" id="entregaExistenteOption">
+            <input class="form-check-input" type="radio" name="entregaModo" id="entregaExistente" value="existente" checked>
+            <label class="form-check-label" for="entregaExistente" data-i18n="entregaExistente">Existe</label>
+          </div>
           <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="recibeTipo" id="recibeExiste" value="existe" checked>
-            <label class="form-check-label" for="recibeExiste" data-i18n="existe">Existe</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="recibeTipo" id="recibeNuevo" value="nuevo">
-            <label class="form-check-label" for="recibeNuevo" data-i18n="nuevo">Nuevo</label>
+            <input class="form-check-input" type="radio" name="entregaModo" id="entregaNuevo" value="nuevo">
+            <label class="form-check-label" for="entregaNuevo" data-i18n="entregaNuevo">Nuevo</label>
           </div>
         </div>
-        <div id="recibeExistente" class="option-card">
-          <label class="form-label" data-i18n="recibe">Recibe</label>
-          <div class="typeahead">
-            <input id="recibeInput" class="form-control typeahead-input" type="text" placeholder="Buscar" autocomplete="off" />
-            <div id="recibeList" class="typeahead-list"></div>
+        <div id="entregaExistentePanel" class="grid-2">
+          <div>
+            <label class="form-label" data-i18n="puntoEntrega">Punto entrega</label>
+            <input id="puntoEntregaSelect" class="form-control" list="puntosEntregaList" placeholder="Buscar punto entrega" />
+            <datalist id="puntosEntregaList"></datalist>
           </div>
-        </div>
-        <div id="recibeNuevo" class="option-card d-none">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label" data-i18n="numero">Numero *</label>
-              <input id="numeroRecibeInput" class="form-control" type="text" />
+          <div>
+            <label class="form-label" data-i18n="regionEntrega">Region entrega</label>
+            <input id="regionEntrega" class="form-control" type="text" readonly />
+          </div>
+          <div id="entregaLimaPanel" class="grid-2">
+            <div>
+              <label class="form-label" data-i18n="direccion">Direccion</label>
+              <input id="direccionLinea" class="form-control" type="text" readonly />
             </div>
-            <div class="col-md-6">
-              <label class="form-label" data-i18n="nombre">Nombre *</label>
-              <input id="nombreRecibeInput" class="form-control" type="text" />
+            <div>
+              <label class="form-label" data-i18n="referencia">Referencia</label>
+              <input id="referencia" class="form-control" type="text" readonly />
+            </div>
+          </div>
+          <div id="entregaProvPanel" class="grid-2 hidden">
+            <div>
+              <label class="form-label" data-i18n="nombre">Nombre</label>
+              <input id="entregaNombre" class="form-control" type="text" readonly />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="dni">DNI</label>
+              <input id="entregaDni" class="form-control" type="text" readonly />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="agencia">Agencia</label>
+              <input id="entregaAgencia" class="form-control" type="text" readonly />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="observaciones">Observaciones</label>
+              <input id="entregaObservaciones" class="form-control" type="text" readonly />
+            </div>
+          </div>
+        </div>
+        <div id="entregaNuevoPanel" class="hidden">
+          <div class="grid-3">
+            <div>
+              <label class="form-label" data-i18n="departamento">Departamento</label>
+              <input id="departamentoSelect" class="form-control" list="departamentosList" placeholder="Departamento" />
+              <datalist id="departamentosList"></datalist>
+            </div>
+            <div>
+              <label class="form-label" data-i18n="provincia">Provincia</label>
+              <input id="provinciaSelect" class="form-control" list="provinciasList" placeholder="Provincia" />
+              <datalist id="provinciasList"></datalist>
+            </div>
+            <div>
+              <label class="form-label" data-i18n="distrito">Distrito</label>
+              <input id="distritoSelect" class="form-control" list="distritosList" placeholder="Distrito" />
+              <datalist id="distritosList"></datalist>
+            </div>
+          </div>
+          <div class="map-card mt-3">
+            <div class="map-header">
+              <div>
+                <h3 data-i18n="mapTitle">Mapa de entrega</h3>
+                <p class="text-muted" data-i18n="mapSubtitle">Selecciona el punto exacto en Lima.</p>
+              </div>
+              <span class="badge badge-soft" data-i18n="mapHint">Click para geocodificar</span>
+            </div>
+            <div id="map" class="map"></div>
+          </div>
+          <div class="grid-2 mt-3">
+            <div>
+              <label class="form-label" data-i18n="direccion">Direccion</label>
+              <input id="direccionLineaNuevo" class="form-control" type="text" placeholder="Direccion" />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="referencia">Referencia</label>
+              <input id="referenciaNuevo" class="form-control" type="text" placeholder="Referencia" />
+            </div>
+          </div>
+          <div class="grid-2 mt-2">
+            <div>
+              <label class="form-label" data-i18n="latitud">Latitud</label>
+              <input id="latitud" class="form-control" type="text" readonly />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="longitud">Longitud</label>
+              <input id="longitud" class="form-control" type="text" readonly />
+            </div>
+          </div>
+          <div id="entregaProvNuevoPanel" class="grid-2 mt-3 hidden">
+            <div>
+              <label class="form-label" data-i18n="nombre">Nombre</label>
+              <input id="entregaNombreNuevo" class="form-control" type="text" placeholder="Nombre" />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="dni">DNI</label>
+              <input id="entregaDniNuevo" class="form-control" type="text" placeholder="DNI" />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="agencia">Agencia</label>
+              <input id="entregaAgenciaNuevo" class="form-control" type="text" placeholder="Agencia" />
+            </div>
+            <div>
+              <label class="form-label" data-i18n="observaciones">Observaciones</label>
+              <input id="entregaObservacionesNuevo" class="form-control" type="text" placeholder="Observaciones" />
             </div>
           </div>
         </div>
@@ -348,40 +394,82 @@
       <section class="step" data-step="5">
         <div class="step-header">
           <div>
-            <h2 data-i18n="step5Title">5. Registro de Pago (Recibo)</h2>
-            <p class="text-muted" data-i18n="step5Subtitle">Registra pagos parciales o deja pendiente.</p>
+            <h2 data-i18n="step5Title">5. Datos recibe</h2>
+            <p class="text-muted" data-i18n="step5Subtitle">Solo aplica para entregas en Lima.</p>
           </div>
-          <span class="badge badge-soft">RCP</span>
+          <span class="badge badge-soft" data-i18n="optional">Condicional</span>
         </div>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" data-i18n="cuenta">Cuenta bancaria</label>
-            <div class="typeahead">
-              <input id="cuentaInput" class="form-control typeahead-input" type="text" placeholder="Buscar cuenta" autocomplete="off" />
-              <div id="cuentaList" class="typeahead-list"></div>
-            </div>
-            <small id="cuentaBanco" class="text-muted"></small>
+        <div class="card-section">
+          <div class="form-check form-check-inline" id="recibeExistenteOption">
+            <input class="form-check-input" type="radio" name="recibeModo" id="recibeExistente" value="existente" checked>
+            <label class="form-check-label" for="recibeExistente" data-i18n="recibeExistente">Existe</label>
           </div>
-          <div class="col-md-3">
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="recibeModo" id="recibeNuevo" value="nuevo">
+            <label class="form-check-label" for="recibeNuevo" data-i18n="recibeNuevo">Nuevo</label>
+          </div>
+        </div>
+        <div id="recibeExistentePanel" class="grid-2">
+          <div>
+            <label class="form-label" data-i18n="recibe">Recibe</label>
+            <input id="recibeSelect" class="form-control" list="recibeList" placeholder="Selecciona" />
+            <datalist id="recibeList"></datalist>
+          </div>
+          <div>
+            <label class="form-label" data-i18n="numero">Numero</label>
+            <input id="recibeNumero" class="form-control" type="text" readonly />
+          </div>
+        </div>
+        <div id="recibeNuevoPanel" class="grid-2 hidden">
+          <div>
+            <label class="form-label" data-i18n="numeroRecibe">Numero</label>
+            <input id="recibeNumeroNuevo" class="form-control" type="text" placeholder="Numero" />
+          </div>
+          <div>
+            <label class="form-label" data-i18n="nombreRecibe">Nombre</label>
+            <input id="recibeNombreNuevo" class="form-control" type="text" placeholder="Nombre" />
+          </div>
+        </div>
+      </section>
+
+      <section class="step" data-step="6">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step6Title">6. Registro de pago (recibo)</h2>
+            <p class="text-muted" data-i18n="step6Subtitle">Puedes registrar pagos parciales o dejar saldo pendiente.</p>
+          </div>
+          <span class="badge badge-soft" data-i18n="editable">Editable</span>
+        </div>
+        <div class="grid-3">
+          <div>
+            <label class="form-label" data-i18n="cuenta">Cuenta bancaria</label>
+            <input id="cuentaSelect" class="form-control" list="cuentasList" placeholder="Cuenta" />
+            <datalist id="cuentasList"></datalist>
+          </div>
+          <div>
+            <label class="form-label" data-i18n="banco">Banco</label>
+            <input id="cuentaBanco" class="form-control" type="text" readonly />
+          </div>
+          <div>
             <label class="form-label" data-i18n="montoPendiente">Monto pendiente</label>
             <input id="montoPendiente" class="form-control" type="text" readonly />
           </div>
-          <div class="col-md-3">
+        </div>
+        <div class="grid-2 mt-3">
+          <div>
             <label class="form-label" data-i18n="montoPago">Monto pago</label>
-            <input id="montoPago" class="form-control" type="text" />
+            <input id="montoPago" class="form-control" type="text" placeholder="0.00" />
+          </div>
+          <div class="d-flex align-items-end">
+            <button id="addPago" class="btn btn-outline-light w-100" type="button" data-i18n="registrarPago">Registrar pago</button>
           </div>
         </div>
-        <div class="d-flex align-items-center gap-2 mt-3">
-          <button id="addPagoBtn" class="btn btn-outline-light btn-sm" type="button" data-i18n="agregarPago">Agregar pago</button>
-          <span id="pagoHint" class="text-muted" data-i18n="pagoHint">Puedes dejar el monto en 0 si no deseas registrar pago.</span>
-        </div>
         <div class="table-responsive mt-3">
-          <table class="table table-hover align-middle">
+          <table class="table table-striped align-middle">
             <thead>
               <tr>
-                <th data-i18n="cuenta">Cuenta</th>
+                <th data-i18n="numeroDocumento">Numero documento</th>
                 <th data-i18n="monto">Monto</th>
-                <th></th>
               </tr>
             </thead>
             <tbody id="pagosBody"></tbody>
@@ -389,60 +477,41 @@
         </div>
       </section>
 
-      <section class="step" data-step="6">
-        <div class="step-header">
-          <div>
-            <h2 data-i18n="step6Title">6. Asignar Base</h2>
-            <p class="text-muted" data-i18n="step6Subtitle">Define la base operativa y prepara el JSON del detalle.</p>
-          </div>
-          <span class="badge badge-soft" data-i18n="base">Base</span>
-        </div>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" data-i18n="base">Base *</label>
-            <div class="typeahead">
-              <input id="baseInput" class="form-control typeahead-input" type="text" placeholder="Buscar base" autocomplete="off" />
-              <div id="baseList" class="typeahead-list"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mt-3">
-          <label class="form-label" data-i18n="jsonDetalle">JSON detalle</label>
-          <pre id="jsonDetalle" class="json-preview"></pre>
-        </div>
-      </section>
-
       <section class="step" data-step="7">
         <div class="step-header">
           <div>
-            <h2 data-i18n="step7Title">7. Resumen y Emitir Factura</h2>
-            <p class="text-muted" data-i18n="step7Subtitle">Confirma la operacion y emite la factura.</p>
+            <h2 data-i18n="step7Title">7. Asignar base</h2>
+            <p class="text-muted" data-i18n="step7Subtitle">Selecciona la base para la factura.</p>
           </div>
-          <span class="badge badge-soft" data-i18n="resumen">Resumen</span>
+          <span class="badge badge-soft" data-i18n="required">Requerido</span>
         </div>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <h3 data-i18n="resumenPedido">Pedido</h3>
-            <div id="resumenPedido"></div>
+        <div class="grid-2">
+          <div>
+            <label class="form-label" data-i18n="base">Base</label>
+            <input id="baseSelect" class="form-control" list="basesList" placeholder="Base" />
+            <datalist id="basesList"></datalist>
           </div>
-          <div class="summary-card">
-            <h3 data-i18n="resumenFactura">Factura</h3>
-            <div id="resumenFactura"></div>
-          </div>
-          <div class="summary-card">
-            <h3 data-i18n="resumenEntrega">Entrega</h3>
-            <div id="resumenEntrega"></div>
-          </div>
-          <div class="summary-card">
-            <h3 data-i18n="resumenRecibe">Recibe</h3>
-            <div id="resumenRecibe"></div>
+          <div>
+            <label class="form-label" data-i18n="basesCandidatas">Bases candidatas</label>
+            <div id="basesCandidatas" class="candidate-list"></div>
           </div>
         </div>
+      </section>
+
+      <section class="step" data-step="8">
+        <div class="step-header">
+          <div>
+            <h2 data-i18n="step8Title">8. Resumen y emitir factura</h2>
+            <p class="text-muted" data-i18n="step8Subtitle">Revisa toda la informacion antes de emitir.</p>
+          </div>
+          <span class="badge badge-soft" data-i18n="confirm">Confirmar operacion</span>
+        </div>
+        <div id="summary" class="summary-card"></div>
         <div class="form-check mt-3">
           <input class="form-check-input" type="checkbox" id="confirmCheck" />
-          <label class="form-check-label" for="confirmCheck" data-i18n="confirm">Confirmo la operacion.</label>
+          <label class="form-check-label" for="confirmCheck" data-i18n="confirmText">Confirmo la operacion.</label>
         </div>
-        <button id="emitirBtn" class="btn btn-primary mt-3" type="button" data-i18n="emitir">Emitir Factura</button>
+        <button id="emitirBtn" class="btn btn-primary mt-3" type="button" data-i18n="emitirFactura">Emitir factura</button>
       </section>
 
       <div class="wizard-actions">

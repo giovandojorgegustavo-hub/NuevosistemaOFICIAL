@@ -60,10 +60,23 @@ function parseErpConfig() {
   const raw = fs.readFileSync(configPath, 'utf8');
   const nameMatch = raw.match(/name:\s*"?([^"\n]+)"?/);
   const dsnMatch = raw.match(/dsn:\s*"?([^"\n]+)"?/);
+  const mapsMatch = raw.match(/api_key:\s*"?([^"\n]+)"?/);
+  const latMatch = raw.match(/lat:\s*(-?\d+\.?\d*)/);
+  const lngMatch = raw.match(/lng:\s*(-?\d+\.?\d*)/);
+  const zoomMatch = raw.match(/default_zoom:\s*(\d+)/);
   if (!nameMatch || !dsnMatch) {
     throw new Error('No se encontro la configuracion en erp.yml');
   }
-  return { name: nameMatch[1].trim(), dsn: dsnMatch[1].trim() };
+  return {
+    name: nameMatch[1].trim(),
+    dsn: dsnMatch[1].trim(),
+    mapsKey: mapsMatch ? mapsMatch[1].trim() : '',
+    mapCenter: {
+      lat: latMatch ? Number(latMatch[1]) : -12.0464,
+      lng: lngMatch ? Number(lngMatch[1]) : -77.0428
+    },
+    mapZoom: zoomMatch ? Number(zoomMatch[1]) : 12
+  };
 }
 
 function parseMysqlDsn(dsn) {
@@ -80,7 +93,7 @@ function parseMysqlDsn(dsn) {
   };
 }
 
-const { name, dsn } = parseErpConfig();
+const { name, dsn, mapsKey, mapCenter, mapZoom } = parseErpConfig();
 const dbConfig = parseMysqlDsn(dsn);
 if (dbConfig.database !== name) {
   logLine('INFO', `DB en DSN (${dbConfig.database}) ajustada a ${name} segun erp.yml`);
@@ -134,16 +147,6 @@ function parseBody(req) {
   });
 }
 
-async function getSingleValue(sql, params) {
-  const connection = await pool.getConnection();
-  try {
-    const [rows] = await queryDb(connection, sql, params);
-    return rows[0] || {};
-  } finally {
-    connection.release();
-  }
-}
-
 async function handleRequest(req, res) {
   const parsed = url.parse(req.url, true);
   const method = req.method.toUpperCase();
@@ -156,7 +159,16 @@ async function handleRequest(req, res) {
   }
 
   if (method === 'GET' && (route.endsWith('.css') || route.endsWith('.js'))) {
-    return sendFile(res, path.join(ROOT_DIR, route));
+    const safePath = route.replace(/^\//, '');
+    return sendFile(res, path.join(ROOT_DIR, safePath));
+  }
+
+  if (method === 'GET' && route === '/api/config') {
+    return sendJson(res, 200, {
+      googleMapsKey: mapsKey,
+      mapCenter,
+      mapZoom
+    });
   }
 
   if (method === 'GET' && route === '/api/clientes') {
@@ -167,6 +179,32 @@ async function handleRequest(req, res) {
     } catch (error) {
       logError(error);
       return sendJson(res, 500, { message: 'Error al cargar clientes.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/clientes/next') {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(connection, 'SELECT COALESCE(MAX(codigo_cliente), 0) + 1 AS next FROM clientes');
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular codigo cliente.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/pedidos/next') {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(connection, 'SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos');
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular codigo pedido.' });
     } finally {
       connection.release();
     }
@@ -185,10 +223,26 @@ async function handleRequest(req, res) {
     }
   }
 
+  if (method === 'GET' && route === '/api/facturas/next') {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(
+        connection,
+        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'"
+      );
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular numero de factura.' });
+    } finally {
+      connection.release();
+    }
+  }
+
   if (method === 'GET' && route === '/api/puntos-entrega') {
-    const codigoCliente = parsed.query.codigoCliente;
+    const codigoCliente = parsed.query.cliente;
     if (!codigoCliente) {
-      return sendJson(res, 400, { message: 'Codigo de cliente requerido.' });
+      return sendJson(res, 400, { message: 'Codigo cliente requerido.' });
     }
     const connection = await pool.getConnection();
     try {
@@ -202,7 +256,28 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (method === 'GET' && route === '/api/departamentos') {
+  if (method === 'GET' && route === '/api/puntos-entrega/next') {
+    const codigoCliente = parsed.query.cliente;
+    if (!codigoCliente) {
+      return sendJson(res, 400, { message: 'Codigo cliente requerido.' });
+    }
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(
+        connection,
+        'SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = ?',
+        [codigoCliente]
+      );
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular codigo punto entrega.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/ubigeo/departamentos') {
     const connection = await pool.getConnection();
     try {
       const [rows] = await queryDb(connection, 'CALL get_ubigeo_departamentos()');
@@ -215,10 +290,10 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (method === 'GET' && route === '/api/provincias') {
-    const codDep = parsed.query.codDep;
+  if (method === 'GET' && route === '/api/ubigeo/provincias') {
+    const codDep = parsed.query.cod_dep;
     if (!codDep) {
-      return sendJson(res, 400, { message: 'codDep requerido.' });
+      return sendJson(res, 400, { message: 'Codigo departamento requerido.' });
     }
     const connection = await pool.getConnection();
     try {
@@ -232,11 +307,11 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (method === 'GET' && route === '/api/distritos') {
-    const codDep = parsed.query.codDep;
-    const codProv = parsed.query.codProv;
+  if (method === 'GET' && route === '/api/ubigeo/distritos') {
+    const codDep = parsed.query.cod_dep;
+    const codProv = parsed.query.cod_prov;
     if (!codDep || !codProv) {
-      return sendJson(res, 400, { message: 'codDep y codProv requeridos.' });
+      return sendJson(res, 400, { message: 'Codigo departamento y provincia requeridos.' });
     }
     const connection = await pool.getConnection();
     try {
@@ -251,9 +326,9 @@ async function handleRequest(req, res) {
   }
 
   if (method === 'GET' && route === '/api/numrecibe') {
-    const codigoCliente = parsed.query.codigoCliente;
+    const codigoCliente = parsed.query.cliente;
     if (!codigoCliente) {
-      return sendJson(res, 400, { message: 'Codigo de cliente requerido.' });
+      return sendJson(res, 400, { message: 'Codigo cliente requerido.' });
     }
     const connection = await pool.getConnection();
     try {
@@ -267,7 +342,28 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (method === 'GET' && route === '/api/cuentas') {
+  if (method === 'GET' && route === '/api/numrecibe/next') {
+    const codigoCliente = parsed.query.cliente;
+    if (!codigoCliente) {
+      return sendJson(res, 400, { message: 'Codigo cliente requerido.' });
+    }
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(
+        connection,
+        'SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = ?',
+        [codigoCliente]
+      );
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular ordinal numrecibe.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/cuentas-bancarias') {
     const connection = await pool.getConnection();
     try {
       const [rows] = await queryDb(connection, 'CALL get_cuentasbancarias()');
@@ -275,6 +371,22 @@ async function handleRequest(req, res) {
     } catch (error) {
       logError(error);
       return sendJson(res, 500, { message: 'Error al cargar cuentas bancarias.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/recibos/next') {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(
+        connection,
+        "SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'"
+      );
+      return sendJson(res, 200, rows[0]);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular numero de recibo.' });
     } finally {
       connection.release();
     }
@@ -293,255 +405,217 @@ async function handleRequest(req, res) {
     }
   }
 
-  if (method === 'GET' && route === '/api/next/pedido') {
+  if (method === 'POST' && route === '/api/bases/candidatas') {
+    const connection = await pool.getConnection();
     try {
-      const result = await getSingleValue('SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos');
-      return sendJson(res, 200, result);
+      const body = await parseBody(req);
+      const payloadJson = JSON.stringify(body.items || []);
+      const fechaPedido = body.fechaPedido;
+      const [rows] = await queryDb(connection, 'CALL get_bases_candidatas(?, ?)', [payloadJson, fechaPedido]);
+      return sendJson(res, 200, rows[0] || []);
     } catch (error) {
       logError(error);
-      return sendJson(res, 500, { message: 'Error al obtener codigo pedido.' });
-    }
-  }
-
-  if (method === 'GET' && route === '/api/next/factura') {
-    try {
-      const result = await getSingleValue(
-        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC'"
-      );
-      return sendJson(res, 200, result);
-    } catch (error) {
-      logError(error);
-      return sendJson(res, 500, { message: 'Error al obtener numero de factura.' });
-    }
-  }
-
-  if (method === 'GET' && route === '/api/next/recibo') {
-    try {
-      const result = await getSingleValue(
-        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'"
-      );
-      return sendJson(res, 200, result);
-    } catch (error) {
-      logError(error);
-      return sendJson(res, 500, { message: 'Error al obtener numero de recibo.' });
+      return sendJson(res, 500, { message: 'Error al cargar bases candidatas.' });
+    } finally {
+      connection.release();
     }
   }
 
   if (method === 'POST' && route === '/api/emitir-factura') {
-    const payload = await parseBody(req);
     const connection = await pool.getConnection();
     try {
+      const body = await parseBody(req);
       await connection.beginTransaction();
 
-      const pedidoNuevo = true;
-      const facturaNueva = true;
-
-      if (pedidoNuevo) {
-        await queryDb(
-          connection,
-          'INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha) VALUES (?, ?, ?)',
-          [payload.vcodigo_pedido, payload.vClienteSeleted, payload.vFechaP]
-        );
+      const cliente = body.cliente;
+      if (!cliente || !cliente.codigo_cliente) {
+        throw new Error('Cliente invalido.');
       }
 
-      for (let i = 0; i < payload.vProdPedidos.length; i += 1) {
-        const item = payload.vProdPedidos[i];
-        const ordinal = pedidoNuevo ? i + 1 : item.vOrdinalPedDetalle;
-        await queryDb(
+      if (cliente.modo === 'nuevo') {
+        const [existRows] = await queryDb(
           connection,
-          'INSERT INTO pedido_detalle (codigo_pedido, ordinal, codigo_producto, cantidad, precio_total, saldo, precio_unitario) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [
-            payload.vcodigo_pedido,
-            ordinal,
-            item.vProductoCodigo,
-            item.vCantidadProducto,
-            item.vPrecioTotal,
-            item.vCantidadProducto,
-            item.vPrecioUnitario
-          ]
+          'SELECT codigo_cliente FROM clientes WHERE codigo_cliente = ?',
+          [cliente.codigo_cliente]
         );
+        if ((existRows || []).length === 0) {
+          await queryDb(
+            connection,
+            'INSERT INTO clientes (nombre, numero, codigo_cliente) VALUES (?, ?, ?)',
+            [cliente.nombre, cliente.numero, cliente.codigo_cliente]
+          );
+          await queryDb(
+            connection,
+            'INSERT INTO saldos_clientes (codigo_cliente, saldo_inicial, saldo_final) VALUES (?, 0, 0)',
+            [cliente.codigo_cliente]
+          );
+        }
       }
 
-      let codigoPuntoEntrega = payload.Vcodigo_puntoentrega;
-      if (payload.vEntregaNuevo) {
-        const [nextRows] = await queryDb(
-          connection,
-          'SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = ?',
-          [payload.vClienteSeleted]
-        );
-        codigoPuntoEntrega = nextRows[0]?.next || 1;
-        await queryDb(
-          connection,
-          'INSERT INTO puntos_entrega (ubigeo, codigo_puntoentrega, codigo_cliente, direccion_linea, referencia, nombre, dni, agencia, observaciones, region_entrega, concatenarpuntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            payload.Vubigeo,
-            codigoPuntoEntrega,
-            payload.vClienteSeleted,
-            payload.vDireccionLinea,
-            payload.vReferencia,
-            payload.vNombre,
-            payload.vDni,
-            payload.vAgencia,
-            payload.vObservaciones,
-            payload.vRegion_Entrega,
-            payload.vConcatenarpuntoentrega
-          ]
-        );
-      }
-
-      let ordinalNumRecibe = payload.vOrdinal_numrecibe;
-      if (payload.vRegion_Entrega === 'LIMA' && payload.vRecibeNuevo) {
-        const [nextRows] = await queryDb(
-          connection,
-          'SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = ?',
-          [payload.vClienteSeleted]
-        );
-        ordinalNumRecibe = nextRows[0]?.next || 1;
-        await queryDb(
-          connection,
-          'INSERT INTO numrecibe (ordinal_numrecibe, numero, nombre, codigo_cliente_numrecibe, concatenarnumrecibe) VALUES (?, ?, ?, ?, ?)',
-          [
-            ordinalNumRecibe,
-            payload.vNumeroRecibe,
-            payload.vNombreRecibe,
-            payload.vClienteSeleted,
-            payload.vConcatenarnumrecibe
-          ]
-        );
-      }
-
+      const pedido = body.pedido;
       await queryDb(
         connection,
-        'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, saldo, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE codigo_cliente = VALUES(codigo_cliente), fecha = VALUES(fecha)',
+        [pedido.codigo_pedido, cliente.codigo_cliente, pedido.fechaP]
+      );
+
+      for (const item of pedido.detalle) {
+        await queryDb(
+          connection,
+          'INSERT INTO pedido_detalle (codigo_pedido, ordinal, codigo_producto, cantidad, precio_total, saldo, precio_unitario) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE cantidad = VALUES(cantidad), precio_total = VALUES(precio_total), saldo = VALUES(saldo), precio_unitario = VALUES(precio_unitario)',
+          [
+            pedido.codigo_pedido,
+            item.ordinal,
+            item.codigo_producto,
+            item.cantidad,
+            item.precio_total,
+            item.cantidad,
+            item.precio_unitario
+          ]
+        );
+      }
+
+      const entrega = body.entrega;
+      if (entrega && entrega.modo === 'nuevo') {
+        await queryDb(
+          connection,
+          'INSERT INTO puntos_entrega (codigo_puntoentrega, codigo_cliente_puntoentrega, ubigeo, direccion_linea, referencia, nombre, dni, agencia, observaciones, region_entrega, concatenarpuntoentrega, latitud, longitud) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE direccion_linea = VALUES(direccion_linea), referencia = VALUES(referencia), nombre = VALUES(nombre), dni = VALUES(dni), agencia = VALUES(agencia), observaciones = VALUES(observaciones), region_entrega = VALUES(region_entrega), concatenarpuntoentrega = VALUES(concatenarpuntoentrega), latitud = VALUES(latitud), longitud = VALUES(longitud)',
+          [
+            entrega.codigo_puntoentrega,
+            cliente.codigo_cliente,
+            entrega.ubigeo,
+            entrega.direccion_linea,
+            entrega.referencia,
+            entrega.nombre,
+            entrega.dni,
+            entrega.agencia,
+            entrega.observaciones,
+            entrega.region_entrega,
+            entrega.concatenarpuntoentrega,
+            entrega.latitud || null,
+            entrega.longitud || null
+          ]
+        );
+      }
+
+      const recibe = body.recibe;
+      if (recibe && recibe.aplica && recibe.modo === 'nuevo') {
+        await queryDb(
+          connection,
+          'INSERT INTO numrecibe (ordinal_numrecibe, numero, nombre, codigo_cliente_numrecibe, concatenarnumrecibe) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE numero = VALUES(numero), nombre = VALUES(nombre), concatenarnumrecibe = VALUES(concatenarnumrecibe)',
+          [
+            recibe.ordinal_numrecibe,
+            recibe.numero,
+            recibe.nombre,
+            cliente.codigo_cliente,
+            recibe.concatenarnumrecibe
+          ]
+        );
+      }
+
+      const factura = body.factura;
+      const codigoClienteNumrecibe = recibe && recibe.aplica ? cliente.codigo_cliente : null;
+      const ordinalNumrecibe = recibe && recibe.aplica ? recibe.ordinal_numrecibe : null;
+      const codigoClientePunto = entrega ? cliente.codigo_cliente : null;
+      const codigoPuntoEntrega = entrega ? entrega.codigo_puntoentrega : null;
+      await queryDb(
+        connection,
+        'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, saldo, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE monto = VALUES(monto), saldo = VALUES(saldo), codigo_base = VALUES(codigo_base), codigo_cliente_numrecibe = VALUES(codigo_cliente_numrecibe), ordinal_numrecibe = VALUES(ordinal_numrecibe), codigo_cliente_puntoentrega = VALUES(codigo_cliente_puntoentrega), codigo_puntoentrega = VALUES(codigo_puntoentrega)',
         [
-          payload.vcodigo_pedido,
-          payload.vFechaP,
-          payload.vFechaP,
-          payload.vFechaP,
-          payload.vClienteSeleted,
-          payload.vProdFactura.reduce((sum, item) => sum + Number(item.vFPrecioTotal || 0), 0),
-          'FAC',
-          payload.vNumero_documento,
-          payload.vCodigo_base,
-          payload.vClienteSeleted,
-          ordinalNumRecibe,
-          payload.vClienteSeleted,
+          pedido.codigo_pedido,
+          factura.fechaP,
+          factura.fechaP,
+          factura.fechaP,
+          cliente.codigo_cliente,
+          factura.monto,
+          factura.saldo,
+          factura.tipo_documento,
+          factura.numero_documento,
+          body.base.codigo_base,
+          codigoClienteNumrecibe,
+          ordinalNumrecibe,
+          codigoClientePunto,
           codigoPuntoEntrega
         ]
       );
 
-      for (let i = 0; i < payload.vProdFactura.length; i += 1) {
-        const item = payload.vProdFactura[i];
-        const ordinal = facturaNueva ? i + 1 : item.vOrdinalDetMovCont;
+      for (const item of factura.detalle) {
         await queryDb(
           connection,
-          'INSERT INTO mov_contable_detalle (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO mov_contable_detalle (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE cantidad = VALUES(cantidad), saldo = VALUES(saldo), precio_total = VALUES(precio_total)',
           [
-            'FAC',
-            payload.vNumero_documento,
-            ordinal,
-            item.vFProducto,
-            item.vFCantidadProducto,
-            item.vFCantidadProducto,
-            item.vFPrecioTotal
+            factura.tipo_documento,
+            factura.numero_documento,
+            item.ordinal,
+            item.codigo_producto,
+            item.cantidad,
+            item.cantidad,
+            item.precio_total
           ]
         );
       }
 
       await queryDb(
         connection,
-        'INSERT INTO paquete (codigo_paquete, tipo_documento, estado) VALUES (?, ?, ?)',
-        [payload.vNumero_documento, 'FAC', 'pendiente empacar']
+        'INSERT INTO paquete (codigo_paquete, tipo_documento, estado) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE estado = VALUES(estado)',
+        [factura.numero_documento, factura.tipo_documento, 'pendiente empacar']
       );
 
-      for (let i = 0; i < payload.vProdFactura.length; i += 1) {
-        const ordinal = facturaNueva ? i + 1 : payload.vProdFactura[i].vOrdinal_paquetedetalle;
+      for (const item of factura.detalle) {
         await queryDb(
           connection,
-          'INSERT INTO paquetedetalle (codigo_paquete, tipo_documento, ordinal, estado) VALUES (?, ?, ?, ?)',
-          [payload.vNumero_documento, 'FAC', ordinal, 'pendiente empacar']
+          'INSERT INTO paquetedetalle (codigo_paquete, tipo_documento, ordinal, estado) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE estado = VALUES(estado)',
+          [factura.numero_documento, factura.tipo_documento, item.ordinal, 'pendiente empacar']
         );
       }
 
-      await queryDb(
-        connection,
-        'CALL actualizarsaldosclientes(?, ?, ?)',
-        [payload.vClienteSeleted, 'FAC', payload.vProdFactura.reduce((sum, item) => sum + Number(item.vFPrecioTotal || 0), 0)]
-      );
+      await queryDb(connection, 'CALL actualizarsaldosclientes(?, ?, ?)', [cliente.codigo_cliente, factura.tipo_documento, factura.saldo]);
 
-      if (payload.vPagos && payload.vPagos.length > 0) {
-        let numeroRecibo = payload.vNumero_documento_pago;
-        for (const pago of payload.vPagos) {
+      if (Array.isArray(body.pagos) && body.pagos.length > 0) {
+        for (const pago of body.pagos) {
           await queryDb(
             connection,
-            'INSERT INTO mov_contable (fecha_emision, fecha_vencimiento, fecha_valor, tipo_documento, numero_documento, codigo_cliente, codigo_cuentabancaria, saldo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-              payload.vFechaP,
-              payload.vFechaP,
-              payload.vFechaP,
-              'RCP',
-              numeroRecibo,
-              payload.vClienteSeleted,
-              pago.vCuentaBancaria,
-              pago.monto
-            ]
+            'INSERT INTO mov_operaciones_contables (tipodocumento, numdocumento, fecha, monto, codigo_cuentabancaria, codigo_cuentabancaria_destino, descripcion) VALUES (?, ?, ?, ?, ?, NULL, ?)',
+            ['RCP', pago.numdocumento, factura.fechaP, pago.monto, pago.codigo_cuentabancaria, 'Recibo cliente']
           );
-
           await queryDb(
             connection,
-            'INSERT INTO mov_operaciones_contables (tipodocumento, numdocumento, fecha, monto, codigo_cuentabancaria, codigo_cuentabancaria_destino, descripcion) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            ['RCP', numeroRecibo, payload.vFechaP, pago.monto, pago.vCuentaBancaria, null, 'Recibo cliente']
+            'CALL aplicar_recibo_a_facturas(?, ?, ?)',
+            [cliente.codigo_cliente, pago.numdocumento, pago.monto]
           );
-
-          await queryDb(
-            connection,
-            'CALL aplicar_recibo_a_facturas(?, ?, ?, ?)',
-            [payload.vClienteSeleted, 'RCP', numeroRecibo, pago.monto]
-          );
-
           await queryDb(
             connection,
             'CALL actualizarsaldosclientes(?, ?, ?)',
-            [payload.vClienteSeleted, 'RCP', pago.monto]
+            [cliente.codigo_cliente, 'RCP', pago.monto]
           );
-
-          await queryDb(
-            connection,
-            'CALL aplicar_operacion_bancaria(?, ?)',
-            ['RCP', numeroRecibo]
-          );
-
-          numeroRecibo += 1;
         }
       }
 
-      await queryDb(
-        connection,
-        'CALL salidaspedidos(?, ?)',
-        ['FAC', payload.vNumero_documento]
-      );
+      await queryDb(connection, 'CALL salidaspedidos(?, ?)', [factura.tipo_documento, factura.numero_documento]);
 
       await connection.commit();
       return sendJson(res, 200, { message: 'Factura emitida.' });
     } catch (error) {
       await connection.rollback();
       logError(error);
-      return sendJson(res, 500, { message: 'Error al emitir factura.' });
+      return sendJson(res, 500, { message: error.message || 'Error al emitir factura.' });
     } finally {
       connection.release();
     }
   }
 
-  sendJson(res, 404, { message: 'Not Found' });
+  res.writeHead(404);
+  res.end('Not found');
 }
 
 const server = http.createServer((req, res) => {
   handleRequest(req, res).catch((error) => {
     logError(error);
-    sendJson(res, 500, { message: 'Error interno del servidor.' });
+    res.writeHead(500);
+    res.end('Server error');
   });
 });
 
 server.listen(PORT, () => {
-  logLine('INFO', `Servidor escuchando en puerto ${PORT}`);
+  logLine('INFO', `Servidor escuchando en http://localhost:${PORT}`);
 });

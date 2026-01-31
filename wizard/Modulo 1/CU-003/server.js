@@ -1,54 +1,69 @@
-const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
 const mysql = require('mysql2/promise');
+const http = require('http');
+const url = require('url');
 
-const ROOT_DIR = path.resolve(__dirname);
+const PORT = process.env.PORT || 3000;
+const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
-const ERP_YML_PATH = path.resolve(__dirname, '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU-003';
 
 function timestamp() {
   return new Date().toISOString();
 }
 
+function formatFileDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+}
+
 function ensureLogFile() {
   if (!fs.existsSync(LOG_DIR)) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
   }
-  const now = new Date();
-  const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
-    now.getDate()
-  ).padStart(2, '0')}`;
-  const timePart = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(
-    now.getSeconds()
-  ).padStart(2, '0')}`;
-  const base = `${LOG_PREFIX}-${datePart}-${timePart}`;
+  const baseName = `${LOG_PREFIX}-${formatFileDate(new Date())}`;
   let suffix = 1;
-  let filename = `${base}-001.log`;
-  while (fs.existsSync(path.join(LOG_DIR, filename))) {
+  let filePath;
+  do {
+    const suffixStr = String(suffix).padStart(3, '0');
+    filePath = path.join(LOG_DIR, `${baseName}-${suffixStr}.log`);
     suffix += 1;
-    filename = `${base}-${String(suffix).padStart(3, '0')}.log`;
+  } while (fs.existsSync(filePath));
+  fs.writeFileSync(filePath, '', 'utf8');
+  return filePath;
+}
+
+const logFile = ensureLogFile();
+
+function logLine(level, message) {
+  const line = `[${timestamp()}] [${level}] ${message}`;
+  if (level === 'ERROR') {
+    console.error(line);
+  } else {
+    console.log(line);
   }
-  return path.join(LOG_DIR, filename);
+  fs.appendFileSync(logFile, `${line}\n`, 'utf8');
 }
 
-const logFilePath = ensureLogFile();
-
-function writeLog(level, message) {
-  const line = `[${timestamp()}] ${level} | ${message}`;
-  console.log(line);
-  fs.appendFileSync(logFilePath, `${line}\n`);
+function logError(error) {
+  logLine('ERROR', error && error.stack ? error.stack : error.message);
 }
 
-function parseErpYaml(content) {
-  const nameMatch = content.match(/name:\s*"?([^"\n]+)"?/i);
-  const dsnMatch = content.match(/dsn:\s*"?([^"\n]+)"?/i);
-  return {
-    name: nameMatch ? nameMatch[1].trim() : null,
-    dsn: dsnMatch ? dsnMatch[1].trim() : null,
-  };
+function parseErpConfig() {
+  const configPath = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
+  const raw = fs.readFileSync(configPath, 'utf8');
+  const nameMatch = raw.match(/name:\s*"?([^"\n]+)"?/);
+  const dsnMatch = raw.match(/dsn:\s*"?([^"\n]+)"?/);
+  if (!nameMatch || !dsnMatch) {
+    throw new Error('No se encontro la configuracion en erp.yml');
+  }
+  return { name: nameMatch[1].trim(), dsn: dsnMatch[1].trim() };
 }
 
 function parseMysqlDsn(dsn) {
@@ -61,62 +76,45 @@ function parseMysqlDsn(dsn) {
     password: match[2],
     host: match[3],
     port: Number(match[4]),
-    database: match[5],
+    database: match[5]
   };
 }
 
-async function initPool() {
-  const configText = fs.readFileSync(ERP_YML_PATH, 'utf8');
-  const { name, dsn } = parseErpYaml(configText);
-  if (!name || !dsn) {
-    throw new Error('No se pudo leer la configuracion de erp.yml');
-  }
-  const parsed = parseMysqlDsn(dsn);
-  if (parsed.database !== name) {
-    writeLog('CONFIG', `DB en DSN (${parsed.database}) ajustada a ${name}`);
-  }
-  writeLog('CONFIG', `DB name=${name}`);
-  const pool = mysql.createPool({
-    ...parsed,
-    database: name,
-    waitForConnections: true,
-    connectionLimit: 10
-  });
-  return { pool, dbName: name };
+const { name, dsn } = parseErpConfig();
+const dbConfig = parseMysqlDsn(dsn);
+if (dbConfig.database !== name) {
+  logLine('INFO', `DB en DSN (${dbConfig.database}) ajustada a ${name} segun erp.yml`);
 }
+dbConfig.database = name;
 
-function logSql(sql, params = []) {
-  writeLog('SQL', `${sql} | params=${JSON.stringify(params)}`);
-}
+logLine('INFO', `Iniciando servidor CU-003 usando DB: ${name}`);
 
-async function execQuery(conn, sql, params = []) {
-  logSql(sql, params);
-  return conn.query(sql, params);
-}
+const pool = mysql.createPool({
+  ...dbConfig,
+  waitForConnections: true,
+  connectionLimit: 10
+});
 
-async function callProcedure(conn, sql, params = []) {
-  const [rows] = await execQuery(conn, sql, params);
-  if (Array.isArray(rows) && Array.isArray(rows[0])) {
-    return rows[0];
-  }
-  return rows;
+async function queryDb(connection, sql, params = []) {
+  logLine('SQL', `${sql} | params: ${JSON.stringify(params)}`);
+  return connection.query(sql, params);
 }
 
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(payload));
+  const body = JSON.stringify(payload);
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(body)
+  });
+  res.end(body);
 }
 
-function serveStatic(res, filePath) {
-  const ext = path.extname(filePath).toLowerCase();
+function sendFile(res, filePath) {
+  const ext = path.extname(filePath);
   const contentType =
-    ext === '.html'
-      ? 'text/html'
-      : ext === '.css'
-      ? 'text/css'
-      : ext === '.js'
-      ? 'application/javascript'
-      : 'application/octet-stream';
+    ext === '.css' ? 'text/css' :
+    ext === '.js' ? 'application/javascript' :
+    'text/html';
   const data = fs.readFileSync(filePath);
   res.writeHead(200, { 'Content-Type': contentType });
   res.end(data);
@@ -125,13 +123,10 @@ function serveStatic(res, filePath) {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
+    req.on('data', (chunk) => { body += chunk; });
     req.on('end', () => {
-      if (!body) return resolve({});
       try {
-        resolve(JSON.parse(body));
+        resolve(JSON.parse(body || '{}'));
       } catch (error) {
         reject(error);
       }
@@ -139,189 +134,180 @@ function parseBody(req) {
   });
 }
 
-async function startServer() {
-  const { pool, dbName } = await initPool();
-  writeLog('SERVER', `Iniciando servidor CU-003 usando DB: ${dbName}`);
+async function handleRequest(req, res) {
+  const parsed = url.parse(req.url, true);
+  const method = req.method.toUpperCase();
+  const route = parsed.pathname;
 
-  const server = http.createServer(async (req, res) => {
-    const parsed = url.parse(req.url, true);
-    const pathname = parsed.pathname;
-    const method = req.method.toUpperCase();
+  logLine('INFO', `ENDPOINT: ${method} ${route}`);
 
-    writeLog('ENDPOINT', `${method} ${pathname}`);
+  if (method === 'GET' && route === '/') {
+    return sendFile(res, path.join(ROOT_DIR, 'index.html'));
+  }
 
+  if (method === 'GET' && (route.endsWith('.css') || route.endsWith('.js'))) {
+    return sendFile(res, path.join(ROOT_DIR, route));
+  }
+
+  if (method === 'GET' && route === '/api/bases') {
+    const connection = await pool.getConnection();
     try {
-      if (method === 'GET' && pathname === '/') {
-        return serveStatic(res, path.join(ROOT_DIR, 'index.html'));
-      }
-
-      if (method === 'GET' && (pathname.endsWith('.css') || pathname.endsWith('.js'))) {
-        return serveStatic(res, path.join(ROOT_DIR, pathname));
-      }
-
-      if (method === 'GET' && pathname === '/api/now') {
-        const [rows] = await execQuery(pool, "SELECT DATE_FORMAT(NOW(), '%Y-%m-%d') AS fecha, DATE_FORMAT(NOW(), '%H:%i:%s') AS hora");
-        return sendJson(res, 200, rows[0] || {});
-      }
-
-      if (method === 'GET' && pathname === '/api/bases') {
-        try {
-          const rows = await callProcedure(pool, 'CALL get_bases()');
-          return sendJson(res, 200, rows || []);
-        } catch (error) {
-          writeLog('ERROR', error.stack || error.message);
-          return sendJson(res, 500, { message: 'Error al cargar bases.' });
-        }
-      }
-
-      if (method === 'GET' && pathname === '/api/viajes/next') {
-        try {
-          const [rows] = await execQuery(pool, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
-          return sendJson(res, 200, rows[0] || { next: 1 });
-        } catch (error) {
-          writeLog('ERROR', error.stack || error.message);
-          return sendJson(res, 500, { message: 'Error al obtener codigo de viaje.' });
-        }
-      }
-
-      if (method === 'GET' && pathname === '/api/paquetes') {
-        const estado = parsed.query.estado || 'empacado';
-        try {
-          const rows = await callProcedure(pool, 'CALL get_paquetes_por_estado(?)', [estado]);
-          return sendJson(res, 200, rows || []);
-        } catch (error) {
-          writeLog('ERROR', error.stack || error.message);
-          return sendJson(res, 500, { message: 'Error al cargar paquetes.' });
-        }
-      }
-
-      if (method === 'GET' && pathname === '/api/logs/latest') {
-        const content = fs.readFileSync(logFilePath, 'utf8');
-        return sendJson(res, 200, { content });
-      }
-
-      if (method === 'POST' && pathname === '/api/viajes/assign') {
-        let payload;
-        try {
-          payload = await parseBody(req);
-        } catch (error) {
-          writeLog('ERROR', error.stack || error.message);
-          return sendJson(res, 400, { message: 'Payload invalido.' });
-        }
-
-        const {
-          codigo_base,
-          nombre_motorizado,
-          numero_wsp,
-          num_llamadas,
-          num_yape,
-          link,
-          observacion,
-          paquetes
-        } = payload || {};
-
-        const nameRegex = /^[A-Za-z0-9\s'.-]{2,}$/;
-        const linkRegex = /^(https?:\/\/|www\.)[^\s]+$/i;
-        const phoneRegex = /^[0-9+()\s-]{6,20}$/;
-        const codeRegex = /^[0-9A-Za-z-]+$/;
-
-        if (!codigo_base) {
-          return sendJson(res, 400, { message: 'Base requerida.' });
-        }
-        if (!nombre_motorizado || !nameRegex.test(nombre_motorizado.trim())) {
-          return sendJson(res, 400, { message: 'Nombre motorizado invalido.' });
-        }
-        if (!link || !linkRegex.test(link.trim())) {
-          return sendJson(res, 400, { message: 'Link invalido.' });
-        }
-        if (numero_wsp && !phoneRegex.test(numero_wsp.trim())) {
-          return sendJson(res, 400, { message: 'Numero WhatsApp invalido.' });
-        }
-        if (num_llamadas && !phoneRegex.test(num_llamadas.trim())) {
-          return sendJson(res, 400, { message: 'Numero llamadas invalido.' });
-        }
-        if (num_yape && !phoneRegex.test(num_yape.trim())) {
-          return sendJson(res, 400, { message: 'Numero Yape invalido.' });
-        }
-        if (!Array.isArray(paquetes) || paquetes.length === 0) {
-          return sendJson(res, 400, { message: 'Selecciona paquetes.' });
-        }
-        const invalid = paquetes.find((codigo) => !codeRegex.test(String(codigo || '')));
-        if (invalid) {
-          return sendJson(res, 400, { message: 'Codigo de paquete invalido.' });
-        }
-
-        const conn = await pool.getConnection();
-        try {
-          await conn.beginTransaction();
-
-          const [nextRows] = await execQuery(conn, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
-          const codigoviaje = nextRows[0]?.next || 1;
-
-          await execQuery(
-            conn,
-            'INSERT INTO viajes (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-            [
-              codigoviaje,
-              codigo_base,
-              nombre_motorizado.trim(),
-              numero_wsp ? numero_wsp.trim() : null,
-              num_llamadas ? num_llamadas.trim() : null,
-              num_yape ? num_yape.trim() : null,
-              link.trim(),
-              observacion ? observacion.trim() : null
-            ]
-          );
-
-          for (const codigo of paquetes) {
-            const codigoPaquete = String(codigo).trim();
-            const [ordinalRows] = await execQuery(
-              conn,
-              "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
-              [codigoPaquete]
-            );
-            const ordinal = ordinalRows[0]?.next || 1;
-
-            await execQuery(
-              conn,
-              "INSERT INTO detalleviaje (codigoviaje, numero_documento, tipo_documento, fecha_inicio) VALUES (?, ?, 'FAC', NOW())",
-              [codigoviaje, codigoPaquete]
-            );
-
-            await execQuery(
-              conn,
-              "INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, 'en camino', 'FAC')",
-              [codigoPaquete, ordinal]
-            );
-
-            await execQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'en camino']);
-          }
-
-          await conn.commit();
-          return sendJson(res, 200, { codigoviaje, paquetes: paquetes.length });
-        } catch (error) {
-          await conn.rollback();
-          writeLog('ERROR', error.stack || error.message);
-          return sendJson(res, 500, { message: 'Error al guardar asignacion.' });
-        } finally {
-          conn.release();
-        }
-      }
-
-      return sendJson(res, 404, { message: 'Endpoint no encontrado' });
+      const [rows] = await queryDb(connection, 'CALL get_bases()');
+      return sendJson(res, 200, rows[0] || []);
     } catch (error) {
-      writeLog('ERROR', error.stack || error.message);
-      return sendJson(res, 500, { message: 'Error interno del servidor.' });
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al cargar bases.' });
+    } finally {
+      connection.release();
     }
-  });
+  }
 
-  const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
-    writeLog('SERVER', `Servidor escuchando en puerto ${PORT}`);
-  });
+  if (method === 'GET' && route === '/api/paquetes') {
+    const estado = parsed.query.estado;
+    if (!estado) {
+      return sendJson(res, 400, { message: 'Estado requerido.' });
+    }
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(connection, 'CALL get_paquetes_por_estado(?)', [estado]);
+      return sendJson(res, 200, rows[0] || []);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al cargar paquetes.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/viajes/next-codigo') {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await queryDb(connection, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
+      return sendJson(res, 200, { next: rows[0]?.next || '' });
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al calcular codigo de viaje.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  if (method === 'GET' && route === '/api/logs') {
+    try {
+      const content = fs.readFileSync(logFile, 'utf8');
+      return sendJson(res, 200, { content });
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 500, { message: 'No se pudo leer logs.' });
+    }
+  }
+
+  if (method === 'POST' && route === '/api/asignar-viaje') {
+    let payload;
+    try {
+      payload = await parseBody(req);
+    } catch (error) {
+      logError(error);
+      return sendJson(res, 400, { message: 'Body invalido.' });
+    }
+
+    const viaje = payload.viaje || {};
+    const paquetes = Array.isArray(payload.paquetes) ? payload.paquetes : [];
+
+    if (!viaje.codigo_base || !viaje.nombre_motorizado || !viaje.link || !viaje.fecha) {
+      return sendJson(res, 400, { message: 'Faltan datos requeridos del viaje.' });
+    }
+    if (paquetes.length === 0) {
+      return sendJson(res, 400, { message: 'Selecciona al menos un paquete.' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      let codigoViaje = String(viaje.codigo_viaje || '').trim();
+      if (!viaje.es_existente) {
+        const [rows] = await queryDb(connection, 'SELECT COALESCE(MAX(codigoviaje), 0) + 1 AS next FROM viajes');
+        codigoViaje = String(rows[0]?.next || '').trim();
+      }
+
+      if (!codigoViaje) {
+        throw new Error('Codigo de viaje invalido.');
+      }
+
+      await queryDb(
+        connection,
+        'INSERT INTO viajes (codigoviaje, codigo_base, nombre_motorizado, numero_wsp, num_llamadas, num_yape, link, observacion, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          codigoViaje,
+          viaje.codigo_base,
+          viaje.nombre_motorizado,
+          viaje.numero_wsp || null,
+          viaje.num_llamadas || null,
+          viaje.num_yape || null,
+          viaje.link,
+          viaje.observacion || null,
+          viaje.fecha
+        ]
+      );
+
+      for (const item of paquetes) {
+        const codigoPaquete = item.codigo_paquete;
+        if (!codigoPaquete) continue;
+
+        let ordinal = 1;
+        const [countRows] = await queryDb(
+          connection,
+          "SELECT COUNT(*) AS total FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+          [codigoPaquete]
+        );
+        if ((countRows?.[0]?.total || 0) > 0) {
+          const [ordinalRows] = await queryDb(
+            connection,
+            "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
+            [codigoPaquete]
+          );
+          ordinal = ordinalRows[0]?.next || 1;
+        } else {
+          ordinal = Number(item.index || 0) + 1;
+        }
+
+        await queryDb(
+          connection,
+          'INSERT INTO detalleviaje (codigoviaje, numero_documento, tipo_documento, fecha_inicio) VALUES (?, ?, ?, NOW())',
+          [codigoViaje, codigoPaquete, 'FAC']
+        );
+
+        await queryDb(
+          connection,
+          'INSERT INTO paquetedetalle (codigo_paquete, ordinal, estado, tipo_documento) VALUES (?, ?, ?, ?)',
+          [codigoPaquete, ordinal, 'en camino', 'FAC']
+        );
+
+        await queryDb(connection, 'CALL cambiar_estado_paquete(?, ?)', [codigoPaquete, 'en camino']);
+      }
+
+      await connection.commit();
+      return sendJson(res, 200, { codigoviaje: codigoViaje });
+    } catch (error) {
+      await connection.rollback();
+      logError(error);
+      return sendJson(res, 500, { message: 'Error al asignar viaje.' });
+    } finally {
+      connection.release();
+    }
+  }
+
+  sendJson(res, 404, { message: 'Not found' });
 }
 
-startServer().catch((error) => {
-  writeLog('ERROR', error.stack || error.message);
-  process.exit(1);
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((error) => {
+    logError(error);
+    sendJson(res, 500, { message: 'Error interno.' });
+  });
+});
+
+server.listen(PORT, () => {
+  logLine('INFO', `Servidor escuchando en puerto ${PORT}`);
 });

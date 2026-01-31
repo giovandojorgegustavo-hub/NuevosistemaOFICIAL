@@ -186,12 +186,13 @@ class FormWizard {
 
     paquetes.forEach((paquete, index) => {
       const codigo = paquete.codigo_paquete || paquete.Vcodigo_paquete || paquete.vcodigo_paquete || '';
+      const fecha = this.formatFecha(paquete.fecha_actualizado || paquete.vfecha || '');
       const row = document.createElement('tr');
       row.dataset.codigo = codigo;
       row.dataset.index = String(index + 1);
       row.innerHTML = `
         <td>${codigo}</td>
-        <td>${paquete.fecha_actualizado || paquete.vfecha || ''}</td>
+        <td>${fecha}</td>
         <td>${paquete.nombre_cliente || paquete.vnombre_cliente || ''}</td>
         <td>${paquete.num_cliente || paquete.vnum_cliente || ''}</td>
         <td>${paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || ''}</td>
@@ -214,7 +215,7 @@ class FormWizard {
 
     this.selectedPaquete = {
       codigo,
-      fecha: paquete.fecha_actualizado || paquete.vfecha || '',
+      fecha: this.formatFecha(paquete.fecha_actualizado || paquete.vfecha || ''),
       nombre_cliente: paquete.nombre_cliente || paquete.vnombre_cliente || '',
       num_cliente: paquete.num_cliente || paquete.vnum_cliente || '',
       entrega: paquete.concatenarpuntoentrega || paquete.vconcatenarpuntoentrega || '',
@@ -270,6 +271,29 @@ class FormWizard {
       `;
       this.detalleBody.appendChild(tr);
     });
+  }
+
+  formatFecha(value) {
+    if (!value) return '';
+    if (value instanceof Date) {
+      return this.formatDateTime(value);
+    }
+    const raw = String(value);
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      return this.formatDateTime(parsed);
+    }
+    return raw.replace('T', ' ').replace('Z', '');
+  }
+
+  formatDateTime(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 
   renderSummary() {

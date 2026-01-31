@@ -1,3 +1,9 @@
 connections:
   - name: "erpdb"
     dsn: "mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb"
+google_maps:
+  api_key: "AIzaSyCGNcPSiLlcPlBq_34WzC52qApe3dgFkNw"
+  default_center:
+    lat: -12.0464
+    lng: -77.0428
+  default_zoom: 12
