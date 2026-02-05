@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU4004 - Fabricacion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-content">
+        <span class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Core</span>
+        <h1 data-i18n="title">Fabricacion</h1>
+        <p data-i18n="subtitle">
+          Controla insumos, gastos y produccion con trazabilidad total en un flujo guiado.
+        </p>
+      </div>
+      <div class="hero-status">
+        <span class="status-badge" data-i18n="status">Operativo</span>
+        <div class="status-meta">
+          <span data-i18n="statusLabel">Ultima sincronizacion</span>
+          <strong id="syncTime">--:--</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="wizard-card">
+      <div class="wizard-header">
+        <div>
+          <h2 data-i18n="wizardTitle">CU4004 - Registro de fabricacion (FAB)</h2>
+          <p data-i18n="wizardSubtitle">Guia paso a paso para registrar la fabricacion y sus costos asociados.</p>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-outline-light" id="refreshBtn" type="button" data-i18n="refresh">Actualizar</button>
+          <button class="btn btn-outline-light" id="viewLogsBtn" type="button" data-i18n="viewLogs">Ver logs SQL</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress">
+          <div id="wizardProgress" class="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div class="stepper">
+          <span class="step-badge" data-step="0" data-i18n="step1">Datos generales</span>
+          <span class="step-badge" data-step="1" data-i18n="step2">Gastos</span>
+          <span class="step-badge" data-step="2" data-i18n="step3">Produccion</span>
+          <span class="step-badge" data-step="3" data-i18n="step4">Confirmacion</span>
+        </div>
+      </div>
+
+      <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+      <div id="successAlert" class="alert alert-success d-none" role="alert"></div>
+
+      <div class="wizard-step" data-step="0">
+        <div class="step-header">
+          <div>
+            <h3 data-i18n="step1Title">1. Datos generales + insumos</h3>
+            <p data-i18n="step1Help">Defina la base de fabricacion y registre los insumos utilizados.</p>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="vFecha" data-i18n="fecha">Fecha</label>
+            <input id="vFecha" name="vFecha" type="date" class="form-control" readonly />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="vCodigo_base" data-i18n="base">Base</label>
+            <select id="vCodigo_base" name="vCodigo_base" class="form-select" required></select>
+            <div class="invalid-feedback" data-i18n="baseError">Seleccione una base.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="docStockInsumo">Documento stock insumo</label>
+            <div class="input-group">
+              <input id="vTipoDocumentoStockInsumo" name="vTipoDocumentoStockInsumo" class="form-control" readonly />
+              <input id="vNumDocumentoStockInsumo" name="vNumDocumentoStockInsumo" class="form-control" readonly />
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" data-i18n="docStockProduccion">Documento stock produccion</label>
+            <div class="input-group">
+              <input
+                id="vTipoDocumentoStockProduccion"
+                name="vTipoDocumentoStockProduccion"
+                class="form-control"
+                readonly
+              />
+              <input
+                id="vNumDocumentoStockProduccion"
+                name="vNumDocumentoStockProduccion"
+                class="form-control"
+                readonly
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="table-header">
+          <div>
+            <h4 data-i18n="insumosTitle">Detalle de insumos</h4>
+            <p data-i18n="insumosHelp">Agregue los insumos necesarios para la fabricacion.</p>
+          </div>
+          <button class="btn btn-outline-light" id="addInsumoBtn" type="button" data-i18n="addRow">Agregar fila</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-striped align-middle" id="insumosTable">
+            <thead>
+              <tr>
+                <th data-i18n="producto">Producto</th>
+                <th data-i18n="nombre">Nombre</th>
+                <th data-i18n="cantidad">Cantidad</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="wizard-step" data-step="1">
+        <div class="step-header">
+          <div>
+            <h3 data-i18n="step2Title">2. Registrar gastos asociados</h3>
+            <p data-i18n="step2Help">Cada gasto genera su propio documento contable.</p>
+          </div>
+        </div>
+
+        <div class="table-header">
+          <div>
+            <h4 data-i18n="gastosTitle">Gastos y etiquetas</h4>
+            <p data-i18n="gastosHelp">Defina los gastos asociados a la fabricacion.</p>
+          </div>
+          <button class="btn btn-outline-light" id="addGastoBtn" type="button" data-i18n="addRow">Agregar fila</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-striped align-middle" id="gastosTable">
+            <thead>
+              <tr>
+                <th data-i18n="descripcion">Descripcion</th>
+                <th data-i18n="monto">Monto</th>
+                <th data-i18n="cuenta">Cuenta bancaria</th>
+                <th data-i18n="etiquetas">Etiquetas</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="wizard-step" data-step="2">
+        <div class="step-header">
+          <div>
+            <h3 data-i18n="step3Title">3. Registrar produccion</h3>
+            <p data-i18n="step3Help">Ingrese los productos producidos y sus cantidades.</p>
+          </div>
+        </div>
+
+        <div class="table-header">
+          <div>
+            <h4 data-i18n="produccionTitle">Detalle de produccion</h4>
+            <p data-i18n="produccionHelp">Agregue los productos obtenidos en la fabricacion.</p>
+          </div>
+          <button
+            class="btn btn-outline-light"
+            id="addProduccionBtn"
+            type="button"
+            data-i18n="addRow"
+          >
+            Agregar fila
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-striped align-middle" id="produccionTable">
+            <thead>
+              <tr>
+                <th data-i18n="producto">Producto</th>
+                <th data-i18n="nombre">Nombre</th>
+                <th data-i18n="cantidad">Cantidad</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="wizard-step" data-step="3">
+        <div class="step-header">
+          <div>
+            <h3 data-i18n="step4Title">4. Confirmar y registrar</h3>
+            <p data-i18n="step4Help">Valide los datos antes de ejecutar las transacciones.</p>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <h4 data-i18n="summaryGeneral">Datos generales</h4>
+            <dl>
+              <div>
+                <dt data-i18n="fecha">Fecha</dt>
+                <dd id="summaryFecha">--</dd>
+              </div>
+              <div>
+                <dt data-i18n="base">Base</dt>
+                <dd id="summaryBase">--</dd>
+              </div>
+              <div>
+                <dt data-i18n="docStockInsumo">Documento stock insumo</dt>
+                <dd id="summaryDocInsumo">--</dd>
+              </div>
+              <div>
+                <dt data-i18n="docStockProduccion">Documento stock produccion</dt>
+                <dd id="summaryDocProduccion">--</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="summary-card">
+            <h4 data-i18n="summaryInsumos">Insumos</h4>
+            <div class="table-responsive">
+              <table class="table table-dark table-striped" id="summaryInsumosTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="producto">Producto</th>
+                    <th data-i18n="cantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="summary-card">
+            <h4 data-i18n="summaryGastos">Gastos</h4>
+            <div class="table-responsive">
+              <table class="table table-dark table-striped" id="summaryGastosTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="descripcion">Descripcion</th>
+                    <th data-i18n="monto">Monto</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="summary-card">
+            <h4 data-i18n="summaryProduccion">Produccion</h4>
+            <div class="table-responsive">
+              <table class="table table-dark table-striped" id="summaryProduccionTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="producto">Producto</th>
+                    <th data-i18n="cantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-check mt-3">
+          <input class="form-check-input" type="checkbox" id="confirmCheck" />
+          <label class="form-check-label" for="confirmCheck" data-i18n="confirm">
+            Confirmo que la informacion es correcta.
+          </label>
+          <div class="invalid-feedback" data-i18n="confirmError">Debe confirmar la operacion.</div>
+        </div>
+      </div>
+
+      <div class="wizard-footer">
+        <button class="btn btn-outline-light" id="prevBtn" type="button" data-i18n="prev">Anterior</button>
+        <button class="btn btn-primary" id="nextBtn" type="button" data-i18n="next">Siguiente</button>
+        <button class="btn btn-accent" id="registrarBtn" type="button" data-i18n="registrar">
+          Registrar Fabricacion
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div id="loadingState" class="loading-state d-none">
+    <div class="spinner-border text-info" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p data-i18n="loading">Procesando...</p>
+  </div>
+
+  <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" data-i18n="logsTitle">Logs SQL</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted" id="logsFilename">--</p>
+          <pre id="logsContent" class="log-viewer"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

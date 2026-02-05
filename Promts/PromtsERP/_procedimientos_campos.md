@@ -9,7 +9,7 @@ Fuente: `SQL/procedimientos.sql`.
 - `get_proveedores_saldos_pendientes()` → `codigo_provedor`, `nombre`, `saldo_final`
 - `get_viaje_por_documento(p_numero_documento)` → `codigoviaje`, `nombrebase`, `nombre_motorizado`, `numero_wsp`, `num_llamadas`, `num_yape`, `link`, `observacion`, `fecha`
 - `get_mov_contable_detalle(p_tipo_documento, p_numero_documento)` → `tipo_documento`, `numero_documento`, `ordinal`, `codigo_producto`, `nombre_producto`, `cantidad`, `saldo`, `precio_total`
-- `get_paquetes_por_estado(p_estado)` → `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `concatenarnumrecibe`
+- `get_paquetes_por_estado(p_estado)` → `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 - `get_clientes()` → `codigo_cliente`, `nombre`, `numero`
 - `get_clientes_saldo_pendiente()` → `codigo_cliente`, `nombre`, `saldo_final`
 - `get_productos()` → `codigo_producto`, `nombre`

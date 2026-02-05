@@ -59,6 +59,7 @@ BEGIN
     m.descripcion,
     m.caption,
     u.codigo_usecase,
+    u.caption,
     u.linktolaunch
   FROM usuarios usr
   JOIN usuarios_perfiles up ON up.codigo_usuario = usr.codigo_usuario
@@ -160,8 +161,12 @@ BEGIN
     c.nombre AS nombre_cliente,
     c.numero AS num_cliente,
     mc.codigo_puntoentrega,
+    mc.codigo_base,
     mc.ordinal_numrecibe,
     pe.concatenarpuntoentrega,
+    pe.region_entrega,
+    pe.latitud,
+    pe.longitud,
     nr.concatenarnumrecibe
   FROM paquete p
   LEFT JOIN mov_contable mc
@@ -214,149 +219,8 @@ BEGIN
 END//
 DELIMITER ;
 
-DROP PROCEDURE IF EXISTS `get_bases`;
-DELIMITER //
-CREATE PROCEDURE `get_bases`()
-BEGIN
-  SELECT `codigo_base`, `nombre`
-  FROM `bases`;
-END//
-DELIMITER ;
-
-DROP FUNCTION IF EXISTS get_hr_apertura;
-DELIMITER //
-CREATE FUNCTION `get_hr_apertura`(
-    p_codigo_base DECIMAL(12,0),
-    p_fecha_pedido DATETIME
-) RETURNS datetime
-    DETERMINISTIC
-BEGIN
-    DECLARE v_hr_apertura DATETIME;
-    DECLARE v_dia INT;
-
-    SET v_dia = DAYOFWEEK(p_fecha_pedido) + 1;
-
-    SELECT bh.hr_apertura
-    INTO v_hr_apertura
-    FROM base_horarios bh
-    WHERE bh.codigo_base = p_codigo_base
-      AND bh.dia = v_dia
-      AND bh.hr_apertura >= p_fecha_pedido
-    ORDER BY bh.hr_apertura
-    LIMIT 1;
-
-    IF v_hr_apertura IS NULL THEN
-        SELECT bh.hr_apertura
-        INTO v_hr_apertura
-        FROM base_horarios bh
-        WHERE bh.codigo_base = p_codigo_base
-          AND bh.dia > v_dia
-        ORDER BY bh.dia, bh.hr_apertura
-        LIMIT 1;
-    END IF;
-
-    IF v_hr_apertura IS NULL THEN
-        SELECT bh.hr_apertura
-        INTO v_hr_apertura
-        FROM base_horarios bh
-        WHERE bh.codigo_base = p_codigo_base
-          AND bh.dia < v_dia
-        ORDER BY bh.dia, bh.hr_apertura
-        LIMIT 1;
-    END IF;
-
-    RETURN v_hr_apertura;
-END//
-DELIMITER ;
-
-DROP FUNCTION IF EXISTS get_reserva;
-DELIMITER //
-CREATE FUNCTION `get_reserva`(
-    p_codigo_base DECIMAL(12,0),
-    p_codigo_producto DECIMAL(12,0)
-) RETURNS int
-    DETERMINISTIC
-BEGIN
-    DECLARE v_reserva INT;
-
-    SELECT IFNULL(SUM(mcd.cantidad), 0)
-    INTO v_reserva
-    FROM paquete p
-    INNER JOIN mov_contable_detalle mcd
-        ON mcd.tipo_documento = p.tipo_documento
-       AND mcd.numero_documento = p.codigo_paquete
-    INNER JOIN mov_contable mc
-        ON mc.tipo_documento = mcd.tipo_documento
-       AND mc.numero_documento = mcd.numero_documento
-    WHERE p.tipo_documento = 'FAC'
-      AND p.estado = 'pendiente empacar'
-      AND mc.codigo_base = p_codigo_base
-      AND mcd.codigo_producto = p_codigo_producto;
-
-    RETURN v_reserva;
-END//
-DELIMITER ;
-
-DROP PROCEDURE IF EXISTS get_bases_candidatas;
-DELIMITER //
-CREATE PROCEDURE get_bases_candidatas(
-  IN p_vProdFactura JSON,
-  IN vFechaPedido datetime
-)
-BEGIN
-  DROP TEMPORARY TABLE IF EXISTS tmp_vProdFactura;
-
-  CREATE TEMPORARY TABLE tmp_vProdFactura (
-    vFProducto DECIMAL(12,0),
-    vFCantidadProducto INT,
-    vFPrecioTotal DECIMAL(12,2)
-  );
-
-  INSERT INTO tmp_vProdFactura (
-    vFProducto,
-    vFCantidadProducto,
-    vFPrecioTotal
-  )
-  SELECT
-    jt.vFProducto,
-    jt.vFCantidadProducto,
-    jt.vFPrecioTotal
-  FROM JSON_TABLE(
-    p_vProdFactura,
-    '$[*]'
-    COLUMNS (
-      vFProducto DECIMAL(12,0) PATH '$.vFProducto',
-      vFCantidadProducto INT PATH '$.vFCantidadProducto',
-      vFPrecioTotal DECIMAL(12,2) PATH '$.vFPrecioTotal'
-    )
-  ) AS jt;
-
-  SELECT
-    S.codigo_base,
-    B.latitud,
-    B.longitud
-  FROM tmp_vProdFactura P
-  JOIN saldo_stock S
-    ON P.vFProducto = S.codigo_producto
-  JOIN bases B
-    ON B.codigo_base = S.codigo_base
-  JOIN base_horarios H
-    ON H.codigo_base = S.codigo_base
-    AND H.dia = DAYOFWEEK(vFechaPedido)
-    AND H.hr_apertura = get_hr_apertura(S.codigo_base, vFechaPedido)
-    AND H.cantidad_pedidos < H.maximo_pedidos
-    AND H.estado = 'A'
-  WHERE S.saldo_actual - get_reserva(S.codigo_base, P.vFProducto)
-    >= P.vFCantidadProducto
-  GROUP BY
-    S.codigo_base,
-    B.latitud,
-    B.longitud
-  HAVING
-    COUNT(DISTINCT S.codigo_producto) =
-    (SELECT COUNT(*) FROM tmp_vProdFactura);
-END//
-DELIMITER ;
+-- Movidos a SQL/llamarbase.sql:
+-- get_bases, get_hr_apertura, get_reserva, get_bases_candidatas
 
 DROP PROCEDURE IF EXISTS `get_direccion_entrega`;
 DELIMITER //
@@ -696,7 +560,7 @@ DELIMITER ;
 -- -----------------------------------------------------------------------------
 
 -- STOCK: actualiza saldo_stock por base y producto
-DROP PROCEDURE IF EXISTS `upd_stock_bases`;
+DROP PROCEDURE IF EXISTS upd_stock_bases;
 DELIMITER //
 CREATE PROCEDURE `upd_stock_bases`(
   IN p_codigo_base numeric(12,0),
@@ -705,15 +569,14 @@ CREATE PROCEDURE `upd_stock_bases`(
   IN p_tipodocumento varchar(3),
   IN p_numdocumento numeric(12,0)
 )
-
 BEGIN
   DECLARE v_cantidad numeric(12,3);
 
   SET v_cantidad = p_cantidad;
 
-  IF p_tipodocumento IN ('FAC', 'FBI', 'TRS') THEN
+  IF p_tipodocumento IN ('FAC', 'FBI', 'TRS', 'AJS') THEN
     SET v_cantidad = v_cantidad * -1;
-  ELSEIF p_tipodocumento IN ('FBS', 'TRE', 'REM') THEN
+  ELSEIF p_tipodocumento IN ('FBS', 'TRE', 'REM', 'NTC', 'AJE') THEN
     SET v_cantidad = v_cantidad;
   ELSE
     SIGNAL SQLSTATE '45000'
@@ -747,6 +610,7 @@ BEGIN
   END IF;
 END//
 DELIMITER ;
+
 
 -- -----------------------------------------------------------------------------
 -- GRUPO: SALDO_PEDIDOS (tabla pedido_detalle.saldo)
@@ -970,6 +834,22 @@ END//
 
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS get_actualizarbasespaquete;
+DELIMITER //
+CREATE PROCEDURE get_actualizarbasespaquete(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0),
+  IN p_codigo_base_destino numeric(12,0)
+)
+BEGIN
+  UPDATE mov_contable
+  SET codigo_base = p_codigo_base_destino
+  WHERE tipo_documento = p_tipo_documento
+    AND numero_documento = p_numero_documento;
+END//
+
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS aplicar_salida_partidas;
 DELIMITER //
 CREATE PROCEDURE aplicar_salida_partidas(
@@ -1053,6 +933,91 @@ BEGIN
   IF v_restante > 0 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Saldo insuficiente para cubrir cantidad solicitada.';
+  END IF;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS aplicar_devolucion_partidas;
+DELIMITER //
+CREATE PROCEDURE aplicar_devolucion_partidas(
+  IN p_tipo_documento_origen varchar(3),
+  IN p_numero_documento_origen numeric(12,0),
+  IN p_tipo_documento_devolucion varchar(3),
+  IN p_numero_documento_devolucion numeric(12,0),
+  IN p_codigo_producto numeric(12,0),
+  IN p_cantidad numeric(12,3)
+)
+BEGIN
+  DECLARE v_restante numeric(12,3);
+  DECLARE v_tipo_compra varchar(3);
+  DECLARE v_num_compra numeric(12,0);
+  DECLARE v_codigo_provedor numeric(12,0);
+  DECLARE v_cantidad_partida numeric(12,3);
+  DECLARE v_monto_partida numeric(12,2);
+  DECLARE v_costo_unitario numeric(12,6);
+  DECLARE v_usar numeric(12,3);
+  DECLARE v_monto_devol numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT d.tipo_documento_compra,
+           d.num_documento_compra,
+           d.codigo_provedor,
+           d.cantidad,
+           d.monto
+    FROM detalle_movs_partidas d
+    JOIN mov_contable_prov m
+      ON m.tipo_documento_compra = d.tipo_documento_compra
+     AND m.num_documento_compra = d.num_documento_compra
+     AND m.codigo_provedor = d.codigo_provedor
+    WHERE d.tipo_documento_venta = p_tipo_documento_origen
+      AND d.numero_documento = p_numero_documento_origen
+      AND d.codigo_producto = p_codigo_producto
+    ORDER BY m.fecha DESC,
+             d.tipo_documento_compra DESC,
+             d.num_documento_compra DESC,
+             d.codigo_provedor DESC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  SET v_restante = p_cantidad;
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_compra, v_num_compra, v_codigo_provedor, v_cantidad_partida, v_monto_partida;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_cantidad_partida >= v_restante, v_restante, v_cantidad_partida);
+    SET v_costo_unitario = IF(v_cantidad_partida = 0, 0, v_monto_partida / v_cantidad_partida);
+    SET v_monto_devol = v_usar * v_costo_unitario;
+
+    UPDATE detalle_mov_contable_prov
+      SET saldo = saldo + v_usar
+    WHERE tipo_documento_compra = v_tipo_compra
+      AND num_documento_compra = v_num_compra
+      AND codigo_provedor = v_codigo_provedor
+      AND codigo_producto = p_codigo_producto;
+
+    INSERT INTO detalle_movs_partidas
+      (tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_producto,
+       tipo_documento_venta, numero_documento, cantidad, monto)
+    VALUES
+      (v_tipo_compra, v_num_compra, v_codigo_provedor, p_codigo_producto,
+       p_tipo_documento_devolucion, p_numero_documento_devolucion, v_usar, v_monto_devol);
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+
+  IF v_restante > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Cantidad excede partidas usadas en el documento origen.';
   END IF;
 END//
 DELIMITER ;

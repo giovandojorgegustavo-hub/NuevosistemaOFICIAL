@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU3001 Compras Factura</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wizard-shell">
+      <header class="hero">
+        <div>
+          <span class="eyebrow" data-i18n="eyebrow">IaaS + PaaS Global Core</span>
+          <h1 data-i18n="title">Compras Factura</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Registra facturas de compra con trazabilidad y facturacion inmediata.
+          </p>
+        </div>
+        <div class="status-chip">
+          <span class="status-dot"></span>
+          <span data-i18n="status">Operativo</span>
+        </div>
+      </header>
+
+      <section class="wizard-card">
+        <div class="wizard-progress">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="step-badge" data-step="0" data-i18n="step1Title">1. Crear Compra</div>
+            <div class="step-badge" data-step="1" data-i18n="step2Title">2. Confirmar y Facturar</div>
+          </div>
+          <div class="progress" role="progressbar" aria-label="Progreso">
+            <div class="progress-bar" id="wizardProgress" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="errorAlert"></div>
+        <div class="alert alert-success d-none" id="successAlert"></div>
+
+        <form id="compraForm" autocomplete="off">
+          <div class="wizard-step" data-step="0">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="fecha">Fecha</label>
+                <input type="date" class="form-control" id="vFecha" name="vFecha" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vTipo_documento_compra"
+                  name="vTipo_documento_compra"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="numeroDocumento">Numero documento</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vNum_documento_compra"
+                  name="vNum_documento_compra"
+                  readonly
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="ordinalStock">Ordinal stock</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="vordinalmovstockdetalles"
+                  name="vordinalmovstockdetalles"
+                  readonly
+                />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="proveedor">Proveedor</label>
+                <input
+                  class="form-control"
+                  list="proveedorList"
+                  id="vCodigo_provedor"
+                  name="vCodigo_provedor"
+                  placeholder=""
+                  required
+                />
+                <datalist id="proveedorList"></datalist>
+                <div class="invalid-feedback" data-i18n="proveedorError">Seleccione un proveedor valido.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="total">Total compra</label>
+                <input type="text" class="form-control" id="vTotal_compra" name="vTotal_compra" readonly />
+              </div>
+            </div>
+
+            <div class="section-head">
+              <h2 data-i18n="detalleTitle">Detalle compra</h2>
+              <button class="btn btn-outline-light" type="button" id="addDetalleLine" data-i18n="addLine">
+                Agregar linea
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-dark table-striped align-middle" id="detalleCompraTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colCantidad">Cantidad</th>
+                    <th class="d-none" data-i18n="colSaldo">Saldo</th>
+                    <th data-i18n="colMonto">Monto</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <datalist id="productoList"></datalist>
+
+            <p class="helper" data-i18n="step1Help">
+              Agrega productos con cantidades y montos para la factura de compra.
+            </p>
+          </div>
+
+          <div class="wizard-step" data-step="1">
+            <div class="summary-panel">
+              <h3 data-i18n="summaryTitle">Resumen de compra</h3>
+              <div class="summary-grid">
+                <div>
+                  <span class="summary-label" data-i18n="summaryProveedor">Proveedor</span>
+                  <p id="summaryProveedor">-</p>
+                </div>
+                <div>
+                  <span class="summary-label" data-i18n="summaryDocumento">Documento</span>
+                  <p id="summaryDocumento">-</p>
+                </div>
+                <div>
+                  <span class="summary-label" data-i18n="summaryFecha">Fecha</span>
+                  <p id="summaryFecha">-</p>
+                </div>
+                <div>
+                  <span class="summary-label" data-i18n="summaryTotal">Total</span>
+                  <p id="summaryTotal">-</p>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-dark table-striped align-middle" id="detalleCompraSummary">
+                  <thead>
+                    <tr>
+                      <th data-i18n="colProducto">Producto</th>
+                      <th data-i18n="colCantidad">Cantidad</th>
+                      <th data-i18n="colMonto">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="form-check confirmation">
+              <input class="form-check-input" type="checkbox" id="confirmacion" />
+              <label class="form-check-label" for="confirmacion" data-i18n="confirmacion">
+                Confirmo que la informacion es correcta.
+              </label>
+              <div class="invalid-feedback" data-i18n="confirmacionError">Debe confirmar la operacion.</div>
+            </div>
+
+            <p class="helper" data-i18n="step2Help">Revisa los datos antes de facturar.</p>
+          </div>
+        </form>
+
+        <div class="wizard-actions">
+          <button class="btn btn-outline-light" id="prevBtn" type="button" data-i18n="prev">Anterior</button>
+          <button class="btn btn-primary" id="nextBtn" type="button" data-i18n="next">Siguiente</button>
+          <button class="btn btn-success d-none" id="facturarBtn" type="button" data-i18n="facturar">
+            Facturar Compra
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <div class="loading" id="loadingState" aria-hidden="true">
+      <div class="spinner-border text-info" role="status"></div>
+      <p data-i18n="loading">Procesando...</p>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

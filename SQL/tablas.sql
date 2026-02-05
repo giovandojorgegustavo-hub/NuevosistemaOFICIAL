@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS `bases`;
 
 CREATE TABLE `bases` (
   `nombre` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `codigo_base` decimal(12,0) NOT NULL,
+  `codigo_base` numeric(12,0) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `latitud` decimal(10,8) DEFAULT NULL,
   `longitud` decimal(11,8) DEFAULT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE `bases` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `base_horarios` (
-  `codigo_base` decimal(12,0) NOT NULL,
+  `codigo_base` numeric(12,0) NOT NULL,
   `dia` int NOT NULL,
   `hr_apertura` datetime NOT NULL,
   `hr_cierre` datetime NOT NULL,
@@ -76,8 +76,8 @@ CREATE TABLE `ubigeo` (
 ) ENGINE=InnoDB;
 
 CREATE TABLE `puntos_entrega` (
-  `codigo_puntoentrega` decimal(12,0) NOT NULL,
-  `codigo_cliente_puntoentrega` decimal(12,0) NOT NULL,
+  `codigo_puntoentrega` numeric(12,0) NOT NULL,
+  `codigo_cliente_puntoentrega` numeric(12,0) NOT NULL,
   `ubigeo` char(6) COLLATE utf8mb4_unicode_ci NOT NULL,
   `direccion_linea` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `region_entrega` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -147,7 +147,6 @@ CREATE TABLE `pedido_detalle` (
   `ordinal` numeric(12,0) NOT NULL,
   `codigo_producto` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
-  `precio_unitario` numeric(12,2),
   `precio_total` numeric(12,2) NOT NULL,
   `saldo` numeric(12,2) NOT NULL DEFAULT '0.00',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -185,18 +184,17 @@ CREATE TABLE `mov_contable` (
   `numero_documento` numeric(12,0) NOT NULL,
   `estado` enum('activo','anulado') NOT NULL DEFAULT 'activo',
   `codigo_base` numeric(12,0) DEFAULT NULL,
-  `codigo_packing` numeric(12,0) DEFAULT NULL,
   `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
   `codigo_cliente_numrecibe` numeric(12,0) DEFAULT NULL,
   `ordinal_numrecibe` numeric(12,0) DEFAULT NULL,
   `codigo_cliente_puntoentrega` numeric(12,0) DEFAULT NULL,
   `codigo_puntoentrega` numeric(12,0) DEFAULT NULL,
+  `costoenvio` numeric(12,2) NOT NULL DEFAULT 0,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento`, `numero_documento`),
   FOREIGN KEY (`codigo_pedido`) REFERENCES `pedidos` (`codigo_pedido`),
   FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`),
   FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
-  FOREIGN KEY (`codigo_packing`) REFERENCES `packing` (`codigo_packing`),
   FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
   FOREIGN KEY (`codigo_cliente_numrecibe`,`ordinal_numrecibe`) REFERENCES `numrecibe` (`codigo_cliente_numrecibe`,`ordinal_numrecibe`),
   FOREIGN KEY (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`) REFERENCES `puntos_entrega` (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`)
@@ -453,6 +451,7 @@ CREATE TABLE perfiles (
 
 CREATE TABLE usecases (
   codigo_usecase varchar(36) NOT NULL,
+  caption varchar (128),
   linktolaunch varchar(4096),
   created_at datetime  DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (codigo_usecase)
@@ -519,6 +518,30 @@ CREATE TABLE modulo_usecases (
     FOREIGN KEY (codigo_usecase) REFERENCES usecases (codigo_usecase)
 ) ENGINE=InnoDB;
 
+DROP TABLE IF EXISTS `bitacoraBase`;
+CREATE TABLE `bitacoraBase` (
+  `codigo_bitacora` DECIMAL(12,0),
+  `fecha` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `codigo_base` DECIMAL(12,0) NOT NULL,
+  `codigo_usuario` VARCHAR(36) NOT NULL
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `Log_reasignacionBase`;
+CREATE TABLE `Log_reasignacionBase` (
+  `codigo_log` bigint NOT NULL AUTO_INCREMENT,
+  `tipo_documento` varchar(3) NOT NULL,
+  `numero_documento` numeric(12,0) NOT NULL,
+  `codigo_base_actual` numeric(12,0) NOT NULL,
+  `codigo_base_reasignada` numeric(12,0) NOT NULL,
+  `codigo_usuario` varchar(36) NOT NULL,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigo_log`),
+  FOREIGN KEY (`tipo_documento`, `numero_documento`) REFERENCES `mov_contable` (`tipo_documento`, `numero_documento`),
+  FOREIGN KEY (`codigo_base_actual`) REFERENCES `bases` (`codigo_base`),
+  FOREIGN KEY (`codigo_base_reasignada`) REFERENCES `bases` (`codigo_base`),
+  FOREIGN KEY (`codigo_usuario`) REFERENCES `usuarios` (`codigo_usuario`)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS login_fallido (
   codigo_usuario varchar(36),
   usuario_input varchar(128),
@@ -536,7 +559,7 @@ CREATE TABLE IF NOT EXISTS errores_app (
   PRIMARY KEY (codigo_error)
 ) ENGINE=InnoDB;
 
--- Modulo 2 - CU2-005: Fabricacion (Gastos)
+-- Modulo 2 - CU4004: Fabricacion (Gastos)
 
 DROP TABLE IF EXISTS `etiquetagastos`;
 CREATE TABLE `etiquetagastos` (
@@ -587,10 +610,10 @@ CREATE TABLE `fabricaciongastos` (
 DROP TABLE IF EXISTS `Facturas_Pagadas`;
 CREATE TABLE `Facturas_Pagadas` (
   `tipodocumento` varchar(3) NOT NULL,
-  `numdocumento` decimal(12,0) NOT NULL,
+  `numdocumento` numeric(12,0) NOT NULL,
   `tipo_documento_cli` varchar(3) NOT NULL,
-  `numero_documento_cli` decimal(12,0) NOT NULL,
-  `monto_pagado` decimal(12,0) NOT NULL,
+  `numero_documento_cli` numeric(12,0) NOT NULL,
+  `monto_pagado` numeric(12,0) NOT NULL,
   `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipodocumento`, `numdocumento`, `tipo_documento_cli`, `numero_documento_cli`)
 ) ENGINE=InnoDB;

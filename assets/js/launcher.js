@@ -97,6 +97,10 @@ function titleize(code) {
     .join(" ");
 }
 
+function usecaseLabel(usecase) {
+  return usecase?.caption || usecase?.descripcion || titleize(usecase?.codigo_usecase);
+}
+
 function moduleLabel(moduleRow) {
   return moduleRow?.caption || moduleRow?.descripcion || "Modulo";
 }
@@ -161,7 +165,7 @@ function renderMenu() {
       link.href = usecase.linktolaunch || "#";
       link.dataset.usecase = usecase.codigo_usecase;
       link.dataset.launch = "true";
-      link.textContent = titleize(usecase.codigo_usecase);
+      link.textContent = usecaseLabel(usecase);
       bodyInner.appendChild(link);
     });
 
@@ -210,7 +214,7 @@ function renderModuleGrid() {
       link.href = usecase.linktolaunch || "#";
       link.dataset.usecase = usecase.codigo_usecase;
       link.dataset.launch = "true";
-      link.textContent = titleize(usecase.codigo_usecase);
+      link.textContent = usecaseLabel(usecase);
 
       const pin = document.createElement("button");
       pin.type = "button";
@@ -253,7 +257,7 @@ function renderPinned() {
 
     const info = document.createElement("div");
     const name = document.createElement("div");
-    name.textContent = titleize(usecase.codigo_usecase);
+    name.textContent = usecaseLabel(usecase);
     const meta = document.createElement("div");
     meta.className = "shortcut-meta";
     meta.textContent = usecase.moduleName;
