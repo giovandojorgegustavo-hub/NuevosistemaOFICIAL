@@ -475,7 +475,7 @@ submitBtn.addEventListener('click', async () => {
   } catch (err) {
     showAlert(err.message || 'Error');
   } finally {
-    submitBtn.disabled = false;
+    submitBtn.disabled = !confirmCheck.checked;
     submitSpinner.hidden = true;
   }
 });

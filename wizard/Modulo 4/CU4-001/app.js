@@ -48,6 +48,11 @@ class FormWizard {
     document.getElementById('resetBtn').addEventListener('click', () => this.resetForm());
     document.getElementById('addRowBtn').addEventListener('click', () => this.addDetalleRow());
     document.getElementById('refreshLogsBtn').addEventListener('click', () => this.loadSqlLogs());
+    document.getElementById('vConfirmar').addEventListener('change', () => {
+      if (this.currentStep === 2) {
+        document.getElementById('nextBtn').disabled = !document.getElementById('vConfirmar').checked;
+      }
+    });
 
     document.getElementById('vBaseNombre').addEventListener('input', (event) => {
       this.syncBaseCode(event.target.value, 'vCodigo_base');
@@ -90,6 +95,11 @@ class FormWizard {
     this.progressBar.style.width = `${progress}%`;
     document.getElementById('prevBtn').disabled = step === 1;
     document.getElementById('nextBtn').textContent = step === 2 ? 'Registrar Transferencia' : step === 3 ? 'Finalizar' : 'Siguiente';
+    if (step === 2) {
+      document.getElementById('nextBtn').disabled = !document.getElementById('vConfirmar').checked;
+    } else {
+      document.getElementById('nextBtn').disabled = false;
+    }
   }
 
   async handleNext() {

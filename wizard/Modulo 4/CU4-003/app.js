@@ -47,6 +47,7 @@ class FormWizard {
     this.prevBtn = document.getElementById('prevBtn');
     this.nextBtn = document.getElementById('nextBtn');
     this.confirmBtn = document.getElementById('confirmBtn');
+    this.confirmCheck = document.getElementById('confirmCheck');
     this.resetBtn = document.getElementById('resetBtn');
     this.alertBox = document.getElementById('alertBox');
     this.loadingOverlay = document.getElementById('loadingOverlay');
@@ -90,6 +91,9 @@ class FormWizard {
     this.nextBtn.addEventListener('click', () => this.next());
     this.confirmBtn.addEventListener('click', () => this.confirm());
     this.resetBtn.addEventListener('click', () => this.reset());
+    this.confirmCheck.addEventListener('change', () => {
+      this.confirmBtn.disabled = !this.confirmCheck.checked;
+    });
 
     this.baseInput.addEventListener('input', (event) => this.filterBases(event.target.value));
     this.baseInput.addEventListener('focus', (event) => this.filterBases(event.target.value));
@@ -137,6 +141,7 @@ class FormWizard {
         prev: 'Anterior',
         next: 'Siguiente',
         confirm: 'Registrar Remito',
+        confirmRequired: 'Debes confirmar que los datos son correctos.',
         reset: 'Limpiar',
         loading: 'Procesando...',
         stepLabel: 'Paso {current} de {total}',
@@ -181,6 +186,7 @@ class FormWizard {
         prev: 'Previous',
         next: 'Next',
         confirm: 'Register Delivery Note',
+        confirmRequired: 'You must confirm that the data is correct.',
         reset: 'Reset',
         loading: 'Processing...',
         stepLabel: 'Step {current} of {total}',
@@ -443,6 +449,9 @@ class FormWizard {
     this.prevBtn.disabled = this.state.step === 0;
     this.nextBtn.classList.toggle('d-none', this.state.step === this.steps.length - 1);
     this.confirmBtn.classList.toggle('d-none', this.state.step !== this.steps.length - 1);
+    if (this.state.step === this.steps.length - 1) {
+      this.confirmBtn.disabled = !this.confirmCheck.checked;
+    }
   }
 
   next() {
@@ -487,6 +496,10 @@ class FormWizard {
   }
 
   async confirm() {
+    if (!this.confirmCheck.checked) {
+      this.showAlert(this.t('confirmRequired'), 'warning');
+      return;
+    }
     if (!this.state.selectedFactura || !this.state.selectedBase) {
       this.showAlert(this.t('required'), 'warning');
       return;
@@ -572,6 +585,8 @@ class FormWizard {
 
     this.baseInput.value = '';
     document.getElementById('numRemito').value = '';
+    this.confirmCheck.checked = false;
+    this.confirmBtn.disabled = true;
 
     this.renderFacturas();
     this.updateStep();
@@ -589,7 +604,8 @@ class FormWizard {
         noDetalle: 'No hay detalle para registrar.',
         qtyRequired: 'Debe ingresar cantidades mayores a cero.',
         success: 'Remito registrado correctamente.',
-        required: 'Complete la informacion requerida.'
+        required: 'Complete la informacion requerida.',
+        confirmRequired: 'Debes confirmar que los datos son correctos.'
       },
       en: {
         stepLabel: 'Step {current} of {total}',
@@ -600,7 +616,8 @@ class FormWizard {
         noDetalle: 'No detail lines to register.',
         qtyRequired: 'Enter quantities greater than zero.',
         success: 'Delivery note registered successfully.',
-        required: 'Complete the required information.'
+        required: 'Complete the required information.',
+        confirmRequired: 'You must confirm that the data is correct.'
       }
     };
 
