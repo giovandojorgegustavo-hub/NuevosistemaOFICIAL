@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU001 - Toma de Pedidos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">TP</div>
+        <div>
+          <div class="brand-title" data-i18n="title">Toma de Pedidos</div>
+          <div class="brand-subtitle" data-i18n="subtitle">Global IaaS &amp; PaaS Operations</div>
+        </div>
+      </div>
+      <div class="status-pill" id="statusPill" data-i18n="statusReady">Ready</div>
+    </header>
+
+    <main class="app-main">
+      <section class="wizard-card">
+        <div class="wizard-header">
+          <div>
+            <h1 data-i18n="wizardTitle">CU001 - Toma de Pedidos</h1>
+            <p class="text-muted" data-i18n="wizardHint">Flujo transaccional end-to-end con validaciones en tiempo real.</p>
+          </div>
+          <div class="step-indicator" id="stepIndicator">1 / 8</div>
+        </div>
+
+        <div class="progress wizard-progress" role="progressbar" aria-label="progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="formAlert"></div>
+        <div class="alert alert-success d-none" id="formSuccess"></div>
+
+        <form id="wizardForm" novalidate>
+          <section class="wizard-step" data-step="1">
+            <div class="step-header">
+              <h2 data-i18n="step1Title">1. Seleccionar o Crear Cliente</h2>
+              <p data-i18n="step1Hint">Selecciona un cliente existente o registra uno nuevo.</p>
+            </div>
+            <div class="option-toggle">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="clienteOption" id="clienteExiste" value="existe" checked />
+                <label class="form-check-label" for="clienteExiste" data-i18n="existe">Cliente existente</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="clienteOption" id="clienteNuevo" value="nuevo" />
+                <label class="form-check-label" for="clienteNuevo" data-i18n="nuevo">Cliente nuevo</label>
+              </div>
+            </div>
+
+            <div id="clienteExistePanel" class="panel">
+              <label class="form-label" data-i18n="clienteNombre">Cliente</label>
+              <input class="form-control" list="clientesList" id="clienteNombre" placeholder="Buscar cliente" />
+              <datalist id="clientesList"></datalist>
+            </div>
+
+            <div id="clienteNuevoPanel" class="panel d-none">
+              <div class="row g-3">
+                <div class="col-md-8">
+                  <label class="form-label" data-i18n="clienteNombre">Nombre</label>
+                  <input type="text" class="form-control" id="clienteNombreNuevo" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="clienteNumero">Numero</label>
+                  <input type="text" class="form-control" id="clienteNumeroNuevo" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="2">
+            <div class="step-header">
+              <h2 data-i18n="step2Title">2. Crear Pedido</h2>
+              <p data-i18n="step2Hint">Registra el detalle del pedido y sus productos.</p>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="fechaPedido">Fecha pedido</label>
+                <input type="date" class="form-control" id="fechaPedido" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="horaPedido">Hora pedido</label>
+                <input type="time" class="form-control" id="horaPedido" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="codigoPedido">Codigo pedido</label>
+                <input type="text" class="form-control" id="codigoPedido" readonly />
+              </div>
+            </div>
+
+            <div class="table-responsive mt-4">
+              <table class="table table-hover align-middle" id="pedidoTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="producto">Producto</th>
+                    <th data-i18n="cantidad">Cantidad</th>
+                    <th data-i18n="precioTotal">Precio total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <button class="btn btn-outline-light" type="button" id="addPedidoRow" data-i18n="addRow">Agregar linea</button>
+          </section>
+
+          <section class="wizard-step" data-step="3">
+            <div class="step-header">
+              <h2 data-i18n="step3Title">3. Crear Factura</h2>
+              <p data-i18n="step3Hint">Ajusta cantidades y revisa el monto total.</p>
+            </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="fechaEmision">Fecha emision</label>
+                <input type="date" class="form-control" id="fechaEmision" readonly />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="horaEmision">Hora emision</label>
+                <input type="time" class="form-control" id="horaEmision" readonly />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="numeroFactura">Numero factura</label>
+                <input type="text" class="form-control" id="numeroFactura" readonly />
+              </div>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+                <input type="text" class="form-control" id="tipoDocumento" value="FAC" readonly />
+              </div>
+            </div>
+
+            <div class="table-responsive mt-4">
+              <table class="table table-hover align-middle" id="facturaTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="producto">Producto</th>
+                    <th data-i18n="cantidad">Cantidad</th>
+                    <th data-i18n="precioUnitario">Precio unitario</th>
+                    <th data-i18n="precioTotal">Precio total</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="summary-grid">
+              <div>
+                <div class="summary-label" data-i18n="monto">Monto</div>
+                <div class="summary-value" id="montoFactura">0.00</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="costoEnvio">Costo envio</div>
+                <div class="summary-value" id="costoEnvio">0.00</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="total">Total</div>
+                <div class="summary-value" id="totalFactura">0.00</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="4">
+            <div class="step-header">
+              <h2 data-i18n="step4Title">4. Datos Entrega</h2>
+              <p data-i18n="step4Hint">Selecciona un punto existente o registra uno nuevo con mapa.</p>
+            </div>
+            <div class="option-toggle" id="entregaOptionToggle">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="entregaOption" id="entregaExiste" value="existe" checked />
+                <label class="form-check-label" for="entregaExiste" data-i18n="existe">Existe</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="entregaOption" id="entregaNuevo" value="nuevo" />
+                <label class="form-check-label" for="entregaNuevo" data-i18n="nuevo">Nuevo</label>
+              </div>
+            </div>
+
+            <div id="entregaExistePanel" class="panel">
+              <label class="form-label" data-i18n="puntoEntrega">Punto entrega</label>
+              <input class="form-control" list="puntosEntregaList" id="puntoEntrega" placeholder="Buscar punto" />
+              <datalist id="puntosEntregaList"></datalist>
+              <div class="helper-text" id="puntosEntregaEmpty" data-i18n="puntosEntregaEmpty">No hay puntos de entrega disponibles.</div>
+              <div id="entregaExisteInfo" class="mt-3"></div>
+            </div>
+
+            <div id="entregaNuevoPanel" class="panel d-none">
+              <div class="map-grid">
+                <div>
+                  <label class="form-label" data-i18n="direccion">Direccion</label>
+                  <input type="text" class="form-control" id="direccionLinea" />
+                  <label class="form-label mt-3" data-i18n="referencia">Referencia</label>
+                  <input type="text" class="form-control" id="referencia" />
+                  <div class="row g-2 mt-3">
+                    <div class="col-md-6">
+                      <label class="form-label" data-i18n="latitud">Latitud</label>
+                      <input type="text" class="form-control" id="latitud" readonly />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label" data-i18n="longitud">Longitud</label>
+                      <input type="text" class="form-control" id="longitud" readonly />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="map-search">
+                    <input class="form-control" id="mapSearch" placeholder="Buscar direccion" />
+                  </div>
+                  <div id="map" class="map-box"></div>
+                </div>
+              </div>
+
+              <div class="row g-3 mt-3">
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="departamento">Departamento</label>
+                  <input class="form-control" list="departamentosList" id="departamento" />
+                  <datalist id="departamentosList"></datalist>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="provincia">Provincia</label>
+                  <input class="form-control" list="provinciasList" id="provincia" />
+                  <datalist id="provinciasList"></datalist>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="distrito">Distrito</label>
+                  <input class="form-control" list="distritosList" id="distrito" />
+                  <datalist id="distritosList"></datalist>
+                </div>
+              </div>
+
+              <div id="regionLimaFields" class="row g-3 mt-2">
+                <div class="col-md-6">
+                  <label class="form-label" data-i18n="direccion">Direccion linea</label>
+                  <input type="text" class="form-control" id="direccionLineaLima" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" data-i18n="referencia">Referencia</label>
+                  <input type="text" class="form-control" id="referenciaLima" />
+                </div>
+              </div>
+
+              <div id="regionProvFields" class="row g-3 mt-2 d-none">
+                <div class="col-md-5">
+                  <label class="form-label" data-i18n="nombre">Nombre</label>
+                  <input type="text" class="form-control" id="nombreProv" />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" data-i18n="dni">DNI</label>
+                  <input type="text" class="form-control" id="dniProv" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="agencia">Agencia</label>
+                  <input type="text" class="form-control" id="agenciaProv" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" data-i18n="observaciones">Observaciones</label>
+                  <input type="text" class="form-control" id="observacionesProv" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="5">
+            <div class="step-header">
+              <h2 data-i18n="step5Title">5. Datos Recibe</h2>
+              <p data-i18n="step5Hint">Solo aplica si la entrega es en Lima.</p>
+            </div>
+            <div class="option-toggle" id="recibeOptionToggle">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="recibeOption" id="recibeExiste" value="existe" checked />
+                <label class="form-check-label" for="recibeExiste" data-i18n="existe">Existe</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="recibeOption" id="recibeNuevo" value="nuevo" />
+                <label class="form-check-label" for="recibeNuevo" data-i18n="nuevo">Nuevo</label>
+              </div>
+            </div>
+
+            <div id="recibeExistePanel" class="panel">
+              <label class="form-label" data-i18n="numRecibe">Num recibe</label>
+              <input class="form-control" list="numRecibeList" id="numRecibe" placeholder="Buscar" />
+              <datalist id="numRecibeList"></datalist>
+              <div class="helper-text" id="numRecibeEmpty" data-i18n="numRecibeEmpty">No hay registros disponibles.</div>
+            </div>
+
+            <div id="recibeNuevoPanel" class="panel d-none">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" data-i18n="numero">Numero</label>
+                  <input type="text" class="form-control" id="numeroRecibe" />
+                </div>
+                <div class="col-md-8">
+                  <label class="form-label" data-i18n="nombre">Nombre</label>
+                  <input type="text" class="form-control" id="nombreRecibe" />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="6">
+            <div class="step-header">
+              <h2 data-i18n="step6Title">6. Registro de Pago</h2>
+              <p data-i18n="step6Hint">Puedes registrar pagos parciales o continuar sin pago.</p>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+                <input type="text" class="form-control" id="tipoDocumentoPago" value="RCP" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="numeroDocumento">Numero documento</label>
+                <input type="text" class="form-control" id="numeroDocumentoPago" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" data-i18n="montoPago">Monto pago</label>
+                <input type="text" class="form-control" id="montoPago" />
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button class="btn btn-outline-light w-100" type="button" id="addPago" data-i18n="addPago">Agregar pago</button>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="cuenta">Cuenta bancaria</label>
+                <input class="form-control" list="cuentasList" id="cuentaNombre" placeholder="Buscar cuenta" />
+                <datalist id="cuentasList"></datalist>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="banco">Banco</label>
+                <input type="text" class="form-control" id="cuentaBanco" readonly />
+              </div>
+            </div>
+
+            <div class="summary-grid mt-3">
+              <div>
+                <div class="summary-label" data-i18n="montoPendiente">Monto pendiente</div>
+                <div class="summary-value" id="montoPendiente">0.00</div>
+              </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+              <table class="table table-hover align-middle" id="pagosTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="numeroDocumento">Numero documento</th>
+                    <th data-i18n="cuenta">Cuenta</th>
+                    <th data-i18n="montoPago">Monto</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="7">
+            <div class="step-header">
+              <h2 data-i18n="step7Title">7. Asignar Base</h2>
+              <p data-i18n="step7Hint">Se sugerira la base mas cercana con stock disponible.</p>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="baseAsignada">Base asignada</label>
+                <input class="form-control" list="basesList" id="baseAsignada" placeholder="Seleccionar base" />
+                <datalist id="basesList"></datalist>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="baseSugerida">Base sugerida</label>
+                <input type="text" class="form-control" id="baseSugerida" readonly />
+              </div>
+            </div>
+
+            <div class="row g-4 mt-2">
+              <div class="col-lg-6">
+                <h3 class="section-title" data-i18n="basesCandidatas">Bases candidatas</h3>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle" id="basesCandidatasTable">
+                    <thead>
+                      <tr>
+                        <th data-i18n="codigo">Codigo</th>
+                        <th data-i18n="latitud">Latitud</th>
+                        <th data-i18n="longitud">Longitud</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <h3 class="section-title" data-i18n="basesEta">Bases por ETA</h3>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle" id="basesEtaTable">
+                    <thead>
+                      <tr>
+                        <th data-i18n="codigo">Codigo</th>
+                        <th data-i18n="eta">ETA</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div class="helper-text" id="basesEtaEmpty" data-i18n="sinCandidatas">Sin bases candidatas.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="8">
+            <div class="step-header">
+              <h2 data-i18n="step8Title">8. Resumen y Emitir Factura</h2>
+              <p data-i18n="step8Hint">Revisa toda la informacion antes de emitir.</p>
+            </div>
+
+            <div class="summary-section">
+              <h3 class="section-title" data-i18n="resumenPedido">Resumen Pedido</h3>
+              <div id="resumenPedido" class="summary-block"></div>
+            </div>
+
+            <div class="summary-section">
+              <h3 class="section-title" data-i18n="resumenFactura">Resumen Factura</h3>
+              <div id="resumenFactura" class="summary-block"></div>
+            </div>
+
+            <div class="summary-section">
+              <h3 class="section-title" data-i18n="resumenEntrega">Resumen Entrega</h3>
+              <div id="resumenEntrega" class="summary-block"></div>
+            </div>
+
+            <div class="summary-section">
+              <h3 class="section-title" data-i18n="resumenRecibe">Resumen Recibe</h3>
+              <div id="resumenRecibe" class="summary-block"></div>
+            </div>
+
+            <div class="confirmation">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="confirmOperacion" />
+                <label class="form-check-label" for="confirmOperacion" data-i18n="confirmOperacion">Confirmo que los datos son correctos.</label>
+              </div>
+              <button class="btn btn-primary" type="button" id="emitirFactura" data-i18n="emitirFactura">Emitir Factura</button>
+            </div>
+          </section>
+        </form>
+
+        <div class="wizard-nav">
+          <button class="btn btn-outline-light" type="button" id="prevBtn" data-i18n="prev">Anterior</button>
+          <button class="btn btn-primary" type="button" id="nextBtn" data-i18n="next">Siguiente</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="loading-overlay d-none" id="loadingOverlay">
+    <div class="spinner-border text-light" role="status"></div>
+    <div class="loading-text" data-i18n="loading">Procesando...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

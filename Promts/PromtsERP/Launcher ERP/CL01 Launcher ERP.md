@@ -2,10 +2,8 @@ CL01: Launcher ERP
 
 # **Prompt AI.
 
-
 ## Campos devueltos por SPs de lectura (obligatorio)
 Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
-
 
 ## Caso de Uso: Narrativa.
 Como desarrollador de aplicaciones web, ayúdame a crear un aplicativo web que actúe como Launcher de web apps y páginas web, con look and feel de una empresa tecnológica que ofrece sistemas ERP en modalidad SaaS a nivel global.
@@ -61,3 +59,4 @@ Incluir manejo de errores y mejores prácticas de UX.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en `erp.yml`.
+

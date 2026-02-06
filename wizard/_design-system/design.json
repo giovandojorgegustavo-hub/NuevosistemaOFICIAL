@@ -1,60 +1,59 @@
 {
-  "name": "NubeNova",
+  "name": "Nebula Grid",
   "palette": {
-    "ink": "#0b1020",
-    "surface": "#0f172a",
-    "surfaceAlt": "#101b35",
-    "primary": "#1e88ff",
-    "primaryGlow": "#6ac1ff",
-    "accent": "#17d3a5",
-    "warning": "#f59e0b",
-    "danger": "#ef4444",
-    "muted": "#9aa4b2",
-    "white": "#ffffff"
+    "ink": "#0b1220",
+    "paper": "#f6f8fb",
+    "surface": "#ffffff",
+    "primary": "#1a4fff",
+    "primary_dark": "#1035c9",
+    "secondary": "#08b5a6",
+    "accent": "#ff8a1e",
+    "muted": "#6b7280",
+    "border": "#d7deea",
+    "success": "#12b981",
+    "warning": "#f59f0b",
+    "danger": "#ef4444"
   },
   "typography": {
-    "fontFamily": "\"Space Grotesk\", \"Segoe UI\", system-ui, -apple-system, sans-serif",
-    "scale": {
-      "xs": "0.78rem",
-      "sm": "0.9rem",
-      "md": "1rem",
-      "lg": "1.25rem",
-      "xl": "1.6rem",
-      "xxl": "2.2rem"
-    },
-    "weight": {
-      "regular": 400,
-      "medium": 500,
-      "semibold": 600,
-      "bold": 700
-    }
+    "heading": "Space Grotesk",
+    "body": "IBM Plex Sans",
+    "mono": "IBM Plex Mono"
+  },
+  "sizes": {
+    "base": "16px",
+    "xs": "12px",
+    "sm": "14px",
+    "lg": "18px",
+    "xl": "22px",
+    "display": "36px"
   },
   "radii": {
     "sm": "8px",
     "md": "14px",
-    "lg": "22px"
+    "lg": "22px",
+    "pill": "999px"
   },
   "shadows": {
-    "sm": "0 6px 18px rgba(2, 12, 27, 0.25)",
-    "md": "0 18px 50px rgba(2, 12, 27, 0.35)",
-    "glow": "0 0 0 1px rgba(30, 136, 255, 0.2), 0 0 32px rgba(30, 136, 255, 0.35)"
+    "sm": "0 6px 18px rgba(16, 24, 40, 0.08)",
+    "md": "0 16px 40px rgba(15, 23, 42, 0.14)",
+    "focus": "0 0 0 0.2rem rgba(26, 79, 255, 0.25)"
   },
   "grid": {
-    "base": 8,
-    "maxWidth": "1120px"
+    "max_width": "1200px",
+    "gutter": "24px"
   },
   "components": {
-    "card": {
-      "padding": "28px",
-      "border": "1px solid rgba(106, 193, 255, 0.18)"
-    },
     "button": {
-      "radius": "999px",
-      "padding": "10px 22px"
+      "height": "44px",
+      "radius": "12px"
+    },
+    "card": {
+      "radius": "18px",
+      "padding": "24px"
     },
     "input": {
-      "radius": "12px",
-      "padding": "10px 12px"
+      "height": "44px",
+      "radius": "10px"
     }
   }
 }

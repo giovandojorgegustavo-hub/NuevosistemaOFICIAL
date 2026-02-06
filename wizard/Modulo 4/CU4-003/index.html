@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU4003 - Gestion Compras</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-content">
+          <p class="eyebrow" data-i18n="eyebrow">Global IaaS & PaaS Operations</p>
+          <h1 data-i18n="title">Gestion Compras</h1>
+          <p class="hero-subtitle" data-i18n="subtitle">
+            Flujo integral para registrar remitos de compra con control de entregas.
+          </p>
+        </div>
+        <div class="hero-glow"></div>
+      </header>
+
+      <main class="wizard-card">
+        <div class="wizard-header">
+          <div>
+            <h2 data-i18n="wizardTitle">Registro Multi-Paso</h2>
+            <p class="text-muted" data-i18n="wizardSubtitle">
+              Seleccione la factura, defina el remito y confirme la operacion.
+            </p>
+          </div>
+          <div class="progress-wrapper">
+            <span class="progress-label" id="stepLabel">Paso 1 de 3</span>
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="alertBox" class="alert d-none" role="alert"></div>
+
+        <section class="wizard-step" data-step="0">
+          <div class="step-header">
+            <h3 data-i18n="step1Title">Seleccionar Factura de Compra Pendiente</h3>
+            <p data-i18n="step1Desc">
+              Elija una factura tipo FCC con entregas pendientes.
+            </p>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle" id="facturasTable">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th data-i18n="thTipo">Tipo</th>
+                  <th data-i18n="thNumero">Numero</th>
+                  <th data-i18n="thProveedor">Proveedor</th>
+                  <th data-i18n="thFecha">Fecha</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="1">
+          <div class="step-header">
+            <h3 data-i18n="step2Title">Definir Remito de Compra</h3>
+            <p data-i18n="step2Desc">
+              Configure la base destino y las cantidades a recibir.
+            </p>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-lg-4">
+              <label class="form-label" data-i18n="lblTipoRemito">Tipo Documento Remito</label>
+              <input type="text" class="form-control" id="tipoRemito" value="REM" disabled />
+            </div>
+            <div class="col-lg-4">
+              <label class="form-label" data-i18n="lblNumRemito">Numero Remito</label>
+              <input type="text" class="form-control" id="numRemito" disabled />
+            </div>
+            <div class="col-lg-4">
+              <label class="form-label" data-i18n="lblBase">Base destino</label>
+              <div class="typeahead">
+                <input
+                  type="text"
+                  class="form-control"
+                  id="baseInput"
+                  placeholder="Buscar base"
+                  data-i18n-placeholder="basePlaceholder"
+                />
+                <div class="typeahead-list" id="baseList"></div>
+              </div>
+              <small class="text-muted" data-i18n="baseHelp">
+                Escriba para filtrar miles de registros.
+              </small>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h4 class="section-title" data-i18n="detalleTitle">Detalle de Remito</h4>
+            <div class="table-responsive">
+              <table class="table table-dark align-middle" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th data-i18n="thCantidad">Cantidad Disponible</th>
+                    <th data-i18n="thIngresar">Cantidad a Recibir</th>
+                    <th data-i18n="thSaldo">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="wizard-step" data-step="2">
+          <div class="step-header">
+            <h3 data-i18n="step3Title">Confirmar y Registrar Remito</h3>
+            <p data-i18n="step3Desc">Revise la informacion antes de registrar.</p>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h5 data-i18n="summaryFactura">Factura Seleccionada</h5>
+              <div id="facturaResumen"></div>
+            </div>
+            <div class="summary-card">
+              <h5 data-i18n="summaryBase">Base Destino</h5>
+              <div id="baseResumen"></div>
+            </div>
+            <div class="summary-card">
+              <h5 data-i18n="summaryRemito">Remito</h5>
+              <div id="remitoResumen"></div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <h4 class="section-title" data-i18n="detalleTitle">Detalle de Remito</h4>
+            <div class="table-responsive">
+              <table class="table table-dark" id="confirmTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th data-i18n="thIngresar">Cantidad a Recibir</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" />
+            <label class="form-check-label" for="confirmCheck">Confirmo que los datos son correctos.</label>
+          </div>
+        </section>
+
+        <div class="wizard-footer">
+          <button class="btn btn-secondary" id="prevBtn" data-i18n="prev">Anterior</button>
+          <div class="footer-actions">
+            <button class="btn btn-outline-light" id="resetBtn" data-i18n="reset">Limpiar</button>
+            <button class="btn btn-primary" id="nextBtn" data-i18n="next">Siguiente</button>
+            <button class="btn btn-success d-none" id="confirmBtn" data-i18n="confirm">
+              Registrar Remito
+            </button>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div class="loading-overlay d-none" id="loadingOverlay">
+      <div class="spinner-border text-info" role="status"></div>
+      <span data-i18n="loading">Procesando...</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

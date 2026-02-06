@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU004 - Paquetes Standby</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="container" style="max-width: var(--max-width)">
+        <div class="hero mb-4">
+          <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+            <div>
+              <div class="badge-soft" data-i18n="badge">IaaS &amp; PaaS Ops</div>
+              <h1 class="mt-2" data-i18n="title">Gestionar paquetes en standby</h1>
+              <p data-i18n="subtitle">
+                Controla el estado de paquetes en standby con detalle del cliente, viaje y trazabilidad completa.
+              </p>
+            </div>
+            <div class="text-lg-end">
+              <div class="text-uppercase text-muted" style="letter-spacing: 0.12em; font-size: 0.72rem" data-i18n="module">Modulo 1</div>
+              <div class="fs-5 fw-semibold">CU004</div>
+              <button class="btn btn-outline-light btn-sm mt-2" data-bs-toggle="offcanvas" data-bs-target="#logsPanel" data-i18n="viewLogs">
+                Ver logs SQL
+              </button>
+            </div>
+          </div>
+          <div class="mt-4">
+            <div class="progress" role="progressbar" aria-label="progress" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" id="progressBar" style="width: 33%"></div>
+            </div>
+            <div class="step-indicator" id="stepIndicator">
+              <div class="step-pill active" data-step="1" data-i18n="step1">1. Seleccion</div>
+              <div class="step-pill" data-step="2" data-i18n="step2">2. Detalle</div>
+              <div class="step-pill" data-step="3" data-i18n="step3">3. Confirmar</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="alertBox"></div>
+        <div class="alert alert-success d-none" id="successBox"></div>
+
+        <div class="card-surface mb-4" id="step1">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h4 mb-1" data-i18n="step1Title">Seleccion de paquete en standby</h2>
+              <p class="mb-0 text-muted" data-i18n="step1Hint">Selecciona un paquete para revisar su detalle completo.</p>
+            </div>
+            <div class="spinner-border text-info d-none" role="status" id="loadingStandby"></div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark table-striped table-hover table-selectable align-middle" id="standbyTable">
+              <thead>
+                <tr>
+                  <th data-i18n="colCodigo">Codigo</th>
+                  <th data-i18n="colFecha">Actualizado</th>
+                  <th data-i18n="colCliente">Cliente</th>
+                  <th data-i18n="colNumero">Numero</th>
+                  <th data-i18n="colEntrega">Punto entrega</th>
+                  <th data-i18n="colRecibe">Num recibe</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card-surface mb-4 d-none" id="step2">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h4 mb-1" data-i18n="step2Title">Detalle del paquete</h2>
+              <p class="mb-0 text-muted" data-i18n="step2Hint">Datos del cliente, entrega y viaje asociado.</p>
+            </div>
+            <div class="spinner-border text-info d-none" role="status" id="loadingDetalle"></div>
+          </div>
+
+          <div class="info-list mb-4">
+            <div class="info-item">
+              <span data-i18n="labelEntrega">Punto entrega</span>
+              <strong id="detalleEntrega">-</strong>
+            </div>
+            <div class="info-item">
+              <span data-i18n="labelRecibe">Numero recibe</span>
+              <strong id="detalleRecibe">-</strong>
+            </div>
+          </div>
+
+          <div id="mapSection" class="mb-4 d-none">
+            <h3 class="h6 text-uppercase text-muted mb-2" data-i18n="mapTitle">Direccion y mapa</h3>
+            <div class="map-shell" id="map"></div>
+          </div>
+
+          <div class="info-list mb-4" id="viajeInfo"></div>
+
+          <div>
+            <h3 class="h6 text-uppercase text-muted mb-2" data-i18n="detalleGridTitle">Productos en documento</h3>
+            <div class="table-responsive">
+              <table class="table table-dark table-striped align-middle" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colCantidad">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-surface mb-4 d-none" id="step3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h4 mb-1" data-i18n="step3Title">Confirmar y guardar</h2>
+              <p class="mb-0 text-muted" data-i18n="step3Hint">Define el nuevo estado y confirma la operacion.</p>
+            </div>
+            <div class="spinner-border text-info d-none" role="status" id="loadingGuardar"></div>
+          </div>
+
+          <div class="info-list mb-4" id="resumenInfo"></div>
+
+          <div class="mb-3">
+            <label class="form-label" for="estadoInput" data-i18n="labelEstado">Nuevo estado del paquete</label>
+            <input
+              class="form-control"
+              list="estadoOptions"
+              id="estadoInput"
+              name="estado"
+              placeholder="robado / devuelto / empacado / llegado"
+              autocomplete="off"
+            />
+            <datalist id="estadoOptions">
+              <option value="robado"></option>
+              <option value="devuelto"></option>
+              <option value="empacado"></option>
+              <option value="llegado"></option>
+            </datalist>
+            <div class="form-text" data-i18n="estadoHint">Solo se permite seleccionar entre los estados listados.</div>
+          </div>
+
+          <div class="alert alert-warning" role="alert" data-i18n="confirmAlert">
+            Esta operacion es transaccional. Si falla algo, se revertira todo.
+          </div>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmCheck" />
+            <label class="form-check-label" for="confirmCheck">Confirmo que los datos son correctos.</label>
+          </div>
+        </div>
+
+        <div class="footer-actions">
+          <button class="btn btn-outline-light" id="btnPrev" disabled data-i18n="prev">Anterior</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-light" id="btnReset" data-i18n="reset">Limpiar</button>
+            <button class="btn btn-primary" id="btnNext" data-i18n="next">Siguiente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="logsPanel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" data-i18n="logsTitle">Logs SQL</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="text-muted" data-i18n="logsHint">Ultimas entradas del log activo.</div>
+          <button class="btn btn-outline-light btn-sm" id="btnRefreshLogs" data-i18n="refresh">Actualizar</button>
+        </div>
+        <div id="logsContent" class="log-block"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

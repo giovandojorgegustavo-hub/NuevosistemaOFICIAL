@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU4001 - Transferencias</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <div class="hero-content">
+        <div>
+          <p class="eyebrow">Modulo 4 · CU4001</p>
+          <h1>Transferencias Inteligentes</h1>
+          <p class="lead">
+            Orquesta movimientos de stock entre bases con seguridad transaccional, trazabilidad y una experiencia
+            optimizada para operaciones globales.
+          </p>
+        </div>
+        <div class="hero-metrics">
+          <div class="metric">
+            <span class="metric-label">Documento Salida</span>
+            <strong id="metricSalida">--</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Documento Entrada</span>
+            <strong id="metricEntrada">--</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wizard-card">
+      <div class="wizard-header">
+        <div>
+          <h2>Registro Multipaso</h2>
+          <p class="text-muted">Completa los datos y confirma la transferencia.</p>
+        </div>
+        <div class="progress-wrapper">
+          <div class="progress">
+            <div class="progress-bar" role="progressbar" style="width: 33%"></div>
+          </div>
+          <div class="step-labels">
+            <span data-step-label="1" class="active">1. Transferencia</span>
+            <span data-step-label="2">2. Confirmacion</span>
+            <span data-step-label="3">3. Resultado</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="alertArea" class="alert alert-danger d-none" role="alert"></div>
+
+      <div class="wizard-body">
+        <form id="transferForm" autocomplete="off">
+          <div class="step" data-step="1">
+            <div class="row g-3">
+              <div class="col-12 col-lg-4">
+                <label class="form-label" for="vFecha">vFecha</label>
+                <input type="date" class="form-control" id="vFecha" name="vFecha" required />
+              </div>
+              <div class="col-12 col-lg-4">
+                <label class="form-label" for="vTipodocumentostockSalida">vTipodocumentostockSalida</label>
+                <input type="text" class="form-control" id="vTipodocumentostockSalida" name="vTipodocumentostockSalida" readonly />
+              </div>
+              <div class="col-12 col-lg-4">
+                <label class="form-label" for="vTipodocumentostockEntrada">vTipodocumentostockEntrada</label>
+                <input type="text" class="form-control" id="vTipodocumentostockEntrada" name="vTipodocumentostockEntrada" readonly />
+              </div>
+
+              <div class="col-12 col-lg-6">
+                <label class="form-label" for="vNumdocumentostockSalida">vNumdocumentostockSalida</label>
+                <input type="text" class="form-control" id="vNumdocumentostockSalida" name="vNumdocumentostockSalida" readonly />
+              </div>
+              <div class="col-12 col-lg-6">
+                <label class="form-label" for="vNumdocumentostockEntrada">vNumdocumentostockEntrada</label>
+                <input type="text" class="form-control" id="vNumdocumentostockEntrada" name="vNumdocumentostockEntrada" readonly />
+              </div>
+
+              <div class="col-12 col-lg-6">
+                <label class="form-label" for="vBaseNombre">vBaseNombre (origen)</label>
+                <input class="form-control" id="vBaseNombre" name="vBaseNombre" list="basesList" placeholder="Escribe para filtrar" />
+                <input type="hidden" id="vCodigo_base" name="vCodigo_base" />
+              </div>
+              <div class="col-12 col-lg-6">
+                <label class="form-label" for="vBaseNombreDestino">vBaseNombreDestino (destino)</label>
+                <input class="form-control" id="vBaseNombreDestino" name="vBaseNombreDestino" list="basesList" placeholder="Escribe para filtrar" />
+                <input type="hidden" id="vCodigo_basedestino" name="vCodigo_basedestino" />
+              </div>
+            </div>
+
+            <div class="table-section">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <h3 class="h6 mb-1">vDetalleTransferencia</h3>
+                  <p class="text-muted small mb-0">Agrega productos y cantidades. Soporta decimales con 2 digitos.</p>
+                </div>
+                <button type="button" class="btn btn-outline-light" id="addRowBtn">Agregar linea</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-borderless align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>vcodigo_producto</th>
+                      <th class="text-end">Vcantidad</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalleBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="step d-none" data-step="2">
+            <div class="review-box">
+              <h3 class="h5">Confirmar Operacion</h3>
+              <p class="text-muted">Revisa la informacion antes de registrar la transferencia.</p>
+              <div class="row g-3">
+                <div class="col-12 col-lg-6">
+                  <div class="review-item">
+                    <span>Fecha</span>
+                    <strong id="reviewFecha">--</strong>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-3">
+                  <div class="review-item">
+                    <span>Documento Salida</span>
+                    <strong id="reviewSalida">--</strong>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-3">
+                  <div class="review-item">
+                    <span>Documento Entrada</span>
+                    <strong id="reviewEntrada">--</strong>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                  <div class="review-item">
+                    <span>Base Origen</span>
+                    <strong id="reviewBaseOrigen">--</strong>
+                  </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                  <div class="review-item">
+                    <span>Base Destino</span>
+                    <strong id="reviewBaseDestino">--</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="table-responsive mt-3">
+                <table class="table table-sm table-striped align-middle">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th class="text-end">Cantidad</th>
+                    </tr>
+                  </thead>
+                  <tbody id="reviewDetalle"></tbody>
+                </table>
+              </div>
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="vConfirmar" />
+                <label class="form-check-label" for="vConfirmar">Confirmo que los datos son correctos.</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="step d-none" data-step="3">
+            <div id="resultCard" class="result-card">
+              <div>
+                <h3 class="h5" id="resultTitle">Resultado</h3>
+                <p id="resultMessage" class="text-muted">--</p>
+              </div>
+              <button type="button" class="btn btn-outline-light" id="refreshLogsBtn">Ver Logs de SQL</button>
+            </div>
+            <div class="logs-card">
+              <h4 class="h6">Logs de Sentencias SQL</h4>
+              <pre id="sqlLogs" class="sql-logs">Sin logs disponibles.</pre>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="wizard-footer">
+        <button type="button" class="btn btn-secondary" id="prevBtn">Anterior</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-light" id="resetBtn">Limpiar</button>
+          <button type="button" class="btn btn-primary" id="nextBtn">Siguiente</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="basesList"></datalist>
+  <datalist id="productosList"></datalist>
+
+  <div class="loading-overlay d-none" id="loadingOverlay">
+    <div class="spinner-border text-light" role="status"></div>
+    <span id="loadingText">Procesando...</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

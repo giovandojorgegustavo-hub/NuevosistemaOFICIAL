@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU4002 - Ajuste Stock</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div class="container">
+          <div class="hero-content">
+            <span class="eyebrow">Modulo 4 · Ajuste de Stock</span>
+            <h1>Control de Ajustes Globales</h1>
+            <p>
+              Registra ajustes de inventario con trazabilidad total para entornos IaaS y PaaS. Flujo guiado con
+              validaciones y seguimiento de SQL.
+            </p>
+          </div>
+          <div class="hero-panel">
+            <div class="metric">
+              <span>Estado</span>
+              <strong>Conectado</strong>
+            </div>
+            <div class="metric">
+              <span>Puerto</span>
+              <strong>3017</strong>
+            </div>
+            <div class="metric">
+              <span>Proceso</span>
+              <strong>CU4002</strong>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="container pb-5">
+        <div id="alertArea" class="alert d-none" role="alert"></div>
+
+        <section class="wizard-card">
+          <div class="wizard-header">
+            <div>
+              <h2>Formulario de Ajuste de Stock</h2>
+              <p>Completa los pasos para registrar ajustes de entrada (AJE) y salida (AJS).</p>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress" role="progressbar" aria-label="Progreso">
+                <div class="progress-bar" style="width: 33%"></div>
+              </div>
+              <div class="step-labels">
+                <span data-step-label="1" class="active">1. Registro</span>
+                <span data-step-label="2">2. Confirmacion</span>
+                <span data-step-label="3">3. Resultado</span>
+              </div>
+            </div>
+          </div>
+
+          <form id="ajusteForm" autocomplete="off">
+            <div class="step" data-step="1">
+              <div class="section-title">Datos Generales</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="vFecha">vFecha</label>
+                  <input class="form-control" type="date" id="vFecha" name="vFecha" />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="vNumdocumentostock_AJE">vNumdocumentostock_AJE</label>
+                  <input
+                    class="form-control"
+                    type="text"
+                    id="vNumdocumentostock_AJE"
+                    name="vNumdocumentostock_AJE"
+                    readonly
+                  />
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="vNumdocumentostock_AJS">vNumdocumentostock_AJS</label>
+                  <input
+                    class="form-control"
+                    type="text"
+                    id="vNumdocumentostock_AJS"
+                    name="vNumdocumentostock_AJS"
+                    readonly
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="vBaseNombre">vBaseNombre</label>
+                  <input
+                    class="form-control"
+                    list="basesList"
+                    id="vBaseNombre"
+                    name="vBaseNombre"
+                    placeholder="Escribe para filtrar bases"
+                  />
+                  <input type="hidden" id="vCodigo_base" name="vCodigo_base" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="vCodigo_provedor">vCodigo_provedor</label>
+                  <input class="form-control" id="vCodigo_provedor" name="vCodigo_provedor" value="0" readonly />
+                </div>
+              </div>
+
+              <div class="section-title mt-4">vDetalleAjuste</div>
+              <div class="table-responsive">
+                <table class="table table-dark align-middle">
+                  <thead>
+                    <tr>
+                      <th>Producto (vNombreProducto)</th>
+                      <th class="text-end">Vcantidad_sistema</th>
+                      <th class="text-end">Vcantidad_real</th>
+                      <th class="text-end">Vcantidad</th>
+                      <th class="text-end">Vmonto</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="detalleBody"></tbody>
+                </table>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-light" id="addRowBtn">Agregar linea</button>
+                <span class="hint">Escribe para filtrar productos. Vmonto aplica solo para AJE.</span>
+              </div>
+            </div>
+
+            <div class="step d-none" data-step="2">
+              <div class="section-title">Confirmar y Ejecutar</div>
+              <div class="summary-grid">
+                <div class="summary-card">
+                  <h3>Resumen de Ajustes</h3>
+                  <div id="reviewTotals" class="summary-list"></div>
+                </div>
+                <div class="summary-card">
+                  <h3>Detalle del Ajuste</h3>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-dark">
+                      <thead>
+                        <tr>
+                          <th>Producto</th>
+                          <th class="text-end">Vcantidad</th>
+                          <th class="text-end">Vmonto</th>
+                          <th>Tipo</th>
+                        </tr>
+                      </thead>
+                      <tbody id="reviewDetalle"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="vConfirmar" />
+                <label class="form-check-label" for="vConfirmar">Confirmo que los datos son correctos.</label>
+              </div>
+
+              <div class="logs-panel mt-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                  <div>
+                    <h4>Logs SQL</h4>
+                    <p>Consulta las sentencias ejecutadas en la ultima transaccion.</p>
+                  </div>
+                  <button type="button" class="btn btn-outline-info" id="refreshLogsBtn">Actualizar logs</button>
+                </div>
+                <pre id="sqlLogs" class="sql-box">Sin logs disponibles.</pre>
+              </div>
+            </div>
+
+            <div class="step d-none" data-step="3">
+              <div class="section-title">Resultado</div>
+              <div class="result-card">
+                <h3 id="resultTitle">Resultado del ajuste</h3>
+                <p id="resultMessage">Completa el proceso para ver el resultado.</p>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <button type="button" class="btn btn-outline-light" id="resetBtn">Registrar otro ajuste</button>
+              </div>
+            </div>
+
+            <div class="wizard-footer">
+              <button type="button" class="btn btn-outline-light" id="prevBtn">Anterior</button>
+              <button type="button" class="btn btn-primary" id="nextBtn">Siguiente</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <datalist id="basesList"></datalist>
+    <datalist id="productosList"></datalist>
+
+    <div id="loadingOverlay" class="loading-overlay d-none">
+      <div class="spinner-border text-light" role="status"></div>
+      <span id="loadingText">Procesando...</span>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

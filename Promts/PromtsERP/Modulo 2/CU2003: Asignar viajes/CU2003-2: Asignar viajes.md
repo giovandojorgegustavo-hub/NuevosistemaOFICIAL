@@ -40,7 +40,7 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-XXX/logs/`.
+Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU1-XXX/logs/`.
 El archivo debe nombrarse `CU-XXX-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -64,6 +64,8 @@ Confirmar Operacion
 Estados de loading y error
 Ver Logs de sentencias SQL
 Asignar Viaje y Paquetes
+Transaccionalidad total: si falla algo, rollback y no registrar nada.
+Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Pasos del formulario-multipaso.
 
@@ -99,7 +101,7 @@ Vordinal = regla sin ambiguedad:
 
 Paso 2. Asignar Paquetes (seleccion de paquetes) + Ubicacion (si aplica).
 
-Muestra un Grid llamado "vPaquetesEmpacados" con los datos del SP: `get_paquetes_por_estado(p_estado="empacado")`
+Muestra un Grid llamado "vPaquetesEmpacados" con los datos del SP: `get_paquetes_por_estado(p_estado="empacado")` y FILTRAR por `codigo_base = vcodigo_base` (el seleccionado en el Paso 1).
 
 Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
@@ -131,6 +133,7 @@ Interaccion por paquete:
 Paso 3. Confirmar y Guardar.
 
 Mostrar resumen del viaje y los paquetes seleccionados. Al confirmar, guardar:
+Agregar un checklist de una sola opcion "Confirmar". El boton final de guardar debe estar deshabilitado hasta que este marcado y la validacion debe exigirlo (no usar modal de confirmacion).
 
 1) Insertar en `viajes`. 
 - codigoviaje=vcodigoviaje

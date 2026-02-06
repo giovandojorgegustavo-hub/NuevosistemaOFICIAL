@@ -65,6 +65,8 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Ver Logs de sentencias SQL
 - Boton "Abrir Horario"
 - Mostrar "Ultima asistencia" y actualizarla al registrar
+Transaccionalidad total: si falla algo, rollback y no registrar nada.
+Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Paso del formulario.
 

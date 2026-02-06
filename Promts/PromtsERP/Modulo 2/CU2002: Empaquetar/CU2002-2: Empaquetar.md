@@ -40,7 +40,7 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU-XXX/logs/`.
+Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU1-XXX/logs/`.
 El archivo debe nombrarse `CU-XXX-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
@@ -64,6 +64,8 @@ Confirmar Operacion
 Estados de loading y error
 Ver Logs de sentencias SQL (no en interfaz)
 Registrar Empaque
+Transaccionalidad total: si falla algo, rollback y no registrar nada.
+Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Pasos del formulario-multipaso.
 
@@ -79,7 +81,7 @@ Paso 1  Seleccionar Paquete Pendiente.
 
 Muestra un Grid llamado "PaquetesPendientes" con los datos del SP: `get_paquetes_por_estado(p_estado="pendiente empacar")` 
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -88,6 +90,7 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
+vnombre_base visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -125,6 +128,8 @@ vcantidad visible no editable
 vsaldo no visible no editable
 vprecio_total no visible no editable
 
+Mostrar en el grid del detalle solo: `nombre_producto` y `cantidad`.
+
 
 
 Vordinal = regla sin ambiguedad:
@@ -132,6 +137,10 @@ Vordinal = regla sin ambiguedad:
 
 
 Paso 3. Confirmar Empaque.
+
+- Mostrar un checklist (checkbox) para confirmar la operacion.
+- El boton "Empacar" solo se habilita si el checklist esta marcado.
+- No usar modal de confirmacion adicional.
 
 
 

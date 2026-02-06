@@ -65,6 +65,8 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Estados de loading y error
 - Ver Logs de sentencias SQL
 - Registrar transferencia (TRS) con salida (origen) y entrada (destino)
+Transaccionalidad total: si falla algo, rollback y no registrar nada.
+Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Pasos del formulario-multipaso.
 
@@ -75,14 +77,17 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
-Paso 1  Registrar Transferencia (TRS).
+Paso 1  Registrar Transferencia (TRS) y Entrada (TRE).
 
 vFecha = Inicializar con la fecha del sistema.
 
-vTipodocumentostock = "TRS".
+vTipodocumentostockSalida = "TRS".
+vTipodocumentostockEntrada = "TRE".
 
-vNumdocumentostock = calcular con SQL:
-`SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipodocumentostock` (si no hay filas, usar 1). No editable.
+vNumdocumentostockSalida = calcular con SQL:
+`SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipodocumentostockSalida` (si no hay filas, usar 1). No editable.
+
+vNumdocumentostockEntrada = vNumdocumentostockSalida + 1 (asegurar que ambos sean numericos; no volver a consultar SQL para evitar duplicados). No editable.
 
 vBases = Llamada SP: `get_bases()` (devuelve campo_visible)
 Campos devueltos: `codigo_base`, `nombre`, `latitud`, `longitud`
@@ -103,8 +108,11 @@ El Grid debe tener las siguientes columnas: vcodigo_producto, Vcantidad.
 Vcantidad= es un campo editable. Acepta decimales con hasta 2 digitos.
 
 
-ordinaldetalle =se calcula con SQL:
-`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipodocumentostock AND numdocumentostock = vNumdocumentostock` (si no hay filas, usar 1).
+ordinaldetalleSalida =se calcula con SQL:
+`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipodocumentostockSalida AND numdocumentostock = vNumdocumentostockSalida` (si no hay filas, usar 1).
+
+ordinaldetalleEntrada =se calcula con SQL:
+`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipodocumentostockEntrada AND numdocumentostock = vNumdocumentostockEntrada` (si no hay filas, usar 1).
 
 En la vista, cada campo debe usar el mismo nombre de variable definido arriba y registrar ese valor.
 
@@ -112,24 +120,39 @@ Paso 2. Registrar movimiento y actualizar saldo_stock.
 
 Al terminar el formulario multipasos, cuando el usuario da click al boton "Registrar Transferencia" el sistema debera realizar las siguientes transacciones sobre la DB:
 
-- Guardar en la tabla `movimiento_stock`: 
- tipodocumentostock=vTipodocumentostock
- numdocumentostock=vNumdocumentostock
+- Guardar 2 registros en la tabla `movimiento_stock`: 
+ tipodocumentostock=vTipodocumentostockSalida
+ numdocumentostock=vNumdocumentostockSalida
  fecha=vFecha
  codigo_base=vCodigo_base
  codigo_basedestino=vCodigo_basedestino.
 
-- Guardar en la tabla `detalle_movimiento_stock` los datos del grid "vDetalleTransferencia" con ordinal correlativo por item.
+- Guardar en la tabla `movimiento_stock`: 
+ tipodocumentostock=vTipodocumentostockEntrada
+ numdocumentostock=vNumdocumentostockEntrada
+ fecha=vFecha
+ codigo_base=vCodigo_basedestino
+ codigo_basedestino=vCodigo_base.
 
-ordinal=ordinaldetalle
-tipodocumentostock=vTipodocumentostock
-numdocumentostock=vNumdocumentostock
+- Guardar 2 veces en la tabla `detalle_movimiento_stock` los datos del grid "vDetalleTransferencia" con ordinal correlativo por item:
+
+Salida:
+ordinal=ordinaldetalleSalida
+tipodocumentostock=vTipodocumentostockSalida
+numdocumentostock=vNumdocumentostockSalida
+codigo_producto=vcodigo_producto
+cantidad=Vcantidad
+
+Entrada:
+ordinal=ordinaldetalleEntrada
+tipodocumentostock=vTipodocumentostockEntrada
+numdocumentostock=vNumdocumentostockEntrada
 codigo_producto=vcodigo_producto
 cantidad=Vcantidad
 
 - Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item:
-  - Salida (origen): `p_codigo_base = vCodigo_base`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostock` (TRS), `p_numdoc = vNumdocumentostock`.
-  - Entrada (destino): `p_codigo_base = vCodigo_basedestino`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostock` (TRE), `p_numdoc = vNumdocumentostock`.
+  - Salida (origen): `p_codigo_base = vCodigo_base`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostockSalida` (TRS), `p_numdoc = vNumdocumentostockSalida`.
+  - Entrada (destino): `p_codigo_base = vCodigo_basedestino`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostockEntrada` (TRE), `p_numdoc = vNumdocumentostockEntrada`.
 
 
 No utilizar datos mock.

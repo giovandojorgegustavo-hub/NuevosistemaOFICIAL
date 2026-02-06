@@ -59,6 +59,8 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Estados de loading y error
 - Ver Logs de sentencias SQL
 - Registrar retiro bancario (RET)
+Transaccionalidad total: si falla algo, rollback y no registrar nada.
+Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Pasos del formulario-multipaso.
 

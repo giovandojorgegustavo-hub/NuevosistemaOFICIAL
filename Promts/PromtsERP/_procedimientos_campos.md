@@ -30,3 +30,4 @@ Fuente: `SQL/procedimientos.sql`.
 - `get_facturascompras_pendientes()` → `tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `nombre_provedor`, `fecha`
 - `get_detalle_compra_por_documento(p_tipo_documento_compra, p_num_documento_compra, p_codigo_provedor)` → `ordinal`, `codigo_producto`, `nombre_producto`, `cantidad`, `cantidad_entregada`, `saldo`
 - `get_pedido_detalle_por_pedido(p_codigo_pedido)` → `codigo_producto`, `nombre_producto`, `saldo`, `precio_unitario`
+

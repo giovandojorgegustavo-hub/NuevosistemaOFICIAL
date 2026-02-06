@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU003 · Paquetes en Camino</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">PX</div>
+        <div>
+          <div class="brand-title" data-i18n="title">Paquetes en Camino</div>
+          <div class="brand-subtitle" data-i18n="subtitle">IaaS & PaaS Global Operations</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline-light" id="logsBtn" data-i18n="viewLogs">Ver logs SQL</button>
+      </div>
+    </header>
+
+    <main class="container-fluid">
+      <section class="wizard-shell">
+        <div class="wizard-header">
+          <div>
+            <h1 data-i18n="wizardTitle">Gestionar paquetes en camino</h1>
+            <p data-i18n="wizardHint">Selecciona paquetes, valida detalle y confirma el nuevo estado.</p>
+          </div>
+          <div class="progress-wrapper">
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" id="progressBar" style="width: 33%;"></div>
+            </div>
+            <div class="step-indicators" id="stepIndicators">
+              <div class="step" data-step="1">1</div>
+              <div class="step" data-step="2">2</div>
+              <div class="step" data-step="3">3</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="errorAlert"></div>
+        <div class="alert alert-success d-none" id="successAlert"></div>
+
+        <form id="wizardForm" novalidate>
+          <section class="wizard-step" data-step="1">
+            <div class="card glass-card">
+              <div class="card-body">
+                <div class="section-header">
+                  <div>
+                    <h2 data-i18n="step1Title">Seleccion de paquete en camino</h2>
+                    <p data-i18n="step1Hint">Elige uno o varios paquetes para actualizar su estado.</p>
+                  </div>
+                  <div class="step-actions">
+                    <button class="btn btn-outline-info" type="button" id="refreshBtn" data-i18n="refresh">Actualizar</button>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle" id="packagesTable">
+                    <thead>
+                      <tr>
+                        <th scope="col"></th>
+                        <th scope="col" data-i18n="colCodigo">Codigo</th>
+                        <th scope="col" data-i18n="colFecha">Actualizado</th>
+                        <th scope="col" data-i18n="colCliente">Cliente</th>
+                        <th scope="col" data-i18n="colNumero">Numero</th>
+                        <th scope="col" data-i18n="colEntrega">Punto entrega</th>
+                        <th scope="col" data-i18n="colRecibe">Recibe</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <div class="selection-count" id="selectionCount" data-i18n="selectionNone">Sin seleccion</div>
+              <div class="wizard-buttons">
+                <button type="button" class="btn btn-outline-light" id="bulkBtn" disabled data-i18n="bulkAction">Accion masiva</button>
+                <button type="button" class="btn btn-primary" id="nextBtn" data-i18n="next">Siguiente</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="2">
+            <div class="grid-two">
+              <div class="card glass-card">
+                <div class="card-body">
+                  <h2 data-i18n="step2Title">Detalle del paquete</h2>
+                  <div class="info-grid">
+                    <div>
+                      <div class="label" data-i18n="labelEntrega">Punto entrega</div>
+                      <div class="value" id="detalleEntrega">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelRecibe">Recibe</div>
+                      <div class="value" id="detalleRecibe">-</div>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="info-grid">
+                    <div>
+                      <div class="label" data-i18n="labelBase">Base</div>
+                      <div class="value" id="detalleBase">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelMotorizado">Motorizado</div>
+                      <div class="value" id="detalleMotorizado">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelWhatsapp">WhatsApp</div>
+                      <div class="value" id="detalleWsp">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelLlamadas">Llamadas</div>
+                      <div class="value" id="detalleLlamadas">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelYape">Yape</div>
+                      <div class="value" id="detalleYape">-</div>
+                    </div>
+                    <div>
+                      <div class="label" data-i18n="labelFecha">Fecha</div>
+                      <div class="value" id="detalleFecha">-</div>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <div>
+                    <div class="label" data-i18n="labelObs">Observacion</div>
+                    <div class="value" id="detalleObs">-</div>
+                  </div>
+                  <div class="mt-3">
+                    <div class="label" data-i18n="labelLink">Link de viaje</div>
+                    <a href="#" id="detalleLink" target="_blank" rel="noopener" class="link">-</a>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card glass-card">
+                <div class="card-body">
+                  <h2 data-i18n="step2Products">Productos en factura</h2>
+                  <div class="table-responsive">
+                    <table class="table table-sm" id="detalleTable">
+                      <thead>
+                        <tr>
+                          <th data-i18n="colProducto">Producto</th>
+                          <th data-i18n="colCantidad">Cantidad</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                  <div class="divider"></div>
+                  <div id="mapSection" class="map-section d-none">
+                    <div class="label" data-i18n="labelMapa">Direccion y mapa</div>
+                    <div id="map" class="map-box"></div>
+                  </div>
+                  <div id="noMap" class="muted" data-i18n="noMap">Mapa solo disponible para entregas en Lima.</div>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <div></div>
+              <div class="wizard-buttons">
+                <button type="button" class="btn btn-outline-light" id="prevBtn" data-i18n="prev">Anterior</button>
+                <button type="button" class="btn btn-primary" id="nextBtn2" data-i18n="next">Siguiente</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="wizard-step" data-step="3">
+            <div class="card glass-card">
+              <div class="card-body">
+                <h2 data-i18n="step3Title">Confirmar y guardar</h2>
+                <div class="summary-grid" id="summaryGrid"></div>
+                <div class="divider"></div>
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6">
+                    <label class="form-label" for="estadoInput" data-i18n="labelEstado">Nuevo estado</label>
+                    <input class="form-control" id="estadoInput" list="estadoOptions" placeholder="robado | standby | llegado" autocomplete="off" />
+                    <datalist id="estadoOptions">
+                      <option value="robado"></option>
+                      <option value="standby"></option>
+                      <option value="llegado"></option>
+                    </datalist>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="hint" data-i18n="estadoHint">Solo se aceptan los estados autorizados.</div>
+                  </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmCheck" />
+                    <label class="form-check-label" for="confirmCheck">Confirmo que los datos son correctos.</label>
+                  </div>
+                  <button type="button" class="btn btn-success" id="confirmBtn" data-i18n="confirm" disabled>Confirmar y guardar</button>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-footer">
+              <div></div>
+              <div class="wizard-buttons">
+                <button type="button" class="btn btn-outline-light" id="prevBtn2" data-i18n="prev">Anterior</button>
+              </div>
+            </div>
+          </section>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div class="loading-overlay d-none" id="loadingOverlay">
+    <div class="spinner-border text-light" role="status"></div>
+    <div class="loading-text" data-i18n="loading">Procesando...</div>
+  </div>
+
+  <div class="modal fade" id="logsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" data-i18n="logsTitle">Logs SQL</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <pre id="logsContent" class="logs-pre"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

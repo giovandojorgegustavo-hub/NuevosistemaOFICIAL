@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ERP | CU006 - Crear Recibos</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wizard-shell">
+      <header class="wizard-header">
+        <div>
+          <div class="eyebrow" data-i18n="eyebrow">Modulo 1 · Finanzas</div>
+          <h1 data-i18n="title">CU006 · Crear Recibos</h1>
+          <p class="subtitle" data-i18n="subtitle">
+            Gestiona pagos pendientes con una experiencia segura, trazable y global.
+          </p>
+        </div>
+        <div class="header-badge">
+          <div class="badge-title" data-i18n="badgeTitle">Entorno IaaS + PaaS</div>
+          <div class="badge-subtitle" data-i18n="badgeSubtitle">Infraestructura global para recibos en tiempo real</div>
+        </div>
+      </header>
+
+      <section class="progress-card">
+        <div class="progress-meta">
+          <span class="step-label" id="stepLabel" data-i18n="step1Label">Paso 1 de 3</span>
+          <span class="step-hint" id="stepHint" data-i18n="step1Hint">Selecciona un cliente con saldo pendiente.</span>
+        </div>
+        <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progress">
+          <div id="progressBar" class="progress-bar" style="width: 33%"></div>
+        </div>
+      </section>
+
+      <section id="alertBox" class="alert alert-danger d-none" role="alert"></section>
+
+      <section class="wizard-card">
+        <div class="steps" id="steps">
+          <div class="step-panel active" data-step="1">
+            <div class="step-header">
+              <h2 data-i18n="step1Title">Clientes con saldo pendiente</h2>
+              <p data-i18n="step1Desc">
+                Filtra y selecciona al cliente para continuar con el registro del recibo.
+              </p>
+            </div>
+            <div class="toolbar">
+              <div class="search-field">
+                <label class="form-label" for="clienteSearch" data-i18n="searchLabel">Buscar cliente</label>
+                <input class="form-control" id="clienteSearch" type="search" placeholder="Buscar por nombre" />
+              </div>
+              <div class="toolbar-meta">
+                <span class="meta-label" data-i18n="pendingLabel">Clientes pendientes</span>
+                <span id="clientesCount" class="meta-value">0</span>
+              </div>
+            </div>
+            <div class="table-responsive grid-card">
+              <table class="table table-hover align-middle" id="clientesTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="clienteCol">Cliente</th>
+                    <th data-i18n="saldoCol">Saldo pendiente</th>
+                    <th data-i18n="actionCol">Accion</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="step-panel" data-step="2">
+            <div class="step-header">
+              <h2 data-i18n="step2Title">Registrar pago</h2>
+              <p data-i18n="step2Desc">Completa el recibo y selecciona la cuenta bancaria.</p>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-label" data-i18n="clientName">Cliente</div>
+                <div id="clienteNombre" class="summary-value">-</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label" data-i18n="saldoPendiente">Saldo pendiente</div>
+                <div id="clienteSaldo" class="summary-value">-</div>
+              </div>
+            </div>
+
+            <form id="pagoForm" novalidate>
+              <div class="row g-3">
+                <div class="col-lg-4">
+                  <label class="form-label" for="fechaEmision" data-i18n="fechaEmision">Fecha de emision</label>
+                  <input class="form-control" id="fechaEmision" type="date" required />
+                </div>
+                <div class="col-lg-4">
+                  <label class="form-label" for="tipoDocumento" data-i18n="tipoDocumento">Tipo documento</label>
+                  <input class="form-control" id="tipoDocumento" type="text" value="RCP" readonly />
+                </div>
+                <div class="col-lg-4">
+                  <label class="form-label" for="numeroDocumento" data-i18n="numeroDocumento">Numero documento</label>
+                  <input class="form-control" id="numeroDocumento" type="text" readonly />
+                </div>
+                <div class="col-lg-6">
+                  <label class="form-label" for="cuentaSearch" data-i18n="cuentaBancaria">Cuenta bancaria</label>
+                  <div class="typeahead">
+                    <input
+                      class="form-control"
+                      id="cuentaSearch"
+                      type="text"
+                      placeholder="Buscar cuenta o banco"
+                      autocomplete="off"
+                      required
+                    />
+                    <div class="typeahead-list" id="cuentasList"></div>
+                  </div>
+                  <input type="hidden" id="codigoCuenta" />
+                </div>
+                <div class="col-lg-3">
+                  <label class="form-label" for="cuentaBanco" data-i18n="cuentaBanco">Banco</label>
+                  <input class="form-control" id="cuentaBanco" type="text" readonly />
+                </div>
+                <div class="col-lg-3">
+                  <label class="form-label" for="monto" data-i18n="monto">Monto</label>
+                  <input class="form-control" id="monto" type="text" placeholder="0.00" required />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="descripcion" data-i18n="descripcion">Descripcion (opcional)</label>
+                  <textarea class="form-control" id="descripcion" rows="2"></textarea>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <div class="step-panel" data-step="3">
+            <div class="step-header">
+              <h2 data-i18n="step3Title">Confirmar y registrar</h2>
+              <p data-i18n="step3Desc">Revisa la informacion antes de registrar el recibo.</p>
+            </div>
+            <div class="review-grid">
+              <div class="review-card">
+                <div class="review-title" data-i18n="reviewCliente">Cliente</div>
+                <div id="reviewClienteNombre" class="review-value">-</div>
+              </div>
+              <div class="review-card">
+                <div class="review-title" data-i18n="reviewSaldo">Saldo pendiente</div>
+                <div id="reviewSaldo" class="review-value">-</div>
+              </div>
+              <div class="review-card">
+                <div class="review-title" data-i18n="reviewMonto">Monto a pagar</div>
+                <div id="reviewMonto" class="review-value">-</div>
+              </div>
+              <div class="review-card">
+                <div class="review-title" data-i18n="reviewFecha">Fecha</div>
+                <div id="reviewFecha" class="review-value">-</div>
+              </div>
+              <div class="review-card">
+                <div class="review-title" data-i18n="reviewCuenta">Cuenta bancaria</div>
+                <div id="reviewCuenta" class="review-value">-</div>
+              </div>
+            </div>
+            <div class="form-check confirm-check">
+              <input class="form-check-input" type="checkbox" value="" id="confirmCheck" />
+              <label class="form-check-label" for="confirmCheck" data-i18n="confirmLabel">
+                Confirmo que los datos son correctos.
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="wizard-footer">
+        <button id="prevBtn" class="btn btn-outline-light" type="button" data-i18n="prev">Anterior</button>
+        <div class="footer-actions">
+          <button id="nextBtn" class="btn btn-primary" type="button" data-i18n="next">Siguiente</button>
+          <button id="submitBtn" class="btn btn-success d-none" type="button" data-i18n="confirm">
+            Confirmar y registrar
+          </button>
+        </div>
+      </footer>
+    </main>
+
+    <div id="loadingOverlay" class="loading-overlay d-none">
+      <div class="spinner-border text-light" role="status"></div>
+      <div class="loading-text" data-i18n="loading">Procesando...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

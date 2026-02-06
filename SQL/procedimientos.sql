@@ -162,6 +162,7 @@ BEGIN
     c.numero AS num_cliente,
     mc.codigo_puntoentrega,
     mc.codigo_base,
+    b.nombre AS nombre_base,
     mc.ordinal_numrecibe,
     pe.concatenarpuntoentrega,
     pe.region_entrega,
@@ -174,6 +175,8 @@ BEGIN
     AND mc.tipo_documento = p.tipo_documento
   LEFT JOIN clientes c
     ON c.codigo_cliente = mc.codigo_cliente
+  LEFT JOIN bases b
+    ON b.codigo_base = mc.codigo_base
   LEFT JOIN numrecibe nr
     ON nr.codigo_cliente_numrecibe = mc.codigo_cliente_numrecibe
     AND nr.ordinal_numrecibe = mc.ordinal_numrecibe

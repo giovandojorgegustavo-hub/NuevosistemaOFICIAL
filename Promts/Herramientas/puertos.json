@@ -3,117 +3,117 @@
   "wizards": {
     "CU001": {
       "module": 1,
-      "name": "M1TomaDePedidos",
+      "name": "TomaDePedidos",
       "port": 3001
     },
     "CU002": {
       "module": 1,
-      "name": "M1ReasignarBase",
+      "name": "ReasignarBase",
       "port": 3002
     },
     "CU003": {
       "module": 1,
-      "name": "M1EnPaquetesCamino",
+      "name": "EnPaquetesCamino",
       "port": 3003
     },
     "CU004": {
       "module": 1,
-      "name": "M1PaquetesStandby",
+      "name": "PaquetesStandby",
       "port": 3004
     },
     "CU005": {
       "module": 1,
-      "name": "M1GestionPedidos",
+      "name": "GestionPedidos",
       "port": 3005
     },
     "CU006": {
       "module": 1,
-      "name": "M1CrearRecibos",
+      "name": "CrearRecibos",
       "port": 3006
     },
     "CU007": {
       "module": 1,
-      "name": "M1NotaCreditoPedido",
+      "name": "NotaCreditoPedido",
       "port": 3007
     },
     "CU008": {
       "module": 1,
-      "name": "M1NotaDebitoPedido",
+      "name": "NotaDebitoPedido",
       "port": 3008
     },
     "CU2001": {
       "module": 2,
-      "name": "M2AbrirHorario",
+      "name": "AbrirHorario",
       "port": 3009
     },
     "CU2002": {
       "module": 2,
-      "name": "M2Empacar",
+      "name": "Empacar",
       "port": 3010
     },
     "CU2003": {
       "module": 2,
-      "name": "M2Viaje",
+      "name": "Viaje",
       "port": 3011
     },
     "CU3001": {
       "module": 3,
-      "name": "M3ComprasFactura",
+      "name": "ComprasFactura",
       "port": 3012
     },
     "CU3002": {
       "module": 3,
-      "name": "M3ReciboProvedor",
+      "name": "ReciboProvedor",
       "port": 3013
     },
     "CU3003": {
       "module": 3,
-      "name": "M3NotaCreditoProvedor",
+      "name": "NotaCreditoProvedor",
       "port": 3014
     },
     "CU3004": {
       "module": 3,
-      "name": "M3NotaDebitoProvedor",
+      "name": "NotaDebitoProvedor",
       "port": 3015
     },
     "CU4001": {
       "module": 4,
-      "name": "M4Transferencias",
+      "name": "Transferencias",
       "port": 3016
     },
     "CU4002": {
       "module": 4,
-      "name": "M4AjusteStock",
+      "name": "AjusteStock",
       "port": 3017
     },
     "CU4003": {
       "module": 4,
-      "name": "M4GestionCompras",
+      "name": "GestionCompras",
       "port": 3018
     },
     "CU4004": {
       "module": 4,
-      "name": "M4Fabricacion",
+      "name": "Fabricacion",
       "port": 3019
     },
     "CU5001": {
       "module": 5,
-      "name": "M5TransferenciaBancos",
+      "name": "TransferenciaBancos",
       "port": 3020
     },
     "CU5002": {
       "module": 5,
-      "name": "M5AjusteBancos",
+      "name": "AjusteBancos",
       "port": 3021
     },
     "CU5003": {
       "module": 5,
-      "name": "M5RetiroDinero",
+      "name": "RetiroDinero",
       "port": 3022
     },
     "CU5004": {
       "module": 5,
-      "name": "M5FacturaGasto",
+      "name": "FacturaGasto",
       "port": 3023
     }
   }

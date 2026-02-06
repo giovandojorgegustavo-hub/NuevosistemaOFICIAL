@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ERP | CU007 Nota de Credito</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <div class="brand-mark">CU007</div>
+          <div>
+            <div class="brand-title" data-i18n="brandTitle">Nota de Credito</div>
+            <div class="brand-subtitle" data-i18n="brandSubtitle">IaaS + PaaS Finance Operations</div>
+          </div>
+        </div>
+        <div class="header-status">
+          <span id="connectionBadge" class="badge rounded-pill text-bg-secondary" data-i18n="statusConnecting">
+            Conectando
+          </span>
+        </div>
+      </header>
+
+      <section class="wizard-card">
+        <div class="wizard-header">
+          <div>
+            <div class="section-title" data-i18n="wizardTitle">Emitir Nota de Credito</div>
+            <div class="section-subtitle" data-i18n="wizardSubtitle">
+              Flujo de devolucion parcial con trazabilidad total
+            </div>
+          </div>
+          <div class="wizard-meta">
+            <div>
+              <div class="meta-label" data-i18n="metaDocType">Tipo</div>
+              <div class="meta-value" id="docTypeValue">NTC</div>
+            </div>
+            <div>
+              <div class="meta-label" data-i18n="metaDocNumber">Numero</div>
+              <div class="meta-value" id="docNumberValue">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress" role="progressbar" aria-label="wizard progress">
+          <div id="wizardProgress" class="progress-bar"></div>
+        </div>
+
+        <div class="steps" id="steps">
+          <button type="button" class="step-chip active" data-step="1">1</button>
+          <button type="button" class="step-chip" data-step="2">2</button>
+          <button type="button" class="step-chip" data-step="3">3</button>
+        </div>
+
+        <div id="alertArea" class="alert d-none" role="alert"></div>
+
+        <form id="wizardForm" novalidate>
+          <section class="step-view" data-step="1">
+            <div class="row g-4">
+              <div class="col-lg-6">
+                <label class="form-label" for="fecha_emision" data-i18n="labelFecha">Fecha emision</label>
+                <input
+                  type="date"
+                  id="fecha_emision"
+                  class="form-control"
+                  required
+                />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" for="nombre_cliente" data-i18n="labelCliente">Cliente</label>
+                <div class="typeahead" id="clienteTypeahead">
+                  <input
+                    id="nombre_cliente"
+                    type="text"
+                    class="form-control"
+                    autocomplete="off"
+                    placeholder="Buscar cliente..."
+                    required
+                  />
+                  <input id="codigo_cliente" type="hidden" />
+                  <div class="typeahead-menu" id="clienteMenu"></div>
+                </div>
+                <div class="field-hint" id="clienteNombre">-</div>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" for="codigo_paquete" data-i18n="labelFactura">Factura / Paquete llegado</label>
+                <div class="typeahead" id="paqueteTypeahead">
+                  <input
+                    id="codigo_paquete"
+                    type="text"
+                    class="form-control"
+                    autocomplete="off"
+                    placeholder="Buscar factura..."
+                    required
+                  />
+                  <div class="typeahead-menu" id="paqueteMenu"></div>
+                </div>
+                <div class="field-hint" id="paqueteDetalle">-</div>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" for="fecha_actualizado" data-i18n="labelFechaActualizado">Fecha actualizado</label>
+                <input id="fecha_actualizado" class="form-control" readonly />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="labelBase">Base</label>
+                <input id="codigo_base" class="form-control" readonly />
+                <div class="field-hint" id="region_entrega">-</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-view d-none" data-step="2">
+            <div class="step-note" data-i18n="step2Note">
+              Ajusta las cantidades para emitir una nota de credito parcial.
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle table-dark table-borderless">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th class="text-center" data-i18n="thCantidad">Cantidad</th>
+                    <th class="text-end" data-i18n="thPrecio">Precio unitario</th>
+                    <th class="text-end" data-i18n="thTotal">Total</th>
+                  </tr>
+                </thead>
+                <tbody id="detalleGrid"></tbody>
+              </table>
+            </div>
+            <div class="totals-bar">
+              <span data-i18n="totalNota">Total nota</span>
+              <strong id="totalNota">0.00</strong>
+            </div>
+          </section>
+
+          <section class="step-view d-none" data-step="3">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-title" data-i18n="summaryHeader">Resumen cabecera</div>
+                <div class="summary-line"><span data-i18n="summaryCliente">Cliente</span><span id="resCliente">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryFactura">Factura</span><span id="resFactura">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryFecha">Fecha</span><span id="resFecha">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryBase">Base</span><span id="resBase">-</span></div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-title" data-i18n="summaryTotals">Totales</div>
+                <div class="summary-line"><span data-i18n="summaryTotalNota">Total nota</span><span id="resTotal">0.00</span></div>
+                <div class="summary-line"><span data-i18n="summaryItems">Items</span><span id="resItems">0</span></div>
+              </div>
+            </div>
+            <div class="summary-table table-responsive">
+              <table class="table table-dark table-borderless align-middle">
+                <thead>
+                  <tr>
+                    <th data-i18n="thProducto">Producto</th>
+                    <th class="text-center" data-i18n="thCantidad">Cantidad</th>
+                    <th class="text-end" data-i18n="thTotal">Total</th>
+                  </tr>
+                </thead>
+                <tbody id="resDetalle"></tbody>
+              </table>
+            </div>
+            <div class="form-check confirm-box">
+              <input class="form-check-input" type="checkbox" id="confirmCheck" />
+              <label class="form-check-label" for="confirmCheck" data-i18n="confirmLabel">
+                Confirmo que los datos son correctos.
+              </label>
+            </div>
+          </section>
+
+          <div class="wizard-actions">
+            <button type="button" id="prevBtn" class="btn btn-outline-light" data-i18n="prev">
+              Anterior
+            </button>
+            <button type="button" id="nextBtn" class="btn btn-primary" data-i18n="next">
+              Siguiente
+            </button>
+            <button type="button" id="emitBtn" class="btn btn-accent d-none" data-i18n="emitir">
+              Emitir Nota de Credito
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

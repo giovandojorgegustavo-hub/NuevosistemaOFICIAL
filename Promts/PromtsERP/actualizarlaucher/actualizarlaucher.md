@@ -2,10 +2,8 @@ actualizarlaucher: Actualizar rutas del Launcher
 
 # **Prompt AI**
 
-
 ## Campos devueltos por SPs de lectura (obligatorio)
 Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
-
 
 Actua como asistente tecnico para mantener el Launcher ERP. Necesito que generes los SQL y pasos exactos para actualizar los links de los casos de uso, el modulo correcto, y las asignaciones por perfil y usuario. No modifiques codigo del frontend ni backend; solo entregar SQL . El resultado debe separarse en archivos SQL para que yo lo pegue manualmente.
 
@@ -25,8 +23,8 @@ Requisitos de salida:
    - Asignar `perfiles_ucases` al perfil.
    - Asignar `usuarios_perfiles` a los usuarios.
 
-
 Notas:
 - Asume MySQL y que las tablas son: `usecases`, `modulos`, `modulo_usecases`, `perfiles_ucases`, `usuarios_perfiles`.
 - No uses datos mock.
 - Mantener respuestas en espanol.
+
