@@ -11,24 +11,7 @@
   <main class="app-shell">
     <section class="hero">
       <div class="hero-content">
-        <div>
-          <p class="eyebrow">Modulo 4 · CU4001</p>
-          <h1>Transferencias Inteligentes</h1>
-          <p class="lead">
-            Orquesta movimientos de stock entre bases con seguridad transaccional, trazabilidad y una experiencia
-            optimizada para operaciones globales.
-          </p>
-        </div>
-        <div class="hero-metrics">
-          <div class="metric">
-            <span class="metric-label">Documento Salida</span>
-            <strong id="metricSalida">--</strong>
-          </div>
-          <div class="metric">
-            <span class="metric-label">Documento Entrada</span>
-            <strong id="metricEntrada">--</strong>
-          </div>
-        </div>
+        <h1>Transferencias</h1>
       </div>
     </section>
 
@@ -36,7 +19,6 @@
       <div class="wizard-header">
         <div>
           <h2>Registro Multipaso</h2>
-          <p class="text-muted">Completa los datos y confirma la transferencia.</p>
         </div>
         <div class="progress-wrapper">
           <div class="progress">
@@ -55,29 +37,13 @@
       <div class="wizard-body">
         <form id="transferForm" autocomplete="off">
           <div class="step" data-step="1">
+            <input type="hidden" id="vFecha" name="vFecha" />
+            <input type="hidden" id="vTipodocumentostockSalida" name="vTipodocumentostockSalida" />
+            <input type="hidden" id="vTipodocumentostockEntrada" name="vTipodocumentostockEntrada" />
+            <input type="hidden" id="vNumdocumentostockSalida" name="vNumdocumentostockSalida" />
+            <input type="hidden" id="vNumdocumentostockEntrada" name="vNumdocumentostockEntrada" />
+
             <div class="row g-3">
-              <div class="col-12 col-lg-4">
-                <label class="form-label" for="vFecha">vFecha</label>
-                <input type="date" class="form-control" id="vFecha" name="vFecha" required />
-              </div>
-              <div class="col-12 col-lg-4">
-                <label class="form-label" for="vTipodocumentostockSalida">vTipodocumentostockSalida</label>
-                <input type="text" class="form-control" id="vTipodocumentostockSalida" name="vTipodocumentostockSalida" readonly />
-              </div>
-              <div class="col-12 col-lg-4">
-                <label class="form-label" for="vTipodocumentostockEntrada">vTipodocumentostockEntrada</label>
-                <input type="text" class="form-control" id="vTipodocumentostockEntrada" name="vTipodocumentostockEntrada" readonly />
-              </div>
-
-              <div class="col-12 col-lg-6">
-                <label class="form-label" for="vNumdocumentostockSalida">vNumdocumentostockSalida</label>
-                <input type="text" class="form-control" id="vNumdocumentostockSalida" name="vNumdocumentostockSalida" readonly />
-              </div>
-              <div class="col-12 col-lg-6">
-                <label class="form-label" for="vNumdocumentostockEntrada">vNumdocumentostockEntrada</label>
-                <input type="text" class="form-control" id="vNumdocumentostockEntrada" name="vNumdocumentostockEntrada" readonly />
-              </div>
-
               <div class="col-12 col-lg-6">
                 <label class="form-label" for="vBaseNombre">vBaseNombre (origen)</label>
                 <input class="form-control" id="vBaseNombre" name="vBaseNombre" list="basesList" placeholder="Escribe para filtrar" />
@@ -118,24 +84,6 @@
               <h3 class="h5">Confirmar Operacion</h3>
               <p class="text-muted">Revisa la informacion antes de registrar la transferencia.</p>
               <div class="row g-3">
-                <div class="col-12 col-lg-6">
-                  <div class="review-item">
-                    <span>Fecha</span>
-                    <strong id="reviewFecha">--</strong>
-                  </div>
-                </div>
-                <div class="col-12 col-lg-3">
-                  <div class="review-item">
-                    <span>Documento Salida</span>
-                    <strong id="reviewSalida">--</strong>
-                  </div>
-                </div>
-                <div class="col-12 col-lg-3">
-                  <div class="review-item">
-                    <span>Documento Entrada</span>
-                    <strong id="reviewEntrada">--</strong>
-                  </div>
-                </div>
                 <div class="col-12 col-lg-6">
                   <div class="review-item">
                     <span>Base Origen</span>

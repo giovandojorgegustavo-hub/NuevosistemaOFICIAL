@@ -158,7 +158,7 @@ app.get('/api/next-numero-documento', async (req, res) => {
   try {
     const [rows] = await runQuery(
       pool,
-      "SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = ?",
+      "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = ?",
       [tipo]
     );
     res.json({ ok: true, next: rows?.[0]?.next || 1 });
@@ -188,26 +188,31 @@ app.post('/api/recibos', async (req, res) => {
     await conn.beginTransaction();
 
     const insertSql = `
-      INSERT INTO mov_operaciones_contables (
-        tipodocumento,
-        numdocumento,
-        fecha,
-        monto,
+      INSERT INTO mov_contable (
+        codigo_cliente,
+        tipo_documento,
+        numero_documento,
+        fecha_emision,
+        fecha_vencimiento,
+        fecha_valor,
         codigo_cuentabancaria,
-        codigo_cuentabancaria_destino,
-        descripcion
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        monto,
+        saldo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     await runQuery(conn, insertSql, [
+      codigo_cliente,
       tipo_documento,
       numero_documento,
       fecha_emision,
-      monto,
+      fecha_emision,
+      fecha_emision,
       codigo_cuentabancaria,
-      null,
-      descripcion || null
+      monto,
+      monto
     ]);
 
+    await runQuery(conn, 'CALL aplicar_recibo_a_facturas(?, ?, ?)', [codigo_cliente, numero_documento, monto]);
     await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [codigo_cliente, tipo_documento, monto]);
 
     await conn.commit();

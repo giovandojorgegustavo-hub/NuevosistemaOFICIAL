@@ -303,7 +303,17 @@ async function launchUsecase(uc) {
   } catch (error) {
     console.error(error);
   }
-  window.open(uc.linktolaunch, '_blank', 'noopener');
+  let launchUrl = uc.linktolaunch;
+  try {
+    const url = new URL(uc.linktolaunch, window.location.origin);
+    if (state.user?.codigo_usuario) {
+      url.searchParams.set('codigo_usuario', state.user.codigo_usuario);
+    }
+    launchUrl = url.toString();
+  } catch (error) {
+    console.warn('Invalid launch URL', error);
+  }
+  window.open(launchUrl, '_blank', 'noopener');
 }
 
 function renderLauncher() {

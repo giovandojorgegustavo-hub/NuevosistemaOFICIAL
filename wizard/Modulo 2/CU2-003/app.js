@@ -51,6 +51,7 @@ class FormWizard {
 
     this.detallePunto = document.getElementById('detallePunto');
     this.detalleRecibe = document.getElementById('detalleRecibe');
+    this.detallePacking = document.getElementById('detallePacking');
     this.detalleRegion = document.getElementById('detalleRegion');
     this.detalleLat = document.getElementById('detalleLat');
     this.detalleLng = document.getElementById('detalleLng');
@@ -205,6 +206,7 @@ class FormWizard {
         <td>${this.formatDate(paq.fecha_actualizado)}</td>
         <td>${paq.nombre_cliente}</td>
         <td>${paq.num_cliente}</td>
+        <td>${paq.nombre_packing || paq.codigo_packing || '-'}</td>
         <td>${paq.concatenarpuntoentrega}</td>
       `;
       row.addEventListener('click', (event) => this.onSelectPackage(paq, row, event));
@@ -237,6 +239,7 @@ class FormWizard {
   updatePackageDetails(paquete) {
     this.detallePunto.textContent = paquete.concatenarpuntoentrega || '-';
     this.detalleRecibe.textContent = paquete.concatenarnumrecibe || '-';
+    this.detallePacking.textContent = paquete.nombre_packing || paquete.codigo_packing || '-';
     this.detalleRegion.textContent = paquete.region_entrega || '-';
     this.detalleLat.textContent = paquete.latitud || '-';
     this.detalleLng.textContent = paquete.longitud || '-';
@@ -317,6 +320,7 @@ class FormWizard {
       row.innerHTML = `
         <td>${paq.codigo_paquete}</td>
         <td>${paq.nombre_cliente}</td>
+        <td>${paq.nombre_packing || paq.codigo_packing || '-'}</td>
         <td>${paq.concatenarpuntoentrega}</td>
       `;
       this.resumenTableBody.appendChild(row);

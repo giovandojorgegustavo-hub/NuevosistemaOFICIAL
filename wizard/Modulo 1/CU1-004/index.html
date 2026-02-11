@@ -63,6 +63,8 @@
                   <th data-i18n="colFecha">Actualizado</th>
                   <th data-i18n="colCliente">Cliente</th>
                   <th data-i18n="colNumero">Numero</th>
+                  <th data-i18n="colBase">Base</th>
+                  <th data-i18n="colPacking">Packing</th>
                   <th data-i18n="colEntrega">Punto entrega</th>
                   <th data-i18n="colRecibe">Num recibe</th>
                 </tr>
@@ -89,6 +91,10 @@
             <div class="info-item">
               <span data-i18n="labelRecibe">Numero recibe</span>
               <strong id="detalleRecibe">-</strong>
+            </div>
+            <div class="info-item">
+              <span data-i18n="labelPacking">Packing</span>
+              <strong id="detallePacking">-</strong>
             </div>
           </div>
 
@@ -133,20 +139,15 @@
               list="estadoOptions"
               id="estadoInput"
               name="estado"
-              placeholder="robado / devuelto / empacado / llegado"
+              placeholder="robado / empacado / llegado"
               autocomplete="off"
             />
             <datalist id="estadoOptions">
               <option value="robado"></option>
-              <option value="devuelto"></option>
               <option value="empacado"></option>
               <option value="llegado"></option>
             </datalist>
             <div class="form-text" data-i18n="estadoHint">Solo se permite seleccionar entre los estados listados.</div>
-          </div>
-
-          <div class="alert alert-warning" role="alert" data-i18n="confirmAlert">
-            Esta operacion es transaccional. Si falla algo, se revertira todo.
           </div>
           <div class="form-check mt-3">
             <input class="form-check-input" type="checkbox" id="confirmCheck" />

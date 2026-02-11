@@ -140,6 +140,7 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Factu
   - codigo_provedor = vCodigo_provedor
   - fecha = vFecha
   - monto = vTotal_compra
+  - saldo = vTotal_compra
 
 - Guardar en la tabla `detalle_mov_contable_prov` los datos del grid "vDetalleCompra" con ordinal correlativo por item, con estos campos (una fila por campo):
   - tipo_documento_compra = vTipo_documento_compra

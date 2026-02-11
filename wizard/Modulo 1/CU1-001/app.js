@@ -104,7 +104,7 @@ Variables
 vCodigo_base (no visible, editable)
 vBaseNombre (visible, editable)
 
-vCodigo_base = Llamada SP: get_bases_candidatas(p_vProdFactura JSON, vFechaPedido DATETIME) (devuelve codigo_base)
+vCodigo_base = Llamada SP: get_bases_candidatas(p_vProdFactura JSON, vFechaP DATETIME) (devuelve codigo_base)
 Campos devueltos
 vcodigo_base = codigo_base
 vlatitud = latitud
@@ -136,6 +136,9 @@ const state = {
   factura: {
     numero: null,
     tipo: 'FAC',
+    fecha: '',
+    hora: '',
+    fechaCompleta: '',
     monto: 0,
     costoEnvio: 0,
     total: 0,
@@ -176,6 +179,12 @@ const state = {
     cuentaCodigo: null,
     cuentaNombre: '',
     cuentaBanco: ''
+  },
+  saldoFavor: {
+    total: 0,
+    ntc: 0,
+    rcp: 0,
+    usado: 0
   },
   base: {
     codigo: null,
@@ -272,12 +281,17 @@ const el = {
   nombreRecibe: document.getElementById('nombreRecibe'),
   numeroDocumentoPago: document.getElementById('numeroDocumentoPago'),
   montoPago: document.getElementById('montoPago'),
+  saldoFavorTotal: document.getElementById('saldoFavorTotal'),
+  saldoFavorNtc: document.getElementById('saldoFavorNtc'),
+  saldoFavorRcp: document.getElementById('saldoFavorRcp'),
+  saldoFavorUsar: document.getElementById('saldoFavorUsar'),
   cuentaNombre: document.getElementById('cuentaNombre'),
   cuentaBanco: document.getElementById('cuentaBanco'),
   cuentasList: document.getElementById('cuentasList'),
   montoPendiente: document.getElementById('montoPendiente'),
   addPago: document.getElementById('addPago'),
   pagosTable: document.getElementById('pagosTable').querySelector('tbody'),
+  pagoBloqueado: document.getElementById('pagoBloqueado'),
   baseAsignada: document.getElementById('baseAsignada'),
   baseSugerida: document.getElementById('baseSugerida'),
   basesList: document.getElementById('basesList'),
@@ -309,7 +323,7 @@ const i18n = {
     step5Title: '5. Datos Recibe',
     step5Hint: 'Solo aplica si la entrega es en Lima.',
     step6Title: '6. Registro de Pago',
-    step6Hint: 'Puedes registrar pagos parciales o continuar sin pago.',
+    step6Hint: 'Aplica saldo a favor antes de registrar pagos.',
     step7Title: '7. Asignar Base',
     step7Hint: 'Se sugerira la base mas cercana con stock disponible.',
     step8Title: '8. Resumen y Emitir Factura',
@@ -353,6 +367,12 @@ const i18n = {
     numeroDocumento: 'Numero documento',
     montoPago: 'Monto pago',
     addPago: 'Agregar pago',
+    saldoFavorTitle: 'Saldo a favor',
+    saldoFavorTotal: 'Total saldo a favor',
+    saldoFavorNtc: 'Saldo NTC',
+    saldoFavorRcp: 'Saldo RCP',
+    saldoFavorUsar: 'Usar saldo a favor',
+    pagoBloqueado: 'Saldo cubierto, no se requiere pago.',
     cuenta: 'Cuenta bancaria',
     banco: 'Banco',
     montoPendiente: 'Monto pendiente',
@@ -391,7 +411,7 @@ const i18n = {
     step5Title: '5. Receiver Details',
     step5Hint: 'Only for Lima deliveries.',
     step6Title: '6. Payment Record',
-    step6Hint: 'Register partial payments or skip.',
+    step6Hint: 'Apply available credit before registering payments.',
     step7Title: '7. Assign Base',
     step7Hint: 'Suggest the closest base with stock.',
     step8Title: '8. Summary & Issue Invoice',
@@ -435,6 +455,12 @@ const i18n = {
     numeroDocumento: 'Document number',
     montoPago: 'Payment amount',
     addPago: 'Add payment',
+    saldoFavorTitle: 'Available credit',
+    saldoFavorTotal: 'Total credit',
+    saldoFavorNtc: 'Credit note',
+    saldoFavorRcp: 'Receipt credit',
+    saldoFavorUsar: 'Use available credit',
+    pagoBloqueado: 'Covered by credit. No payment required.',
     cuenta: 'Bank account',
     banco: 'Bank',
     montoPendiente: 'Outstanding amount',
@@ -528,6 +554,7 @@ function toFixed2(value) {
   const num = Number(value || 0);
   return num.toFixed(2);
 }
+
 
 function setDatalist(listEl, items, displayKey = 'display') {
   listEl.innerHTML = '';
@@ -624,18 +651,21 @@ function initDateTime() {
   const now = new Date();
   state.pedido.fecha = formatDate(now);
   state.pedido.hora = formatTime(now);
+  state.factura.fecha = state.pedido.fecha;
+  state.factura.hora = state.pedido.hora;
   el.fechaPedido.value = state.pedido.fecha;
   el.horaPedido.value = state.pedido.hora;
-  el.fechaEmision.value = state.pedido.fecha;
-  el.horaEmision.value = state.pedido.hora;
+  el.fechaEmision.value = state.factura.fecha;
+  el.horaEmision.value = state.factura.hora;
 }
 
 function updateFechaCompleta() {
   state.pedido.fecha = el.fechaPedido.value || state.pedido.fecha;
   state.pedido.hora = el.horaPedido.value || state.pedido.hora;
   state.pedido.fechaCompleta = formatDateTime(state.pedido.fecha, state.pedido.hora);
-  el.fechaEmision.value = state.pedido.fecha;
-  el.horaEmision.value = state.pedido.hora;
+  state.factura.fecha = el.fechaEmision.value || state.factura.fecha;
+  state.factura.hora = el.horaEmision.value || state.factura.hora;
+  state.factura.fechaCompleta = formatDateTime(state.factura.fecha, state.factura.hora);
 }
 
 function setPedidoItems(items) {
@@ -738,8 +768,53 @@ function updateFacturaTotals() {
   el.montoFactura.textContent = toFixed2(state.factura.monto);
   el.costoEnvio.textContent = toFixed2(state.factura.costoEnvio);
   el.totalFactura.textContent = toFixed2(state.factura.total);
-  state.pago.pendiente = state.factura.total - state.pagos.reduce((acc, pago) => acc + Number(pago.monto || 0), 0);
-  el.montoPendiente.textContent = toFixed2(state.pago.pendiente);
+  updateSaldoFavorUsado();
+  recalcPendiente();
+}
+
+function updateSaldoFavorUI() {
+  if (el.saldoFavorTotal) el.saldoFavorTotal.textContent = toFixed2(state.saldoFavor.total);
+  if (el.saldoFavorNtc) el.saldoFavorNtc.textContent = toFixed2(state.saldoFavor.ntc);
+  if (el.saldoFavorRcp) el.saldoFavorRcp.textContent = toFixed2(state.saldoFavor.rcp);
+  if (el.saldoFavorUsar) {
+    el.saldoFavorUsar.disabled = state.saldoFavor.total <= 0;
+    if (el.saldoFavorUsar.disabled) {
+      el.saldoFavorUsar.checked = false;
+    }
+  }
+}
+
+function updateSaldoFavorUsado() {
+  const usar = el.saldoFavorUsar?.checked ? state.factura.total : 0;
+  state.saldoFavor.usado = Math.min(state.saldoFavor.total, usar);
+  updateSaldoFavorUI();
+}
+
+function recalcPendiente() {
+  const pagosTotal = state.pagos.reduce((acc, pago) => acc + Number(pago.monto || 0), 0);
+  let pendiente = state.factura.total - state.saldoFavor.usado - pagosTotal;
+  if (pendiente < 0) {
+    pendiente = 0;
+  }
+  state.pago.pendiente = pendiente;
+  if (el.montoPendiente) {
+    el.montoPendiente.textContent = toFixed2(state.pago.pendiente);
+  }
+  const bloqueado = state.pago.pendiente <= 0;
+  if (el.montoPago) {
+    if (bloqueado) {
+      el.montoPago.value = toFixed2(state.pago.pendiente);
+    } else if (!el.montoPago.value) {
+      el.montoPago.value = toFixed2(state.pago.pendiente);
+    }
+  }
+  if (el.pagoBloqueado) {
+    el.pagoBloqueado.classList.toggle('d-none', !bloqueado);
+  }
+  if (el.montoPago) el.montoPago.disabled = bloqueado;
+  if (el.addPago) el.addPago.disabled = bloqueado;
+  if (el.cuentaNombre) el.cuentaNombre.disabled = bloqueado;
+  if (el.cuentaBanco) el.cuentaBanco.disabled = bloqueado;
 }
 
 function updateEntregaRegion() {
@@ -788,7 +863,7 @@ function renderPagos() {
     `;
     el.pagosTable.appendChild(row);
   });
-  updateFacturaTotals();
+  recalcPendiente();
 }
 
 function renderBasesCandidatas() {
@@ -846,6 +921,7 @@ async function enterStep(step) {
     state.factura.numero = next.next;
     el.numeroFactura.value = state.factura.numero || '';
     buildFacturaItems();
+    await loadSaldoFavor();
     return;
   }
   if (step === 4) {
@@ -860,11 +936,10 @@ async function enterStep(step) {
   }
   if (step === 6) {
     const next = await fetchJSON('/api/next/recibo');
-    state.pago.numeroBase = next.next;
+    state.pago.numeroBase = Number(next.next || 0);
     el.numeroDocumentoPago.value = state.pago.numeroBase || '';
-    state.pago.pendiente = state.factura.total;
-    el.montoPendiente.textContent = toFixed2(state.pago.pendiente);
-    if (!el.montoPago.value) {
+    recalcPendiente();
+    if (el.montoPago) {
       el.montoPago.value = toFixed2(state.pago.pendiente);
     }
     renderPagos();
@@ -913,6 +988,30 @@ async function loadProductos() {
   if (list) {
     setDatalist(list, state.data.productos);
   }
+}
+
+async function loadSaldoFavor() {
+  state.saldoFavor.total = 0;
+  state.saldoFavor.ntc = 0;
+  state.saldoFavor.rcp = 0;
+  state.saldoFavor.usado = 0;
+  updateSaldoFavorUI();
+  if (!state.cliente.codigo) {
+    return;
+  }
+  const data = await fetchJSON(`/api/saldo-favor?cliente=${state.cliente.codigo}`);
+  const rows = data.rows || [];
+  rows.forEach((row) => {
+    const saldo = Number(row.saldo || 0);
+    if (row.tipo_documento === 'NTC') {
+      state.saldoFavor.ntc += saldo;
+    } else if (row.tipo_documento === 'RCP') {
+      state.saldoFavor.rcp += saldo;
+    }
+  });
+  state.saldoFavor.total = state.saldoFavor.ntc + state.saldoFavor.rcp;
+  updateSaldoFavorUsado();
+  recalcPendiente();
 }
 
 async function loadPuntosEntrega() {
@@ -1013,6 +1112,7 @@ async function loadBases() {
 
 async function loadBasesCandidatas() {
   updateFechaCompleta();
+  const fechaFactura = state.factura.fechaCompleta || formatDateTime(state.factura.fecha, state.factura.hora);
   const payload = state.facturaItems.map((item) => ({
     vFProducto: item.productoCodigo,
     vFCantidadProducto: Number(item.cantidadFactura || 0),
@@ -1021,7 +1121,7 @@ async function loadBasesCandidatas() {
   const data = await fetchJSON('/api/bases-candidatas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ vProdFactura: payload, vFechaP: state.pedido.fechaCompleta })
+    body: JSON.stringify({ vProdFactura: payload, vFechaP: fechaFactura })
   });
   const seen = new Set();
   state.data.basesCandidatas = (data.rows || [])
@@ -1070,6 +1170,9 @@ function toggleRecibePanels(tipo) {
   state.recibe.tipo = tipo;
   el.recibeExistePanel.classList.toggle('d-none', tipo !== 'existe');
   el.recibeNuevoPanel.classList.toggle('d-none', tipo !== 'nuevo');
+  if (tipo === 'nuevo') {
+    state.recibe.ordinal = null;
+  }
 }
 
 function validateStep1() {
@@ -1158,6 +1261,8 @@ async function validateStep4() {
     state.entrega.dni = selected.dni || '';
     state.entrega.agencia = selected.agencia || '';
     state.entrega.observaciones = selected.observaciones || '';
+    state.entrega.latitud = selected.latitud ? Number(selected.latitud) : null;
+    state.entrega.longitud = selected.longitud ? Number(selected.longitud) : null;
     state.entrega.codDep = selected.cod_dep || state.entrega.codDep;
     state.entrega.codProv = selected.cod_prov || state.entrega.codProv;
     state.entrega.codDist = selected.cod_dist || state.entrega.codDist;
@@ -1233,12 +1338,15 @@ async function validateStep5() {
 }
 
 function validateStep6() {
-  const monto = Number(el.montoPago.value || 0);
-  if (monto > 0 && monto > state.pago.pendiente) {
-    showAlert('El monto de pago excede el pendiente.');
+  if (!state.pagos.length) {
+    return true;
+  }
+  const hasInvalidPago = state.pagos.some((pago) => !pago.cuentaCodigo);
+  if (hasInvalidPago) {
+    showAlert('Selecciona una cuenta bancaria.');
     return false;
   }
-  return true;
+  return state.pagos.every((pago) => Number(pago.monto) > 0);
 }
 
 function validateStep7() {
@@ -1269,6 +1377,7 @@ function buildResumen() {
   `;
   el.resumenFactura.innerHTML = `
     <div>Factura: ${state.factura.numero}</div>
+    <div>Fecha: ${state.factura.fechaCompleta}</div>
     <div>Monto: ${toFixed2(state.factura.monto)}</div>
     <div>Costo envio: ${toFixed2(state.factura.costoEnvio)}</div>
     <div>Total: ${toFixed2(state.factura.total)}</div>
@@ -1312,10 +1421,12 @@ async function emitir() {
       factura: {
         numero: state.factura.numero,
         tipo: state.factura.tipo,
+        fecha: state.factura.fechaCompleta,
         monto: state.factura.monto,
         costo_envio: state.factura.costoEnvio,
         total: state.factura.total,
         saldo: state.factura.saldo,
+        saldo_favor_usado: state.saldoFavor.usado,
         items: state.facturaItems.map((item, idx) => ({
           ordinal: idx + 1,
           codigo_producto: item.productoCodigo,
@@ -1399,6 +1510,11 @@ function resetWizard() {
   state.recibe = { tipo: 'existe', ordinal: null, numero: '', nombre: '', concatenado: '' };
   state.pagos = [];
   state.pago.monto = '';
+  state.pago.pendiente = 0;
+  state.pago.cuentaCodigo = null;
+  state.pago.cuentaNombre = '';
+  state.pago.cuentaBanco = '';
+  state.saldoFavor = { total: 0, ntc: 0, rcp: 0, usado: 0 };
   state.base = { codigo: null, nombre: '', sugerida: '' };
 
   el.clienteNombre.value = '';
@@ -1421,6 +1537,7 @@ function resetWizard() {
   el.montoPago.value = '';
   el.cuentaNombre.value = '';
   el.cuentaBanco.value = '';
+  if (el.saldoFavorUsar) el.saldoFavorUsar.checked = false;
   el.baseAsignada.value = '';
   el.baseSugerida.value = '';
   el.confirmOperacion.checked = false;
@@ -1431,70 +1548,77 @@ function resetWizard() {
   toggleEntregaPanels('existe');
   toggleRecibePanels('existe');
   renderPagos();
+  updateSaldoFavorUI();
   showStep(1);
 }
 
 async function calcularEtaBases() {
-  if (!window.google || !state.entrega.latitud || !state.entrega.longitud) {
-    state.data.basesEta = [];
-    renderBasesEta();
-    return;
-  }
+  state.data.basesEta = [];
+  renderBasesEta();
   if (!state.data.basesCandidatas.length) {
-    state.data.basesEta = [];
-    renderBasesEta();
     return;
   }
 
-  const service = new google.maps.DistanceMatrixService();
-  const origins = [new google.maps.LatLng(Number(state.entrega.latitud), Number(state.entrega.longitud))];
+  const lat = Number(state.entrega.latitud);
+  const lng = Number(state.entrega.longitud);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return;
+  }
+
   const destinations = state.data.basesCandidatas
-    .filter((base) => Number.isFinite(Number(base.latitud)) && Number.isFinite(Number(base.longitud)))
-    .map((base) => new google.maps.LatLng(Number(base.latitud), Number(base.longitud)));
+    .map((base) => ({
+      codigo_base: base.codigo_base,
+      lat: Number(base.latitud),
+      lng: Number(base.longitud)
+    }))
+    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
 
   if (!destinations.length) {
-    state.data.basesEta = [];
-    renderBasesEta();
     return;
   }
 
-  await new Promise((resolve) => {
-    service.getDistanceMatrix(
-      {
-        origins,
-        destinations,
-        travelMode: 'DRIVING'
-      },
-      (response, status) => {
-        if (status !== 'OK' || !response.rows.length) {
-          state.data.basesEta = [];
-          renderBasesEta();
-          resolve();
-          return;
-        }
-        const durations = response.rows[0].elements;
-        const etaList = durations.map((element, index) => ({
-          ...state.data.basesCandidatas[index],
-          duration: element.duration ? element.duration.value : null,
-          eta: element.duration ? element.duration.text : 'N/A'
-        }));
-        etaList.sort((a, b) => (a.duration || 999999) - (b.duration || 999999));
-        state.data.basesEta = etaList;
-        renderBasesEta();
-        if (etaList.length && etaList[0].codigo_base) {
-          const selected = state.data.bases.find((base) => base.codigo_base === etaList[0].codigo_base);
-          if (selected) {
-            state.base.codigo = selected.codigo_base;
-            state.base.nombre = selected.nombre;
-            state.base.sugerida = selected.nombre;
-            el.baseSugerida.value = selected.nombre;
-            el.baseAsignada.value = selected.display;
-          }
-        }
-        resolve();
+  try {
+    const data = await fetchJSON('/api/distance-matrix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin: { lat, lng },
+        destinations
+      })
+    });
+    const rows = data.rows || [];
+    const etaList = rows
+      .map((element, index) => {
+        const code = destinations[index]?.codigo_base;
+        const base =
+          state.data.basesCandidatas.find((item) => String(item.codigo_base) === String(code)) || {};
+        return {
+          ...base,
+          codigo_base: code ?? base.codigo_base,
+          duration: element?.duration?.value ?? null,
+          eta: element?.duration?.text || 'N/A',
+          status: element?.status || ''
+        };
+      })
+      .filter((item) => item.codigo_base != null);
+
+    etaList.sort((a, b) => (a.duration || 999999) - (b.duration || 999999));
+    state.data.basesEta = etaList;
+    renderBasesEta();
+    if (etaList.length && etaList[0].codigo_base) {
+      const selected = state.data.bases.find((base) => base.codigo_base === etaList[0].codigo_base);
+      if (selected) {
+        state.base.codigo = selected.codigo_base;
+        state.base.nombre = selected.nombre;
+        state.base.sugerida = selected.nombre;
+        el.baseSugerida.value = selected.nombre;
+        el.baseAsignada.value = selected.display;
       }
-    );
-  });
+    }
+  } catch (error) {
+    state.data.basesEta = [];
+    renderBasesEta();
+  }
 }
 
 async function loadGoogleMaps() {
@@ -1689,6 +1813,10 @@ function registerEvents(wizard) {
     state.entrega.dni = selected.dni || '';
     state.entrega.agencia = selected.agencia || '';
     state.entrega.observaciones = selected.observaciones || '';
+    state.entrega.latitud = selected.latitud ? Number(selected.latitud) : null;
+    state.entrega.longitud = selected.longitud ? Number(selected.longitud) : null;
+    el.latitud.value = state.entrega.latitud ?? '';
+    el.longitud.value = state.entrega.longitud ?? '';
     el.entregaExisteInfo.innerHTML = `
       <div>Region: ${state.entrega.region}</div>
       <div>Detalle: ${state.entrega.concatenado}</div>
@@ -1768,6 +1896,9 @@ function registerEvents(wizard) {
   el.numRecibe.addEventListener('change', () => {
     const selected = findByDisplay(state.data.numrecibe, el.numRecibe.value.trim());
     if (!selected) return;
+    el.recibeExiste.checked = true;
+    el.recibeNuevo.checked = false;
+    toggleRecibePanels('existe');
     state.recibe.ordinal = selected.ordinal_numrecibe;
     state.recibe.numero = selected.numero;
     state.recibe.nombre = selected.nombre;
@@ -1775,11 +1906,21 @@ function registerEvents(wizard) {
   });
 
   el.numeroRecibe.addEventListener('input', () => {
+    if (state.recibe.tipo !== 'nuevo') {
+      el.recibeExiste.checked = false;
+      el.recibeNuevo.checked = true;
+      toggleRecibePanels('nuevo');
+    }
     state.recibe.numero = el.numeroRecibe.value.trim();
     updateRecibeConcatenado();
   });
 
   el.nombreRecibe.addEventListener('input', () => {
+    if (state.recibe.tipo !== 'nuevo') {
+      el.recibeExiste.checked = false;
+      el.recibeNuevo.checked = true;
+      toggleRecibePanels('nuevo');
+    }
     state.recibe.nombre = el.nombreRecibe.value.trim();
     updateRecibeConcatenado();
   });
@@ -1794,30 +1935,39 @@ function registerEvents(wizard) {
     }
   });
 
+  if (el.saldoFavorUsar) {
+    el.saldoFavorUsar.addEventListener('change', () => {
+      state.pagos = [];
+      updateSaldoFavorUsado();
+      renderPagos();
+      if (el.montoPago) {
+        el.montoPago.value = toFixed2(state.pago.pendiente);
+      }
+    });
+  }
+
   el.addPago.addEventListener('click', () => {
     const monto = Number(el.montoPago.value || 0);
     if (monto <= 0) {
       return;
     }
     if (monto > state.pago.pendiente) {
-      showAlert('El monto de pago excede el pendiente.');
+      showAlert('El monto supera el pendiente.');
       return;
     }
     if (!state.pago.cuentaCodigo) {
       showAlert('Selecciona una cuenta bancaria.');
       return;
     }
-    const numdocumento = state.pago.numeroBase + state.pagos.length;
+    const numdocumento = Number(state.pago.numeroBase || 0) + state.pagos.length;
     state.pagos.push({
       numdocumento,
       monto,
       cuentaCodigo: state.pago.cuentaCodigo,
       cuentaNombre: state.pago.cuentaNombre
     });
-    state.pago.pendiente -= monto;
-    el.montoPendiente.textContent = toFixed2(state.pago.pendiente);
-    el.montoPago.value = toFixed2(state.pago.pendiente);
     renderPagos();
+    el.montoPago.value = toFixed2(state.pago.pendiente);
   });
 
   el.pagosTable.addEventListener('click', (event) => {
@@ -1825,10 +1975,8 @@ function registerEvents(wizard) {
       const index = Number(event.target.dataset.index || -1);
       if (index >= 0) {
         state.pagos.splice(index, 1);
-        state.pago.pendiente = state.factura.total - state.pagos.reduce((acc, pago) => acc + Number(pago.monto), 0);
-        el.montoPendiente.textContent = toFixed2(state.pago.pendiente);
-        el.montoPago.value = toFixed2(state.pago.pendiente);
         renderPagos();
+        el.montoPago.value = toFixed2(state.pago.pendiente);
       }
     }
   });

@@ -8,6 +8,7 @@ vnombre_cliente
 vnum_cliente
 vcodigo_puntoentrega
 vcodigo_base
+vnombre_base
 vordinal_numrecibe
 vconcatenarpuntoentrega
 vRegion_Entrega
@@ -22,6 +23,7 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
+vnombre_base visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -92,17 +94,19 @@ const i18n = {
     colFecha: 'Updated',
     colCliente: 'Client',
     colNumero: 'Client number',
+    colBase: 'Base',
+    colPacking: 'Packing',
     colEntrega: 'Delivery point',
     colRecibe: 'Receiver',
     labelEntrega: 'Delivery point',
     labelRecibe: 'Receiver',
+    labelPacking: 'Packing',
     mapTitle: 'Address and map',
     detalleGridTitle: 'Document products',
     colProducto: 'Product',
     colCantidad: 'Quantity',
     labelEstado: 'New package state',
     estadoHint: 'Only listed states are allowed.',
-    confirmAlert: 'This is transactional. If anything fails, everything rolls back.',
     prev: 'Previous',
     next: 'Next',
     reset: 'Clear',
@@ -138,17 +142,19 @@ const i18n = {
     colFecha: 'Actualizado',
     colCliente: 'Cliente',
     colNumero: 'Numero cliente',
+    colBase: 'Base',
+    colPacking: 'Packing',
     colEntrega: 'Punto entrega',
     colRecibe: 'Num recibe',
     labelEntrega: 'Punto entrega',
     labelRecibe: 'Num recibe',
+    labelPacking: 'Packing',
     mapTitle: 'Direccion y mapa',
     detalleGridTitle: 'Productos del documento',
     colProducto: 'Producto',
     colCantidad: 'Cantidad',
     labelEstado: 'Nuevo estado del paquete',
     estadoHint: 'Solo se permiten los estados listados.',
-    confirmAlert: 'Esta operacion es transaccional. Si falla algo, se revierte todo.',
     prev: 'Anterior',
     next: 'Siguiente',
     reset: 'Limpiar',
@@ -190,6 +196,7 @@ const elements = {
   detalleTableBody: document.querySelector('#detalleTable tbody'),
   detalleEntrega: document.getElementById('detalleEntrega'),
   detalleRecibe: document.getElementById('detalleRecibe'),
+  detallePacking: document.getElementById('detallePacking'),
   viajeInfo: document.getElementById('viajeInfo'),
   resumenInfo: document.getElementById('resumenInfo'),
   mapSection: document.getElementById('mapSection'),
@@ -242,6 +249,43 @@ function setSuccess(message) {
   setTimeout(() => elements.successBox.classList.add('d-none'), 4000);
 }
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat(state.lang === 'es' ? 'es-PE' : 'en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(date);
+}
+
+function mapPaqueteRow(row) {
+  return {
+    codigo_paquete: row.codigo_paquete,
+    fecha_actualizado: formatDateTime(row.fecha_actualizado),
+    codigo_cliente: row.codigo_cliente,
+    nombre_cliente: row.nombre_cliente,
+    num_cliente: row.num_cliente,
+    codigo_puntoentrega: row.codigo_puntoentrega,
+    codigo_base: row.codigo_base,
+    nombre_base: row.nombre_base ?? row.nombrebase ?? '',
+    codigo_packing: row.codigo_packing,
+    nombre_packing: row.nombre_packing,
+    ordinal_numrecibe: row.ordinal_numrecibe,
+    concatenarpuntoentrega: row.concatenarpuntoentrega,
+    region_entrega: row.region_entrega,
+    latitud: row.latitud,
+    longitud: row.longitud,
+    concatenarnumrecibe: row.concatenarnumrecibe
+  };
+}
+
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -281,6 +325,8 @@ function renderStandbyTable() {
       <td>${paquete.fecha_actualizado ?? ''}</td>
       <td>${paquete.nombre_cliente ?? ''}</td>
       <td>${paquete.num_cliente ?? ''}</td>
+      <td>${paquete.nombre_base ?? ''}</td>
+      <td>${paquete.nombre_packing || paquete.codigo_packing || '-'}</td>
       <td>${paquete.concatenarpuntoentrega ?? ''}</td>
       <td>${paquete.concatenarnumrecibe ?? ''}</td>
     `;
@@ -356,6 +402,7 @@ function renderResumen() {
     { label: 'Cliente', value: paquete.nombre_cliente },
     { label: 'Punto entrega', value: paquete.concatenarpuntoentrega },
     { label: 'Num recibe', value: paquete.concatenarnumrecibe },
+    { label: 'Packing', value: paquete.nombre_packing || paquete.codigo_packing || '-' },
     { label: 'Base', value: viaje.nombrebase },
     { label: 'Motorizado', value: viaje.nombre_motorizado },
     { label: 'Link', value: viaje.link }
@@ -388,7 +435,7 @@ async function loadStandby() {
   elements.loadingStandby.classList.remove('d-none');
   try {
     const data = await fetchJson('/api/paquetes-standby');
-    state.paquetes = data.rows || [];
+    state.paquetes = (data.rows || []).map(mapPaqueteRow);
     renderStandbyTable();
   } catch (error) {
     setAlert(t('errorServer'));
@@ -478,6 +525,7 @@ async function loadDetalle() {
     state.mapsConfig = mapsRes || null;
     elements.detalleEntrega.textContent = state.selected.concatenarpuntoentrega || '-';
     elements.detalleRecibe.textContent = state.selected.concatenarnumrecibe || '-';
+    elements.detallePacking.textContent = state.selected.nombre_packing || state.selected.codigo_packing || '-';
     renderViajeInfo();
     renderDetalleTable();
     await renderMapIfNeeded();
@@ -496,7 +544,7 @@ function validateStep() {
   }
   if (state.step === 3) {
     const value = String(elements.estadoInput.value || '').trim().toLowerCase();
-    const regex = /^(robado|devuelto|empacado|llegado)$/;
+    const regex = /^(robado|empacado|llegado)$/;
     if (!regex.test(value)) {
       setAlert(t('errorEstado'));
       return false;
@@ -552,6 +600,7 @@ function resetWizard() {
   elements.confirmCheck.checked = false;
   elements.detalleEntrega.textContent = '-';
   elements.detalleRecibe.textContent = '-';
+  elements.detallePacking.textContent = '-';
   elements.viajeInfo.innerHTML = '';
   elements.detalleTableBody.innerHTML = '';
   elements.resumenInfo.innerHTML = '';

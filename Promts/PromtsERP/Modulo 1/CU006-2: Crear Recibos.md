@@ -104,7 +104,7 @@ Campos del pago:
 vFecha_emision = Inicializar con la fecha del sistema (editable).
 vTipo_documento = "RCP".
 vNumero_documento = regla sin ambiguedad:
-- Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'` (si no hay registros empieza en 1).
+- Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'` (si no hay registros empieza en 1).
 vCuentas = Llamada SP: `get_cuentasbancarias()` (devuelve campo_visible)
 Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
 Variables:
@@ -127,14 +127,19 @@ Validaciones:
 
 ## Grabar Recibo. Tomar los datos capturados en el paso 2:
 
-### Guardar en la tabla "mov_operaciones_contables".
-tipodocumento=vTipo_documento  
-numdocumento=vNumero_documento  
-fecha=vFecha_emision  
-monto=vMonto  
+### Guardar en la tabla "mov_contable".
+codigo_cliente=vCodigo_cliente  
+tipo_documento=vTipo_documento  
+numero_documento=vNumero_documento  
+fecha_emision=vFecha_emision  
+fecha_vencimiento=vFecha_emision  
+fecha_valor=vFecha_emision  
 codigo_cuentabancaria=vCodigo_cuentabancaria  
-codigo_cuentabancaria_destino=NULL  
-descripcion=opcional  
+monto=vMonto  
+saldo=vMonto  
+
+### Aplicar recibo contra facturas
+- Ejecutar `CALL aplicar_recibo_a_facturas(vCodigo_cliente, vNumero_documento, vMonto)` para actualizar saldo de `mov_contable` y registrar en `Facturas_Pagadas`.
 
 ### Actualizar saldo del cliente
 - Ejecutar el procedimiento `actualizarsaldosclientes(vCodigo_cliente, vTipo_documento, vMonto)`.

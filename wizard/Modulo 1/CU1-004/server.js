@@ -229,7 +229,7 @@ app.post('/api/confirmar', async (req, res) => {
   const codigo = String(req.body.codigo_paquete || '').trim();
   const nuevoEstado = String(req.body.nuevo_estado || '').trim().toLowerCase();
   const codigoRegex = /^\d+$/;
-  const estadosValidos = new Set(['robado', 'devuelto', 'empacado', 'llegado']);
+  const estadosValidos = new Set(['robado', 'empacado', 'llegado']);
 
   if (!codigo || !codigoRegex.test(codigo) || !estadosValidos.has(nuevoEstado)) {
     return res.status(400).json({ ok: false, message: 'INVALID_INPUT' });
@@ -262,6 +262,56 @@ app.post('/api/confirmar', async (req, res) => {
         'UPDATE detalleviaje SET fecha_fin = NOW() WHERE codigoviaje = ? AND tipo_documento = ? AND numero_documento = ?',
         [viaje.codigoviaje, 'FAC', codigo]
       );
+    }
+
+    if (nuevoEstado === 'robado') {
+      const [ntcRows] = await runQuery(
+        conn,
+        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'NTC'"
+      );
+      const correlativo = ntcRows[0]?.next || 1;
+
+      const [facturaRows] = await runQuery(
+        conn,
+        "SELECT codigo_pedido, codigo_cliente, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, monto FROM mov_contable WHERE tipo_documento = 'FAC' AND numero_documento = ?",
+        [codigo]
+      );
+      const factura = facturaRows[0];
+
+      if (!factura) {
+        throw new Error(`Factura no encontrada para paquete ${codigo}`);
+      }
+
+      const totalNota = Number(factura.monto || 0);
+      await runQuery(
+        conn,
+        'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, saldo, tipo_documento, numero_documento, costoenvio) VALUES (?, NOW(), NOW(), NOW(), ?, ?, ?, ?, ?, ?)',
+        [
+          factura.codigo_pedido,
+          factura.codigo_cliente,
+          totalNota,
+          totalNota,
+          'NTC',
+          correlativo,
+          factura.costoenvio
+        ]
+      );
+
+      if (totalNota > 0) {
+        await runQuery(conn, 'CALL aplicar_nota_credito_a_factura(?, ?, ?, ?, ?)', [
+          'NTC',
+          correlativo,
+          'FAC',
+          codigo,
+          totalNota
+        ]);
+      }
+
+      await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [
+        factura.codigo_cliente,
+        'NTC',
+        totalNota
+      ]);
     }
 
     await runQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigo, nuevoEstado]);

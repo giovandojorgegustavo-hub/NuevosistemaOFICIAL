@@ -71,7 +71,7 @@ Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario t
 # **Pasos del formulario-multipaso.
 
 1. Registrar Transferencia (TRS).
-2. Registrar movimiento y actualizar saldo_stock.
+2. Confirmar y registrar transferencia.
 
 # **Descripcion de los pasos del formulario de registro.
 
@@ -116,46 +116,46 @@ ordinaldetalleEntrada =se calcula con SQL:
 
 En la vista, cada campo debe usar el mismo nombre de variable definido arriba y registrar ese valor.
 
-Paso 2. Registrar movimiento y actualizar saldo_stock.
+Paso 2. Confirmar y registrar transferencia.
 
-Al terminar el formulario multipasos, cuando el usuario da click al boton "Registrar Transferencia" el sistema debera realizar las siguientes transacciones sobre la DB:
-
-- Guardar 2 registros en la tabla `movimiento_stock`: 
- tipodocumentostock=vTipodocumentostockSalida
- numdocumentostock=vNumdocumentostockSalida
- fecha=vFecha
- codigo_base=vCodigo_base
- codigo_basedestino=vCodigo_basedestino.
-
-- Guardar en la tabla `movimiento_stock`: 
- tipodocumentostock=vTipodocumentostockEntrada
- numdocumentostock=vNumdocumentostockEntrada
- fecha=vFecha
- codigo_base=vCodigo_basedestino
- codigo_basedestino=vCodigo_base.
-
-- Guardar 2 veces en la tabla `detalle_movimiento_stock` los datos del grid "vDetalleTransferencia" con ordinal correlativo por item:
-
-Salida:
-ordinal=ordinaldetalleSalida
-tipodocumentostock=vTipodocumentostockSalida
-numdocumentostock=vNumdocumentostockSalida
-codigo_producto=vcodigo_producto
-cantidad=Vcantidad
-
-Entrada:
-ordinal=ordinaldetalleEntrada
-tipodocumentostock=vTipodocumentostockEntrada
-numdocumentostock=vNumdocumentostockEntrada
-codigo_producto=vcodigo_producto
-cantidad=Vcantidad
-
-- Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item:
-  - Salida (origen): `p_codigo_base = vCodigo_base`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostockSalida` (TRS), `p_numdoc = vNumdocumentostockSalida`.
-  - Entrada (destino): `p_codigo_base = vCodigo_basedestino`, `p_codigo_producto = vcodigo_producto`, `p_cantidad = Vcantidad`, `p_tipodoc = vTipodocumentostockEntrada` (TRE), `p_numdoc = vNumdocumentostockEntrada`.
+- Mostrar resumen de base origen, base destino y lineas del detalle.
+- Requerir confirmacion explicita antes de registrar.
 
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
+
+## Tablas a registrar
+movimiento_stock (salida TRS):
+tipodocumentostock=vTipodocumentostockSalida  
+numdocumentostock=vNumdocumentostockSalida  
+fecha=vFecha  
+codigo_base=vCodigo_base  
+codigo_basedestino=vCodigo_basedestino  
+
+movimiento_stock (entrada TRE):
+tipodocumentostock=vTipodocumentostockEntrada  
+numdocumentostock=vNumdocumentostockEntrada  
+fecha=vFecha  
+codigo_base=vCodigo_basedestino  
+codigo_basedestino=vCodigo_base  
+
+detalle_movimiento_stock (salida TRS, por item):
+ordinal=ordinaldetalleSalida  
+tipodocumentostock=vTipodocumentostockSalida  
+numdocumentostock=vNumdocumentostockSalida  
+codigo_producto=vcodigo_producto  
+cantidad=Vcantidad  
+
+detalle_movimiento_stock (entrada TRE, por item):
+ordinal=ordinaldetalleEntrada  
+tipodocumentostock=vTipodocumentostockEntrada  
+numdocumentostock=vNumdocumentostockEntrada  
+codigo_producto=vcodigo_producto  
+cantidad=Vcantidad  
+
+## Procedimientos que se llaman
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto, Vcantidad, vTipodocumentostockSalida, vNumdocumentostockSalida)` por item (salida TRS)  
+`CALL upd_stock_bases(vCodigo_basedestino, vcodigo_producto, Vcantidad, vTipodocumentostockEntrada, vNumdocumentostockEntrada)` por item (entrada TRE)  
 
 **

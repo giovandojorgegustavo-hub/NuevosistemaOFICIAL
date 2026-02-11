@@ -57,6 +57,7 @@
           <button type="button" class="step-chip active" data-step="1">1</button>
           <button type="button" class="step-chip" data-step="2">2</button>
           <button type="button" class="step-chip" data-step="3">3</button>
+          <button type="button" class="step-chip" data-step="4">4</button>
         </div>
 
         <div id="alertArea" class="alert d-none" role="alert"></div>
@@ -89,6 +90,22 @@
                 </div>
                 <div class="field-hint" id="clienteNombre">-</div>
               </div>
+              <div class="col-lg-12">
+                <label class="form-label" data-i18n="labelTipoNota">Tipo de nota de credito</label>
+                <div class="note-type" role="group" aria-label="Tipo de nota de credito">
+                  <div class="note-option">
+                    <input class="form-check-input" type="radio" name="tipo_nota" id="tipo_producto" value="PRODUCTO" />
+                    <label class="form-check-label" for="tipo_producto" data-i18n="tipoProducto">Productos</label>
+                  </div>
+                  <div class="note-option">
+                    <input class="form-check-input" type="radio" name="tipo_nota" id="tipo_dinero" value="DINERO" />
+                    <label class="form-check-label" for="tipo_dinero" data-i18n="tipoDinero">Dinero</label>
+                  </div>
+                </div>
+                <div class="field-hint" data-i18n="tipoNotaHint">
+                  Selecciona productos para ajustar cantidades o dinero para registrar un monto directo.
+                </div>
+              </div>
               <div class="col-lg-6">
                 <label class="form-label" for="codigo_paquete" data-i18n="labelFactura">Factura / Paquete llegado</label>
                 <div class="typeahead" id="paqueteTypeahead">
@@ -109,9 +126,33 @@
                 <input id="fecha_actualizado" class="form-control" readonly />
               </div>
               <div class="col-lg-6">
+                <label class="form-label" for="fecha_factura" data-i18n="labelFechaFactura">Fecha factura</label>
+                <input id="fecha_factura" class="form-control" readonly />
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" for="lugar_entrega" data-i18n="labelLugarEntrega">Lugar entrega</label>
+                <input id="lugar_entrega" class="form-control" readonly />
+              </div>
+              <div class="col-lg-6">
                 <label class="form-label" data-i18n="labelBase">Base</label>
                 <input id="codigo_base" class="form-control" readonly />
-                <div class="field-hint" id="region_entrega">-</div>
+                <div class="field-hint base-name" id="region_entrega">-</div>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="labelPacking">Packing</label>
+                <input id="nombre_packing" class="form-control" readonly />
+              </div>
+              <div class="col-12">
+                <div id="mapSection" class="map-section d-none">
+                  <div class="map-head">
+                    <span class="map-title" data-i18n="labelMapa">Direccion y mapa</span>
+                    <span class="badge text-bg-info" id="mapBadge">LIMA</span>
+                  </div>
+                  <div id="map" class="map-box"></div>
+                </div>
+                <div id="mapPlaceholder" class="map-placeholder">
+                  <span data-i18n="mapOnlyLima">Mapa solo disponible para region LIMA.</span>
+                </div>
               </div>
             </div>
           </section>
@@ -140,13 +181,37 @@
           </section>
 
           <section class="step-view d-none" data-step="3">
+            <div class="row g-4">
+              <div class="col-lg-6">
+                <label class="form-label" for="monto_dinero" data-i18n="labelMontoDinero">
+                  Monto nota de credito
+                </label>
+                <input
+                  id="monto_dinero"
+                  type="number"
+                  class="form-control"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+                <div class="field-hint" data-i18n="montoDineroHint">
+                  Se registra como monto total y no genera detalle.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-view d-none" data-step="4">
             <div class="summary-grid">
               <div class="summary-card">
                 <div class="summary-title" data-i18n="summaryHeader">Resumen cabecera</div>
                 <div class="summary-line"><span data-i18n="summaryCliente">Cliente</span><span id="resCliente">-</span></div>
                 <div class="summary-line"><span data-i18n="summaryFactura">Factura</span><span id="resFactura">-</span></div>
                 <div class="summary-line"><span data-i18n="summaryFecha">Fecha</span><span id="resFecha">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryFechaFactura">Fecha factura</span><span id="resFechaFactura">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryLugar">Lugar</span><span id="resLugar">-</span></div>
                 <div class="summary-line"><span data-i18n="summaryBase">Base</span><span id="resBase">-</span></div>
+                <div class="summary-line"><span data-i18n="summaryPacking">Packing</span><span id="resPacking">-</span></div>
               </div>
               <div class="summary-card">
                 <div class="summary-title" data-i18n="summaryTotals">Totales</div>

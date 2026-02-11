@@ -120,6 +120,7 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Regis
   - codigo_provedor = vCodigo_provedor
   - fecha = vFecha
   - monto = vTotal_nota
+  - saldo = vTotal_nota
 
 - Guardar en la tabla `detalle_mov_contable_prov` los datos del grid "vDetalleNotaCredito" con ordinal correlativo por item, con estos campos (una fila por campo):
   - tipo_documento_compra = vTipo_documento_compra

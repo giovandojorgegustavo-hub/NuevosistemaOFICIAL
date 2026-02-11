@@ -165,6 +165,26 @@
                 <div class="summary-value" id="totalFactura">0.00</div>
               </div>
             </div>
+
+            <div class="summary-grid mt-3">
+              <div>
+                <div class="summary-label" data-i18n="saldoFavorTotal">Total saldo a favor</div>
+                <div class="summary-value" id="saldoFavorTotal">0.00</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="saldoFavorNtc">Saldo NTC</div>
+                <div class="summary-value" id="saldoFavorNtc">0.00</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="saldoFavorRcp">Saldo RCP</div>
+                <div class="summary-value" id="saldoFavorRcp">0.00</div>
+              </div>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="saldoFavorUsar" />
+              <label class="form-check-label" for="saldoFavorUsar" data-i18n="saldoFavorUsar">Usar saldo a favor</label>
+            </div>
           </section>
 
           <section class="wizard-step" data-step="4">
@@ -345,6 +365,10 @@
                 <div class="summary-label" data-i18n="montoPendiente">Monto pendiente</div>
                 <div class="summary-value" id="montoPendiente">0.00</div>
               </div>
+            </div>
+
+            <div class="helper-text mt-2 d-none" id="pagoBloqueado" data-i18n="pagoBloqueado">
+              Saldo cubierto, no se requiere pago.
             </div>
 
             <div class="table-responsive mt-3">

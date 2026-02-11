@@ -1,12 +1,11 @@
-**  
+**
 
-CU008: Nota de Debito.
+CU2004: Packing por Base
 
-  
 # **Prompt AI.
-Modulo: 1.
-Caso de uso: CU008 - M1NotaDebitoPedido.
-Puerto del wizard: 3008 (ver `Promts/Herramientas/puertos.json`).
+Modulo: 2.
+Caso de uso: CU2004 - M2Packing.
+Puerto del wizard: definir en `Promts/Herramientas/puertos.json` (si no existe, detenerse y pedir confirmacion del puerto/modulo).
 
 
 ## Campos devueltos por SPs de lectura (obligatorio)
@@ -20,7 +19,7 @@ Todo campo tipo Select debe permitir escribir y filtrar la lista conforme se esc
 
 
 
-Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (si hay varios pasos) o de un solo paso (si el formulario solo tiene un paso). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
+Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (2 pasos). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados.
 Regla de ruta obligatoria:
@@ -41,8 +40,8 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 1/CU1-008/logs/`.
-El archivo debe nombrarse `CU008-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
+Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 2/CU2-004/logs/`.
+El archivo debe nombrarse `CU2-004-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
 **El look and feel
@@ -61,91 +60,77 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 # **Funcionalidades requeridas:
 Barra de progreso visual
 Navegacion entre pasos (anterior/siguiente)
-Confirmar Operacion.
+Confirmar Operacion
 Estados de loading y error
 Ver Logs de sentencias SQL (no en interfaz)
-Emitir Nota de Debito.
+Registrar Packing Nuevo por Base
 Transaccionalidad total: si falla algo, rollback y no registrar nada.
 Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
 # **Pasos del formulario-multipaso.
 
-1. Crear Nota de Debito.
-2. Confirmar y emitir Nota de Debito.
+1. Configuracion de Base + Nuevo Packing.
+2. Resumen y Guardar.
 
 # **Descripcion de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
-## Paso 1  Crear Nota de Debito.
+Paso 1. Configuracion de Base + Nuevo Packing.
 
-vFecha_emision = Inicializar con la fecha del sistema.
-vClientes = Llamada SP: `get_clientes()` (devuelve campo_visible)
-Campos devueltos: `codigo_cliente`, `nombre`, `numero`
-Variables:
-vCodigo_cliente no visible editable
-vNombreCliente visible editable
-vTipo_documento = "NTD".
-vNumero_documento = regla sin ambiguedad:
-- Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'NTD'` (si no hay registros empieza en 1).
 vBases = Llamada SP: `get_bases()` (devuelve campo_visible)
-Campos devueltos: `codigo_base`, `nombre`, `latitud`, `longitud`
+Campos devueltos: `codigo_base`, `nombre`
 Variables:
-vCodigo_base no visible editable
-vBaseNombre visible editable
+vcodigo_base no visible editable
+vnombre_base visible editable
 
-Si vCodigo_base tiene valor, mostrar un Grid llamado "vProdNotaDebito".
-vProductos = Llamada SP: `get_productos()` (devuelve campo_visible)
-Campos devueltos: `codigo_producto`, `nombre`
+vNuevoPacking = Captura manual en formulario (no llamada SP)
 Variables:
-vCodigo_producto no visible editable
-vNombreProducto visible editable
+vnombre_packing_nuevo visible editable
+vtipo_packing_nuevo visible editable
+vdescripcion_packing_nuevo visible editable
 
-Columnas del Grid:
-- vCodigo_producto=codigo_producto
-- vCantidad=cantidad. Acepta decimales con hasta 2 digitos.
-- vPrecio_unitario=precio_unitario (autocompletar con el producto seleccionado, no editable)
-- vPrecio_total = vCantidad * vPrecio_unitario (no editable, recalcular al cambiar vCantidad)
-- vSaldo = vCantidad (no editable)
+Comportamiento:
 
-vTotalNota = suma de vPrecio_total del grid "vProdNotaDebito".
-vOrdinalDetMovCont = regla sin ambiguedad:
-- Asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid.
+- No permitir avanzar si base, nombre, tipo o descripcion estan vacios.
 
-Validaciones:
-- No permitir registrar la Nota de Debito si vCodigo_base tiene valor y el grid "vProdNotaDebito" no tiene lineas.
-- vCodigo_cliente requerido.
-- vFecha_emision requerida.
+Paso 2. Resumen y Guardar.
+
+Mostrar resumen de solo lectura con:
+- Base seleccionada (vcodigo_base + vnombre_base)
+- Nuevo packing: vnombre_packing_nuevo + vtipo_packing_nuevo + vdescripcion_packing_nuevo.
+
+Agregar checklist de una sola opcion para confirmar:
+- vconfirmar_operacion (checkbox)
+- El boton final "Guardar Packing" debe estar deshabilitado hasta que este marcado.
+- No usar modal de confirmacion adicional.
 
 
-## Paso 2  Confirmar y emitir Nota de Debito.
+# **Registro de Packing (backend)
 
-- Mostrar resumen de cabecera y detalle.
-- Requerir confirmacion explicita.
-- Al confirmar, ejecutar el registro de la Nota de Debito.
+Al dar click en "Guardar Packing" el sistema debera ejecutar transaccion:
 
-## Emitir Nota de Debito. Tomar los datos capturados en el paso 1:
+1) Generar vcodigo_packing_nuevo con regla sin ambiguedad:
+   - `SELECT COALESCE(MAX(codigo_packing), 0) + 1 AS next FROM packing`
+2) Insertar en `packing`:
+   - `codigo_packing = vcodigo_packing_nuevo`
+   - `nombre = vnombre_packing_nuevo`
+   - `tipo = vtipo_packing_nuevo`
+   - `descripcion = vdescripcion_packing_nuevo`
+   - `created_at = NOW()`
+3) Insertar en `basespacking`:
+   - `codigo_base = vcodigo_base`
+   - `codigo_packing = vcodigo_packing_nuevo`
+4) Commit.
 
-### Guardar en la tabla "mov_contable".
-fecha_emision=vFecha_emision  
-tipo_documento=vTipo_documento  
-numero_documento=vNumero_documento  
-codigo_cliente=vCodigo_cliente  
-codigo_base=vCodigo_base  
-saldo=vTotalNota  
+Validaciones backend:
+- codigo_base numerico.
+- nombre/tipo/descripcion requeridos.
+- Si falla cualquier paso => rollback total.
 
-### Guardar en la tabla "mov_contable_detalle".
-tipo_documento=vTipo_documento  
-numero_documento=vNumero_documento  
-ordinal=vOrdinalDetMovCont  
-codigo_producto=vCodigo_producto  
-cantidad=vCantidad  
-saldo=vSaldo  
-precio_total=vPrecio_total  
+
 
 No utilizar datos mock.
-
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
 
-  
 **

@@ -64,7 +64,7 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Confirmar Operacion
 - Estados de loading y error
 - Ver Logs de sentencias SQL
-- Registrar Fabricacion (salida insumos FIS + entrada produccion FPR)
+- Registrar Fabricacion (salida insumos FBI en movimiento_stock + entrada produccion FBF en mov_contable_prov)
 Transaccionalidad total: si falla algo, rollback y no registrar nada.
 Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
@@ -89,33 +89,25 @@ Variables:
 vCodigo_base no visible editable
 vBaseNombre visible editable
 
-vTipoDocumentoStockInsumo = "FIS" (salida de insumos).
+vCodigo_provedor = usar proveedor generico 0:
+- Si no existe, crearlo con SQL:
+  `INSERT INTO provedores (codigo_provedor, nombre) VALUES (0, 'PROVEEDOR GENERICO')`
+  (solo si no existe).
+
+vTipoDocumentoStockInsumo = "FBI" (salida de insumos).
 
 vNumDocumentoStockInsumo = calcular con SQL:
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipoDocumentoStockInsumo` (si no hay filas, usar 1). No editable.
 
-vTipoDocumentoStockProduccion = "FPR" (entrada de productos terminados).
+vTipoDocumentoStockProduccion = "FBF" (entrada de productos terminados).
 
 vNumDocumentoStockProduccion = calcular con SQL:
-`SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipoDocumentoStockProduccion` (si no hay filas, usar 1). No editable.
-
-vTipoDocumentoStockFabricacion = vTipoDocumentoStockProduccion.
-
-vNumDocumentoStockFabricacion = vNumDocumentoStockProduccion.
+`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = vTipoDocumentoStockProduccion AND codigo_provedor = vCodigo_provedor` (si no hay filas, usar 1). No editable.
 
 vTipoDocumentoGasto = "GAS".
 
 vNumDocumentoGasto = calcular con SQL:
-`SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_contable_gasto WHERE tipodocumento = vTipoDocumentoGasto` (si no hay filas, usar 1). No editable.
-
-vMontoGastoTotal = campo editable.
-
-vCuentas = Llamada SP: `get_cuentasbancarias()` (devuelve campo_visible)
-Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
-Variables:
-vCodigo_cuentabancaria no visible editable
-vCuentaNombre visible editable
-vCuentaBanco visible editable
+`SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_contable_gasto WHERE tipodocumento = vTipoDocumentoGasto` (si no hay filas, usar 1). Se incrementa por cada gasto registrado. No editable.
 
 Paso 1. Datos generales + registrar insumos de fabricacion.
 
@@ -143,22 +135,32 @@ En la vista, cada campo debe usar el mismo nombre de variable definido arriba y 
 
 ## Paso 2. Registrar gastos asociados.
 
-Registrar cabecera en mov_contable_gasto y detalle de etiquetas en mov_contable_gasto_detalle.
+Registrar multiples gastos (cada fila es un gasto).
 
 Presentar un Grid editable llamado "vDetalleGastos" que permita agregar, borrar y editar lineas.
 vEtiquetasGasto = Llamada SP: `get_etiquetas_gastos()` (devuelve campo_visible)
 Campos devueltos: `codigoetiquetagasto`, `nombre`
-Variables:
+vCuentas = Llamada SP: `get_cuentasbancarias()` (devuelve campo_visible)
+Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
+
+Variables por fila:
 vcodigoetiquetagasto no visible editable
 vnombre_etiquetagasto visible no editable
+vcodigo_cuentabancaria no visible editable
+vnombre_cuentabancaria visible no editable
+vbanco visible no editable
+vmonto_gasto visible editable
 
-El Grid debe tener las siguientes columnas: vcodigoetiquetagasto, vnombre_etiquetagasto.
+El Grid debe tener las siguientes columnas: vcodigoetiquetagasto, vnombre_etiquetagasto, vnombre_cuentabancaria, vbanco, vmonto_gasto.
 
-vOrdinalGasto = se calcula con SQL:
-`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM mov_contable_gasto_detalle WHERE tipodocumento = vTipoDocumentoGasto AND numdocumento = vNumDocumentoGasto` (si no hay filas, usar 1).
+Para cada fila:
+- Registrar cabecera en mov_contable_gasto (monto y cuenta por fila).
+- Registrar detalle en mov_contable_gasto_detalle con ordinal = 1.
+- vNumDocumentoGasto se asigna automaticamente y se incrementa por cada fila.
 
 Validaciones:
-- Debe existir al menos 1 etiqueta en vDetalleGastos.
+- Debe existir al menos 1 gasto en vDetalleGastos.
+- Cada gasto requiere etiqueta, cuenta bancaria y monto > 0.
 
 Paso 3. Registrar productos producidos.
 
@@ -174,67 +176,72 @@ El Grid debe tener las siguientes columnas: vcodigo_producto_producido, vnombre_
 vnombre_producto_producido = se completa segun el producto seleccionado (solo lectura).
 
 vcantidad_producida = campo editable. Acepta decimales con hasta 2 digitos.
+El costo total se calcula automaticamente con aplicar_costo_fabricacion.
 
 vOrdinalProduccion = se calcula con SQL:
-`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipoDocumentoStockProduccion AND numdocumentostock = vNumDocumentoStockProduccion` (si no hay filas, usar 1).
+`SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_mov_contable_prov WHERE tipo_documento_compra = vTipoDocumentoStockProduccion AND num_documento_compra = vNumDocumentoStockProduccion AND codigo_provedor = vCodigo_provedor` (si no hay filas, usar 1).
 
 Paso 4. Confirmar y registrar fabricacion.
 
-En este paso se muestra el resumen final y el boton \"Registrar Fabricacion\". Al confirmar, el sistema debera ejecutar todas las transacciones sobre la DB:
-
-1) Guardar cabecera de insumos en `movimiento_stock` con vTipoDocumentoStockInsumo y vNumDocumentoStockInsumo.
-2) Guardar detalle de insumos en `detalle_movimiento_stock` (vDetalleInsumos) con ordinal correlativo.
-3) Guardar cabecera de produccion en `movimiento_stock` con vTipoDocumentoStockProduccion y vNumDocumentoStockProduccion.
-4) Guardar detalle de produccion en `detalle_movimiento_stock` (vDetalleProduccion) con ordinal correlativo.
-5) Guardar cabecera en `mov_contable_gasto` y detalle en `mov_contable_gasto_detalle` (solo etiquetas).
-6) Guardar relacion en `fabricaciongastos` entre la cabecera de fabricacion (movimiento_stock) y la cabecera de gasto, usando el doc stock de produccion.
-7) Actualizar `saldo_stock` por cada item de insumos usando `upd_stock_bases` con `p_tipodoc = 'FBI'` (salida de insumos).
-8) Actualizar `saldo_stock` por cada item de produccion usando `upd_stock_bases` con `p_tipodoc = 'FBE'` (entrada de productos).
+En este paso se muestra el resumen final y el boton "Registrar Fabricacion".
+Requerir confirmacion explicita antes de registrar.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
 
-# **Mapa rapido de campos (variable -> tabla.campo)
+## Tablas a registrar
+movimiento_stock (insumos):
+tipodocumentostock=vTipoDocumentoStockInsumo  
+numdocumentostock=vNumDocumentoStockInsumo  
+fecha=vFecha  
+codigo_base=vCodigo_base  
 
-movimiento_stock.tipodocumentostock = vTipoDocumentoStockInsumo
-movimiento_stock.numdocumentostock = vNumDocumentoStockInsumo
-movimiento_stock.fecha = vFecha
-movimiento_stock.codigo_base = vCodigo_base
+detalle_movimiento_stock (insumos, por item):
+tipodocumentostock=vTipoDocumentoStockInsumo  
+numdocumentostock=vNumDocumentoStockInsumo  
+ordinal=vOrdinalInsumo  
+codigo_producto=vcodigo_producto_insumo  
+cantidad=vcantidad_insumo  
 
-movimiento_stock.tipodocumentostock = vTipoDocumentoStockProduccion
-movimiento_stock.numdocumentostock = vNumDocumentoStockProduccion
-movimiento_stock.fecha = vFecha
-movimiento_stock.codigo_base = vCodigo_base
+mov_contable_prov (produccion, cabecera minima):
+tipo_documento_compra=vTipoDocumentoStockProduccion  
+num_documento_compra=vNumDocumentoStockProduccion  
+codigo_provedor=vCodigo_provedor  
+fecha=vFecha  
+monto=se calcula automaticamente con aplicar_costo_fabricacion  
 
-detalle_movimiento_stock.tipodocumentostock = vTipoDocumentoStockInsumo
-detalle_movimiento_stock.numdocumentostock = vNumDocumentoStockInsumo
-detalle_movimiento_stock.ordinal = vOrdinalInsumo
-detalle_movimiento_stock.codigo_producto = vcodigo_producto_insumo
-detalle_movimiento_stock.cantidad = vcantidad_insumo
+detalle_mov_contable_prov (produccion, por item):
+tipo_documento_compra=vTipoDocumentoStockProduccion  
+num_documento_compra=vNumDocumentoStockProduccion  
+codigo_provedor=vCodigo_provedor  
+ordinal=vOrdinalProduccion  
+codigo_producto=vcodigo_producto_producido  
+cantidad=vcantidad_producida  
+cantidad_entregada=vcantidad_producida  
+saldo=vcantidad_producida  
+monto=se calcula automaticamente con aplicar_costo_fabricacion  
 
-detalle_movimiento_stock.tipodocumentostock = vTipoDocumentoStockProduccion
-detalle_movimiento_stock.numdocumentostock = vNumDocumentoStockProduccion
-detalle_movimiento_stock.ordinal = vOrdinalProduccion
-detalle_movimiento_stock.codigo_producto = vcodigo_producto_producido
-detalle_movimiento_stock.cantidad = vcantidad_producida
+mov_contable_gasto:
+tipodocumento=vTipoDocumentoGasto  
+numdocumento=vNumDocumentoGasto  
+tipo_documento_compra=vTipoDocumentoStockProduccion  
+num_documento_compra=vNumDocumentoStockProduccion  
+codigo_provedor=vCodigo_provedor  
+fecha=vFecha  
+monto=vmonto_gasto (por fila)  
+descripcion=vnombre_etiquetagasto (por fila)  
+codigo_cuentabancaria=vcodigo_cuentabancaria (por fila)  
 
-mov_contable_gasto.tipodocumento = vTipoDocumentoGasto
-mov_contable_gasto.numdocumento = vNumDocumentoGasto
-mov_contable_gasto.fecha = vFecha
-mov_contable_gasto.monto = vMontoGastoTotal
-mov_contable_gasto.codigo_cuentabancaria = vCodigo_cuentabancaria
+mov_contable_gasto_detalle (por item):
+tipodocumento=vTipoDocumentoGasto  
+numdocumento=vNumDocumentoGasto  
+ordinal=1  
+codigoetiquetagasto=vcodigoetiquetagasto  
 
-mov_contable_gasto_detalle.tipodocumento = vTipoDocumentoGasto
-mov_contable_gasto_detalle.numdocumento = vNumDocumentoGasto
-mov_contable_gasto_detalle.ordinal = vOrdinalGasto
-mov_contable_gasto_detalle.codigoetiquetagasto = vcodigoetiquetagasto
-
-fabricaciongastos.tipodocumentostock = vTipoDocumentoStockFabricacion
-fabricaciongastos.numdocumentostock = vNumDocumentoStockFabricacion
-fabricaciongastos.tipodocumentogasto = vTipoDocumentoGasto
-fabricaciongastos.numdocumentogasto = vNumDocumentoGasto
-fabricaciongastos.ordinal = vOrdinalGasto
-
-9) Ejecutar el procedimiento `aplicar_gasto_bancario(vTipoDocumentoGasto, vNumDocumentoGasto)` para actualizar saldo bancario.
+## Procedimientos que se llaman
+`CALL aplicar_salida_partidas(vTipoDocumentoStockInsumo, vNumDocumentoStockInsumo, vcodigo_producto_insumo, vcantidad_insumo)` por item de insumo  
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto_insumo, vcantidad_insumo, vTipoDocumentoStockInsumo, vNumDocumentoStockInsumo)` por item de insumo  
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto_producido, vcantidad_producida, vTipoDocumentoStockProduccion, vNumDocumentoStockProduccion)` por item producido  
+`CALL aplicar_costo_fabricacion(vTipoDocumentoStockInsumo, vNumDocumentoStockInsumo, vTipoDocumentoStockProduccion, vNumDocumentoStockProduccion, vCodigo_provedor)` despues de registrar produccion y gastos  
 
 **

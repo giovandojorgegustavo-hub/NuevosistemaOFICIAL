@@ -81,7 +81,7 @@ Paso 1  Seleccionar Paquete Pendiente.
 
 Muestra un Grid llamado "PaquetesPendientes" con los datos del SP: `get_paquetes_por_estado(p_estado="pendiente empacar")` 
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -91,6 +91,8 @@ vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
 vnombre_base visible no editable
+vcodigo_packing visible no editable
+vnombre_packing visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -106,6 +108,11 @@ Paso 2. Detalle del Documento (solo lectura).
 Mostrar como lectura:
 - vconcatenarpuntoentrega
 - vconcatenarnumrecibe
+
+Seleccion de packing:
+- Cargar el listado con `get_packingporbase(p_codigo_base = vcodigo_base)`.
+- Mostrar un selector obligatorio (no permitir avanzar sin seleccionar).
+- Guardar: vcodigo_packing / vnombre_packing del packing seleccionado.
 
 Direccion y Mapa (solo lectura).
 Solo si vRegion_Entrega = "LIMA":
@@ -138,6 +145,7 @@ Vordinal = regla sin ambiguedad:
 
 Paso 3. Confirmar Empaque.
 
+- En este paso NO mostrar selector de packing (ya fue seleccionado en el Paso 2).
 - Mostrar un checklist (checkbox) para confirmar la operacion.
 - El boton "Empacar" solo se habilita si el checklist esta marcado.
 - No usar modal de confirmacion adicional.
@@ -156,7 +164,10 @@ Al dar click en "Empacar" el sistema debera realizar las siguientes transaccione
 
 2) Ejecutar SP: `cambiar_estado_paquete(vcodigo_paquete, "empacado")`.
 
-3) Por cada fila del Grid \"vDetalleDocumento\" ejecutar:
+3) Actualizar packing del documento:
+   - `UPDATE mov_contable SET codigo_packing = vcodigo_packing WHERE tipo_documento = "FAC" AND numero_documento = vcodigo_paquete`.
+
+4) Por cada fila del Grid \"vDetalleDocumento\" ejecutar:
    - `CALL upd_stock_bases(vcodigo_base, vcodigo_producto, vcantidad, "FAC", vcodigo_paquete)`
    - `CALL aplicar_salida_partidas("FAC", vcodigo_paquete, vcodigo_producto, vcantidad)`
 

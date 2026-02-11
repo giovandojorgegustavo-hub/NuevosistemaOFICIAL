@@ -9,6 +9,7 @@ const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU1-003';
 const PORT = 3003;
+const CONNECTION_LIMIT = Number(process.env.DB_CONNECTION_LIMIT || 2);
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -103,13 +104,13 @@ async function initDb() {
   const config = parseErpConfig();
   const dbConfig = parseDsn(config.dsn);
   const database = config.name ? config.name : dbConfig.database;
-  logLine(`DB CONFIG: name=${config.name} dsn=${config.dsn}`);
+  logLine(`DB CONFIG: name=${config.name} dsn=${config.dsn} connectionLimit=${CONNECTION_LIMIT}`);
   return {
     pool: mysql.createPool({
       ...dbConfig,
       database,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: CONNECTION_LIMIT,
       queueLimit: 0
     }),
     googleMaps: config.googleMaps
@@ -236,11 +237,15 @@ app.post('/api/confirmar', async (req, res) => {
       );
 
       if (estado === 'robado' || estado === 'llegado') {
-        await runQuery(
-          conn,
-          'UPDATE detalleviaje SET fecha_fin = NOW() WHERE codigo_paquete = ?',
-          [codigo]
-        );
+        const [viajeRows] = await runQuery(conn, 'CALL get_viaje_por_documento(?)', [codigo]);
+        const viaje = viajeRows[0] && viajeRows[0][0] ? viajeRows[0][0] : null;
+        if (viaje && viaje.codigoviaje) {
+          await runQuery(
+            conn,
+            'UPDATE detalleviaje SET fecha_fin = NOW() WHERE codigoviaje = ? AND tipo_documento = ? AND numero_documento = ?',
+            [viaje.codigoviaje, 'FAC', codigo]
+          );
+        }
       }
 
       if (estado === 'robado') {
@@ -261,24 +266,35 @@ app.post('/api/confirmar', async (req, res) => {
           throw new Error(`Factura no encontrada para paquete ${codigo}`);
         }
 
+        const totalNota = Number(facturaRow.monto || 0);
         await runQuery(
           conn,
           'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, saldo, tipo_documento, numero_documento, costoenvio) VALUES (?, NOW(), NOW(), NOW(), ?, ?, ?, ?, ?, ?)',
           [
             facturaRow.codigo_pedido,
             facturaRow.codigo_cliente,
-            facturaRow.monto,
-            facturaRow.monto,
+            totalNota,
+            totalNota,
             'NTC',
             correlativo,
             facturaRow.costoenvio
           ]
         );
 
+        if (totalNota > 0) {
+          await runQuery(conn, 'CALL aplicar_nota_credito_a_factura(?, ?, ?, ?, ?)', [
+            'NTC',
+            correlativo,
+            'FAC',
+            codigo,
+            totalNota
+          ]);
+        }
+
         await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [
           facturaRow.codigo_cliente,
           'NTC',
-          facturaRow.monto
+          totalNota
         ]);
       }
 

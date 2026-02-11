@@ -1,6 +1,4 @@
 /*
-SPs de lectura y campos/variables obligatorios (v-prefijo, sin guiones):
-
 vPedidosPendientes = Llamada SP: get_pedidospendientes() (devuelve campo_visible)
 Campos devueltos
 vcodigo_pedido
@@ -16,24 +14,6 @@ vnombre_cliente visible no editable
 vnumero_cliente visible no editable
 vfecha visible no editable
 
-vBaseNombre = Llamada SP: get_bases() (devuelve campo_visible)
-Campos devueltos
-vcodigo_base
-vnombre
-Variables
-vcodigo_base no visible editable
-vBaseNombre visible editable
-
-vBasesCandidatas = Llamada SP: get_bases_candidatas(p_vProdFactura, vFechaP) (devuelve campo_visible)
-Campos devueltos
-vcodigo_base
-vlatitud
-vlongitud
-Variables
-vcodigo_base no visible no editable
-vlatitud visible no editable
-vlongitud visible no editable
-
 vProdFactura = Llamada SP: get_pedido_detalle_por_pedido(p_codigo_pedido) (devuelve campo_visible)
 Campos devueltos
 vcodigo_producto
@@ -47,7 +27,15 @@ vcantidad visible editable
 vprecio_unitario no visible no editable
 vprecio_total visible no editable
 
-vPuntoEntregaTexto = Llamada SP: get_puntos_entrega(vClienteCodigo) (devuelve campo_visible)
+vBaseNombre = Llamada SP: get_bases() (devuelve campo_visible)
+Campos devueltos
+vcodigo_base
+vnombre
+Variables
+vcodigo_base no visible editable
+vBaseNombre visible editable
+
+vPuntoEntregaTexto = Llamada SP: get_puntos_entrega(p_codigo_cliente) (devuelve campo_visible)
 Campos devueltos
 vcod_dep
 vcod_prov
@@ -66,6 +54,8 @@ vdni
 vagencia
 vobservaciones
 vconcatenarpuntoentrega
+vlatitud
+vlongitud
 vestado
 Variables
 vPuntoEntregaTexto visible editable
@@ -76,6 +66,8 @@ vNombre visible editable
 vDni visible editable
 vAgencia visible editable
 vObservaciones visible editable
+vLatitud visible no editable
+vLongitud visible no editable
 
 vDepartamento = Llamada SP: get_ubigeo_departamentos() (devuelve campo_visible)
 Campos devueltos
@@ -85,7 +77,7 @@ Variables
 vCod_Dep visible editable
 vDepartamento visible editable
 
-vProvincia = Llamada SP: get_ubigeo_provincias(vCod_Dep) (devuelve campo_visible)
+vProvincia = Llamada SP: get_ubigeo_provincias(p_cod_dep) (devuelve campo_visible)
 Campos devueltos
 vcod_prov
 vprovincia
@@ -93,7 +85,7 @@ Variables
 vCod_Prov visible editable
 vProvincia visible editable
 
-vDistrito = Llamada SP: get_ubigeo_distritos(vCod_Dep, vCod_Prov) (devuelve campo_visible)
+vDistrito = Llamada SP: get_ubigeo_distritos(p_cod_dep, p_cod_prov) (devuelve campo_visible)
 Campos devueltos
 vcod_dist
 vdistrito
@@ -101,7 +93,7 @@ Variables
 vCod_Dist visible editable
 vDistrito visible editable
 
-vConcatenarnumrecibe = Llamada SP: get_numrecibe(vClienteCodigo) (devuelve campo_visible)
+vConcatenarnumrecibe = Llamada SP: get_numrecibe(p_codigo_cliente) (devuelve campo_visible)
 Campos devueltos
 vcodigo_cliente_numrecibe
 vordinal_numrecibe
@@ -121,1208 +113,1916 @@ vnombre
 vbanco
 Variables
 vCuentaNombre visible editable
-vCuentaBanco visible editable
+vCuentaBanco visible no editable
+
+vBasesCandidatas = Llamada SP: get_bases_candidatas(p_vProdFactura, vFechaP) (devuelve campo_visible)
+Campos devueltos
+vcodigo_base
+vlatitud
+vlongitud
+Variables
+vcodigo_base visible no editable
+vlatitud visible no editable
+vlongitud visible no editable
 */
 
 const i18n = {
   en: {
-    title: 'Gestion Pedido',
-    subtitle: 'Global IaaS + PaaS Operations',
-    statusReady: 'Ready',
-    wizardTitle: 'CU005 - Manage Order',
-    wizardHint: 'Transactional flow with real-time verification.',
-    step1Title: '1. Select Order',
-    step1Hint: 'Pick a pending order to start.',
+    badge: 'IaaS & PaaS Operations',
+    title: 'Order Management',
+    subtitle: 'Issue invoices, orchestrate deliveries, and assign bases with full transactional control.',
+    module: 'Module 1',
+    step1: '1. Select order',
+    step2: '2. Create invoice',
+    step3: '3. Delivery data',
+    step4: '4. Receiver data',
+    step5: '5. Payment record',
+    step6: '6. Assign base',
+    step7: '7. Summary',
+    step1Title: 'Select pending order',
+    step1Hint: 'Filter by client or date, then select the order to invoice.',
     filterCliente: 'Client',
+    filterClienteHint: 'Name or code',
     filterFecha: 'Date',
-    reload: 'Reload',
-    pedidoCodigo: 'Code',
-    pedidoCliente: 'Client',
-    pedidoNumero: 'Client Number',
-    pedidoFecha: 'Date',
-    pedidoCreado: 'Created',
-    step2Title: '2. Create Invoice',
-    step2Hint: 'Complete invoice details.',
-    fechaEmision: 'Issue Date',
-    horaEmision: 'Issue Time',
-    numeroFactura: 'Invoice Number',
-    baseFactura: 'Suggested base',
-    tipoDocumento: 'Document Type',
-    producto: 'Product',
-    saldo: 'Balance',
-    cantidad: 'Quantity',
-    precioUnitario: 'Unit Price',
-    precioTotal: 'Total Price',
-    monto: 'Amount',
-    costoEnvio: 'Shipping cost',
-    total: 'Total',
-    step3Title: '3. Delivery Data',
-    step3Hint: 'Choose existing or add new delivery point.',
-    existe: 'Existing',
-    nuevo: 'New',
+    filter: 'Filter',
+    clear: 'Clear',
+    colPedido: 'Order',
+    colCliente: 'Client',
+    colNumero: 'Client number',
+    colFecha: 'Date',
+    colCreado: 'Created',
+    step2Title: 'Create invoice',
+    step2Hint: 'Define issue date/time and order detail.',
+    fechaEmision: 'Issue date',
+    horaEmision: 'Issue time',
+    tipoDocumento: 'Document type',
+    numeroDocumento: 'Document number',
+    baseNombre: 'Base (manual)',
+    detallePedido: 'Order detail',
+    colProducto: 'Product',
+    colSaldo: 'Balance',
+    colCantidad: 'Quantity',
+    colPrecio: 'Unit price',
+    colTotal: 'Total',
+    colAcciones: 'Actions',
+    montoFactura: 'Amount',
+    costoEnvio: 'Shipping',
+    totalFactura: 'Total',
+    saldoFactura: 'Balance',
+    saldoFavorTotal: 'Total credit',
+    saldoFavorNtc: 'Credit note',
+    saldoFavorRcp: 'Receipt credit',
+    saldoFavorUsar: 'Use available credit',
+    step3Title: 'Delivery data',
+    step3Hint: 'Select an existing point or register a new one.',
+    entregaExistente: 'Existing',
+    entregaNuevo: 'New',
     puntoEntrega: 'Delivery point',
-    puntosEntregaEmpty: 'No delivery points available.',
-    direccion: 'Address',
-    referencia: 'Reference',
+    puntoEntregaHint: 'If there are no points, the new option will be enabled.',
+    mapTitle: 'Map and location',
+    mapHint: 'Search for an address or click on the map.',
+    mapSearch: 'Search address',
     latitud: 'Latitude',
     longitud: 'Longitude',
     departamento: 'Department',
     provincia: 'Province',
     distrito: 'District',
+    direccion: 'Address',
+    referencia: 'Reference',
     nombre: 'Name',
-    dni: 'DNI',
+    dni: 'Document ID',
     agencia: 'Agency',
     observaciones: 'Notes',
-    step4Title: '4. Receiver Data',
-    step4Hint: 'Receiver info for Lima deliveries.',
-    numRecibe: 'Receiver list',
-    numRecibeEmpty: 'No receiver records available.',
-    numero: 'Number',
-    step5Title: '5. Payment Receipt',
-    step5Hint: 'Register payment if applicable.',
-    numeroDocumento: 'Document Number',
+    step4Title: 'Receiver data',
+    step4Hint: 'Define the receiver number when Lima delivery.',
+    recibeExistente: 'Existing',
+    recibeNuevo: 'New',
+    numRecibe: 'Receiver number',
+    numeroRecibe: 'Number',
+    nombreRecibe: 'Name',
+    ordinalRecibe: 'Ordinal',
+    step5Title: 'Payment record',
+    step5Hint: 'Add partial payments or skip if not needed.',
+    numeroDocumentoPago: 'Receipt number',
+    cuentaNombre: 'Bank account',
+    cuentaBanco: 'Bank',
     montoPago: 'Payment amount',
-    cuenta: 'Bank account',
-    banco: 'Bank',
     montoPendiente: 'Pending amount',
-    step6Title: '6. Assign Base',
-    step6Hint: 'Suggest base by availability and ETA.',
-    baseAsignada: 'Assigned base',
-    baseSugerida: 'Suggested base',
+    agregarPago: 'Add payment',
+    pagoBloqueado: 'Covered by credit. No payment required.',
+    colRecibo: 'Receipt',
+    colCuenta: 'Account',
+    colMonto: 'Amount',
+    step6Title: 'Assign base',
+    step6Hint: 'Use candidates and ETA to choose the best base.',
+    baseFinal: 'Selected base',
     basesCandidatas: 'Candidate bases',
-    basesEta: 'Bases by ETA',
-    codigo: 'Code',
-    eta: 'ETA',
-    sinCandidatas: 'No candidate bases.',
-    step7Title: '7. Summary & Issue',
-    step7Hint: 'Review before issuing invoice.',
+    colBase: 'Base',
+    colUbicacion: 'Location',
+    basesEta: 'Bases with ETA',
+    colEta: 'ETA',
+    etaHint: 'No candidate bases.',
+    step7Title: 'Summary and issue invoice',
+    step7Hint: 'Review the summary before issuing the invoice.',
     resumenPedido: 'Order summary',
     resumenFactura: 'Invoice summary',
     resumenEntrega: 'Delivery summary',
     resumenRecibe: 'Receiver summary',
-    confirmOperacion: 'I confirm the data is correct.',
-    emitirFactura: 'Issue Invoice',
+    resumenPago: 'Payment summary',
+    resumenBase: 'Base summary',
+    confirmLabel: 'I confirm the information is correct.',
     prev: 'Previous',
+    reset: 'Clear',
     next: 'Next',
-    saveDraft: 'Save draft',
-    loading: 'Processing...',
-    errorGeneric: 'Please complete required fields.',
-    errorCantidad: 'Quantity exceeds available balance.',
-    errorPago: 'Payment must be <= pending balance.',
-    successEmit: 'Invoice issued successfully.',
-    selectOrder: 'Select a pending order.'
+    emitir: 'Issue invoice',
+    confirmTitle: 'Confirm operation',
+    confirmBody: 'Do you want to issue the invoice?',
+    cancel: 'Cancel',
+    confirm: 'Issue',
+    errorPedido: 'Select a pending order before continuing.',
+    errorDetalle: 'Each invoice quantity must be numeric and not exceed the product balance.',
+    errorEntrega: 'Complete the delivery data before continuing.',
+    errorRecibe: 'Complete receiver data before continuing.',
+    errorPago: 'Payment amount must be valid and not exceed the pending balance.',
+    errorCuenta: 'Select a bank account before continuing.',
+    errorBase: 'Select a base before continuing.',
+    errorConfirm: 'You must confirm the operation before issuing the invoice.',
+    errorServer: 'We could not complete the request. Try again.',
+    successEmitir: 'Invoice issued successfully. Wizard reset.',
+    modoExistente: 'EXISTING',
+    modoNuevo: 'NEW',
+    noAplica: 'NOT APPLICABLE',
+    sinPagos: 'No payments registered.'
   },
   es: {
+    badge: 'Operaciones IaaS & PaaS',
     title: 'Gestion Pedido',
-    subtitle: 'Operaciones IaaS + PaaS Globales',
-    statusReady: 'Listo',
-    wizardTitle: 'CU005 - Gestion Pedido',
-    wizardHint: 'Flujo transaccional con verificacion en tiempo real.',
-    step1Title: '1. Seleccionar Pedido',
-    step1Hint: 'Selecciona un pedido pendiente para iniciar.',
+    subtitle: 'Emite facturas, organiza entregas y asigna bases con control transaccional completo.',
+    module: 'Modulo 1',
+    step1: '1. Seleccionar pedido',
+    step2: '2. Crear factura',
+    step3: '3. Datos entrega',
+    step4: '4. Datos recibe',
+    step5: '5. Registro pago',
+    step6: '6. Asignar base',
+    step7: '7. Resumen',
+    step1Title: 'Seleccionar pedido pendiente',
+    step1Hint: 'Filtra por cliente o fecha, luego selecciona el pedido.',
     filterCliente: 'Cliente',
+    filterClienteHint: 'Nombre o codigo',
     filterFecha: 'Fecha',
-    reload: 'Recargar',
-    pedidoCodigo: 'Codigo',
-    pedidoCliente: 'Cliente',
-    pedidoNumero: 'Numero cliente',
-    pedidoFecha: 'Fecha',
-    pedidoCreado: 'Creado',
-    step2Title: '2. Crear Factura',
-    step2Hint: 'Completa los detalles de la factura.',
+    filter: 'Filtrar',
+    clear: 'Limpiar',
+    colPedido: 'Pedido',
+    colCliente: 'Cliente',
+    colNumero: 'Numero cliente',
+    colFecha: 'Fecha',
+    colCreado: 'Creado',
+    step2Title: 'Crear factura',
+    step2Hint: 'Define fecha/hora y detalle del pedido.',
     fechaEmision: 'Fecha emision',
     horaEmision: 'Hora emision',
-    numeroFactura: 'Numero factura',
-    baseFactura: 'Base sugerida',
     tipoDocumento: 'Tipo documento',
-    producto: 'Producto',
-    saldo: 'Saldo',
-    cantidad: 'Cantidad',
-    precioUnitario: 'Precio unitario',
-    precioTotal: 'Precio total',
-    monto: 'Monto',
+    numeroDocumento: 'Numero documento',
+    baseNombre: 'Base (manual)',
+    detallePedido: 'Detalle del pedido',
+    colProducto: 'Producto',
+    colSaldo: 'Saldo',
+    colCantidad: 'Cantidad',
+    colPrecio: 'Precio unitario',
+    colTotal: 'Total',
+    colAcciones: 'Acciones',
+    montoFactura: 'Monto',
     costoEnvio: 'Costo envio',
-    total: 'Total',
-    step3Title: '3. Datos Entrega',
+    totalFactura: 'Total',
+    saldoFactura: 'Saldo',
+    saldoFavorTotal: 'Total saldo a favor',
+    saldoFavorNtc: 'Saldo NTC',
+    saldoFavorRcp: 'Saldo RCP',
+    saldoFavorUsar: 'Usar saldo a favor',
+    step3Title: 'Datos de entrega',
     step3Hint: 'Selecciona un punto existente o registra uno nuevo.',
-    existe: 'Existe',
-    nuevo: 'Nuevo',
+    entregaExistente: 'Existe',
+    entregaNuevo: 'Nuevo',
     puntoEntrega: 'Punto entrega',
-    puntosEntregaEmpty: 'No hay puntos de entrega disponibles.',
-    direccion: 'Direccion',
-    referencia: 'Referencia',
+    puntoEntregaHint: 'Si no hay puntos disponibles se habilitara la opcion nuevo.',
+    mapTitle: 'Mapa y ubicacion',
+    mapHint: 'Busca una direccion o haz clic en el mapa.',
+    mapSearch: 'Buscar direccion',
     latitud: 'Latitud',
     longitud: 'Longitud',
     departamento: 'Departamento',
     provincia: 'Provincia',
     distrito: 'Distrito',
+    direccion: 'Direccion',
+    referencia: 'Referencia',
     nombre: 'Nombre',
     dni: 'DNI',
     agencia: 'Agencia',
     observaciones: 'Observaciones',
-    step4Title: '4. Datos Recibe',
-    step4Hint: 'Registra a quien recibe el envio en Lima.',
-    numRecibe: 'Num recibe',
-    numRecibeEmpty: 'No hay registros disponibles.',
-    numero: 'Numero',
-    step5Title: '5. Registro de Pago',
-    step5Hint: 'Registra el recibo si aplica.',
-    numeroDocumento: 'Numero documento',
+    step4Title: 'Datos recibe',
+    step4Hint: 'Define el numero que recibe si aplica.',
+    recibeExistente: 'Existe',
+    recibeNuevo: 'Nuevo',
+    numRecibe: 'Numero recibe',
+    numeroRecibe: 'Numero',
+    nombreRecibe: 'Nombre',
+    ordinalRecibe: 'Ordinal',
+    step5Title: 'Registro de pago',
+    step5Hint: 'Registra pagos parciales o omite si aplica.',
+    numeroDocumentoPago: 'Numero recibo',
+    cuentaNombre: 'Cuenta bancaria',
+    cuentaBanco: 'Banco',
     montoPago: 'Monto pago',
-    cuenta: 'Cuenta bancaria',
-    banco: 'Banco',
     montoPendiente: 'Monto pendiente',
-    step6Title: '6. Asignar Base',
-    step6Hint: 'Sugiere la base ideal por disponibilidad y ETA.',
-    baseAsignada: 'Base asignada',
-    baseSugerida: 'Base sugerida',
+    agregarPago: 'Agregar pago',
+    pagoBloqueado: 'Saldo cubierto, no se requiere pago.',
+    colRecibo: 'Recibo',
+    colCuenta: 'Cuenta',
+    colMonto: 'Monto',
+    step6Title: 'Asignar base',
+    step6Hint: 'Usa las bases candidatas y el ETA para decidir.',
+    baseFinal: 'Base seleccionada',
     basesCandidatas: 'Bases candidatas',
-    basesEta: 'Bases por ETA',
-    codigo: 'Codigo',
-    eta: 'ETA',
-    sinCandidatas: 'Sin bases candidatas.',
-    step7Title: '7. Resumen y Emitir',
-    step7Hint: 'Revisa los datos antes de emitir la factura.',
-    resumenPedido: 'Resumen Pedido',
-    resumenFactura: 'Resumen Factura',
-    resumenEntrega: 'Resumen Entrega',
-    resumenRecibe: 'Resumen Recibe',
-    confirmOperacion: 'Confirmo que los datos son correctos.',
-    emitirFactura: 'Emitir Factura',
+    colBase: 'Base',
+    colUbicacion: 'Ubicacion',
+    basesEta: 'Bases con ETA',
+    colEta: 'ETA',
+    etaHint: 'Sin bases candidatas.',
+    step7Title: 'Resumen y emitir factura',
+    step7Hint: 'Revisa el resumen antes de emitir.',
+    resumenPedido: 'Resumen pedido',
+    resumenFactura: 'Resumen factura',
+    resumenEntrega: 'Resumen entrega',
+    resumenRecibe: 'Resumen recibe',
+    resumenPago: 'Resumen pago',
+    resumenBase: 'Resumen base',
+    confirmLabel: 'Confirmo que la informacion es correcta.',
     prev: 'Anterior',
+    reset: 'Limpiar',
     next: 'Siguiente',
-    saveDraft: 'Guardar borrador',
-    loading: 'Procesando...',
-    errorGeneric: 'Completa los campos requeridos.',
-    errorCantidad: 'Cantidad supera el saldo disponible.',
-    errorPago: 'Pago debe ser <= monto pendiente.',
-    successEmit: 'Factura emitida correctamente.',
-    selectOrder: 'Selecciona un pedido pendiente.'
+    emitir: 'Emitir factura',
+    confirmTitle: 'Confirmar operacion',
+    confirmBody: '¿Deseas emitir la factura?',
+    cancel: 'Cancelar',
+    confirm: 'Emitir',
+    errorPedido: 'Selecciona un pedido pendiente antes de continuar.',
+    errorDetalle: 'Cada cantidad debe ser numerica y no exceder el saldo del producto.',
+    errorEntrega: 'Completa los datos de entrega antes de continuar.',
+    errorRecibe: 'Completa los datos de recibe antes de continuar.',
+    errorPago: 'El monto debe ser valido.',
+    errorCuenta: 'Selecciona una cuenta bancaria antes de continuar.',
+    errorBase: 'Selecciona una base antes de continuar.',
+    errorConfirm: 'Debes confirmar la operacion antes de emitir.',
+    errorServer: 'No pudimos completar la solicitud. Intenta de nuevo.',
+    successEmitir: 'Factura emitida. Wizard reiniciado.',
+    modoExistente: 'EXISTENTE',
+    modoNuevo: 'NUEVO',
+    noAplica: 'NO APLICA',
+    sinPagos: 'Sin pagos registrados.'
   }
+};
+
+const regex = {
+  decimal: /^\d+(?:\.\d{1,2})?$/,
+  integer: /^\d+$/
 };
 
 const state = {
+  step: 1,
   lang: 'es',
-  currentStep: 1,
-  config: null,
   pedidos: [],
-  puntosEntrega: [],
-  numRecibe: [],
+  pedidoSeleccionado: null,
+  productosFactura: [],
   bases: [],
-  cuentas: [],
-  ubigeo: {
-    departamentos: [],
-    provincias: [],
-    distritos: []
-  },
   basesCandidatas: [],
   basesEta: [],
-  data: {
-    vcodigo_pedido: '',
-    vClienteCodigo: '',
-    vnombre_cliente: '',
-    vnumero_cliente: '',
-    vfecha: '',
-    vFechaemision: '',
-    vHoraemision: '',
-    vFechaP: '',
-    vTipo_documento: 'FAC',
-    vNumero_documento: '',
-    vcodigo_base: '',
-    vBaseNombre: '',
-    vProdFactura: [],
-    VfMonto: 0,
-    vCostoEnvio: 0,
-    VfTotal: 0,
-    Vfsaldo: 0,
-    vPuntoEntregaTexto: '',
-    vRegion_Entrega: '',
-    vDireccionLinea: '',
-    vReferencia: '',
-    vNombre: '',
-    vDni: '',
-    vAgencia: '',
-    vObservaciones: '',
-    vLatitud: '',
-    vLongitud: '',
-    vCod_Dep: '15',
-    vCod_Prov: '01',
-    vCod_Dist: '',
-    Vubigeo: '',
-    Vcodigo_puntoentrega: '',
-    vConcatenarpuntoentrega: '',
-    vEntregaModo: 'existe',
-    vRecibeModo: 'existe',
-    vOrdinal_numrecibe: '',
-    vNumeroRecibe: '',
-    vNombreRecibe: '',
-    vConcatenarnumrecibe: '',
-    vTipo_documento_pago: 'RCP',
-    vNumero_documento_pago: '',
-    vCuentaBancaria: '',
-    vCuentaNombre: '',
-    vCuentaBanco: '',
-    vMontoPago: 0,
-    vMontoPendiente: 0
+  baseSugerida: null,
+  baseManual: false,
+  cuentas: [],
+  pagos: [],
+  mapsConfig: null,
+  mapLoaded: false,
+  map: null,
+  marker: null,
+  entrega: {
+    modo: 'existente',
+    puntos: [],
+    seleccionado: null,
+    codigo_puntoentrega: null,
+    region_entrega: null,
+    direccion_linea: '',
+    referencia: '',
+    nombre: '',
+    dni: '',
+    agencia: '',
+    observaciones: '',
+    cod_dep: '15',
+    cod_prov: '01',
+    cod_dist: '',
+    distrito_nombre: '',
+    distritos: [],
+    ubigeo: '',
+    latitud: null,
+    longitud: null,
+    concatenarpuntoentrega: ''
+  },
+  recibe: {
+    modo: 'existente',
+    lista: [],
+    seleccionado: null,
+    ordinal_numrecibe: null,
+    numero: '',
+    nombre: '',
+    concatenarnumrecibe: ''
+  },
+  factura: {
+    tipo_documento: 'FAC',
+    numero_documento: '',
+    fecha_emision: '',
+    hora_emision: '',
+    fechaP: '',
+    codigo_base: null,
+    base_nombre: '',
+    monto: 0,
+    costo_envio: 0,
+    total: 0,
+    saldo: 0
+  },
+  pago: {
+    tipo_documento: 'RCP',
+    numero_documento_base: '',
+    monto_pago: '',
+    monto_pendiente: 0,
+    codigo_cuentabancaria: null,
+    cuenta_nombre: '',
+    cuenta_banco: ''
+  },
+  saldoFavor: {
+    total: 0,
+    ntc: 0,
+    rcp: 0,
+    usado: 0
   }
 };
 
-const initialData = JSON.parse(JSON.stringify(state.data));
-
-const reDecimal = /^(\d+)(\.\d{1,2})?$/;
-const reDni = /^\d{8}$/;
-
-class FormWizard {
-  constructor() {
-    this.steps = this.computeSteps();
-  }
-
-  computeSteps() {
-    if (state.data.vRegion_Entrega === 'PROV') {
-      return [1, 2, 3, 5, 6, 7];
-    }
-    return [1, 2, 3, 4, 5, 6, 7];
-  }
-
-  updateProgress() {
-    this.steps = this.computeSteps();
-    const index = this.steps.indexOf(state.currentStep);
-    const total = this.steps.length;
-    const progress = ((index + 1) / total) * 100;
-    el.stepIndicator.textContent = `${index + 1} / ${total}`;
-    el.progressBar.style.width = `${progress}%`;
-  }
-
-  show(step) {
-    state.currentStep = step;
-    document.querySelectorAll('.wizard-step').forEach((section) => {
-      const sectionStep = Number(section.dataset.step);
-      section.classList.toggle('active', sectionStep === step);
-    });
-    this.updateProgress();
-    el.prevBtn.disabled = step === this.steps[0];
-    el.nextBtn.classList.toggle('d-none', step === this.steps[this.steps.length - 1]);
-    clearAlerts();
-  }
-
-  nextStep() {
-    const idx = this.steps.indexOf(state.currentStep);
-    return this.steps[idx + 1];
-  }
-
-  prevStep() {
-    const idx = this.steps.indexOf(state.currentStep);
-    return this.steps[idx - 1];
-  }
-}
-
 const el = {
-  stepIndicator: document.getElementById('stepIndicator'),
   progressBar: document.getElementById('progressBar'),
-  formAlert: document.getElementById('formAlert'),
-  formSuccess: document.getElementById('formSuccess'),
+  stepIndicator: document.getElementById('stepIndicator'),
+  steps: {
+    1: document.getElementById('step1'),
+    2: document.getElementById('step2'),
+    3: document.getElementById('step3'),
+    4: document.getElementById('step4'),
+    5: document.getElementById('step5'),
+    6: document.getElementById('step6'),
+    7: document.getElementById('step7')
+  },
+  alertBox: document.getElementById('alertBox'),
+  successBox: document.getElementById('successBox'),
   loadingOverlay: document.getElementById('loadingOverlay'),
-  statusPill: document.getElementById('statusPill'),
-  prevBtn: document.getElementById('prevBtn'),
-  nextBtn: document.getElementById('nextBtn'),
-  saveDraft: document.getElementById('saveDraft'),
-  reloadPedidos: document.getElementById('reloadPedidos'),
-  pedidosTable: document.getElementById('pedidosTable').querySelector('tbody'),
+  btnPrev: document.getElementById('btnPrev'),
+  btnNext: document.getElementById('btnNext'),
+  btnReset: document.getElementById('btnReset'),
+  confirmModal: document.getElementById('confirmModal'),
+  btnConfirmEmit: document.getElementById('btnConfirmEmit'),
+  confirmEmit: document.getElementById('confirmEmitir'),
+  loadingPedidos: document.getElementById('loadingPedidos'),
+  loadingFactura: document.getElementById('loadingFactura'),
+  loadingEntrega: document.getElementById('loadingEntrega'),
+  loadingRecibe: document.getElementById('loadingRecibe'),
+  loadingPagos: document.getElementById('loadingPagos'),
+  loadingBases: document.getElementById('loadingBases'),
+  loadingEmitir: document.getElementById('loadingEmitir'),
   filterCliente: document.getElementById('filterCliente'),
   filterFecha: document.getElementById('filterFecha'),
+  btnFiltrarPedidos: document.getElementById('btnFiltrarPedidos'),
+  btnLimpiarFiltro: document.getElementById('btnLimpiarFiltro'),
+  pedidosTable: document.querySelector('#pedidosTable tbody'),
   fechaEmision: document.getElementById('fechaEmision'),
   horaEmision: document.getElementById('horaEmision'),
-  numeroFactura: document.getElementById('numeroFactura'),
-  baseFactura: document.getElementById('baseFactura'),
-  basesFacturaList: document.getElementById('basesFacturaList'),
-  productosTable: document.getElementById('productosTable').querySelector('tbody'),
+  tipoDocumento: document.getElementById('tipoDocumento'),
+  numeroDocumento: document.getElementById('numeroDocumento'),
+  baseNombreFinal: document.getElementById('baseNombreFinal'),
+  basesList: document.getElementById('basesList'),
+  baseSeleccionada: document.getElementById('baseSeleccionada'),
+  productosTable: document.querySelector('#productosTable tbody'),
   montoFactura: document.getElementById('montoFactura'),
   costoEnvio: document.getElementById('costoEnvio'),
   totalFactura: document.getElementById('totalFactura'),
-  entregaExiste: document.getElementById('entregaExiste'),
+  saldoFactura: document.getElementById('saldoFactura'),
+  saldoFavorTotal: document.getElementById('saldoFavorTotal'),
+  saldoFavorNtc: document.getElementById('saldoFavorNtc'),
+  saldoFavorRcp: document.getElementById('saldoFavorRcp'),
+  saldoFavorUsar: document.getElementById('saldoFavorUsar'),
+  entregaExistente: document.getElementById('entregaExistente'),
   entregaNuevo: document.getElementById('entregaNuevo'),
-  entregaExistePanel: document.getElementById('entregaExistePanel'),
-  entregaNuevoPanel: document.getElementById('entregaNuevoPanel'),
-  puntoEntrega: document.getElementById('puntoEntrega'),
+  entregaToggle: document.getElementById('entregaToggle'),
+  entregaExistenteSection: document.getElementById('entregaExistenteSection'),
+  entregaNuevoSection: document.getElementById('entregaNuevoSection'),
+  puntoEntregaTexto: document.getElementById('puntoEntregaTexto'),
   puntosEntregaList: document.getElementById('puntosEntregaList'),
-  puntosEntregaEmpty: document.getElementById('puntosEntregaEmpty'),
-  direccionLinea: document.getElementById('direccionLinea'),
-  referencia: document.getElementById('referencia'),
+  mapSearch: document.getElementById('mapSearch'),
+  mapCanvas: document.getElementById('map'),
   latitud: document.getElementById('latitud'),
   longitud: document.getElementById('longitud'),
-  mapSearch: document.getElementById('mapSearch'),
-  departamento: document.getElementById('departamento'),
+  codDep: document.getElementById('codDep'),
+  codProv: document.getElementById('codProv'),
+  codDist: document.getElementById('codDist'),
   departamentosList: document.getElementById('departamentosList'),
-  provincia: document.getElementById('provincia'),
   provinciasList: document.getElementById('provinciasList'),
-  distrito: document.getElementById('distrito'),
   distritosList: document.getElementById('distritosList'),
+  direccionLinea: document.getElementById('direccionLinea'),
+  referencia: document.getElementById('referencia'),
+  fieldsLima: document.getElementById('fieldsLima'),
+  fieldsProv: document.getElementById('fieldsProv'),
   nombreEntrega: document.getElementById('nombreEntrega'),
   dniEntrega: document.getElementById('dniEntrega'),
   agenciaEntrega: document.getElementById('agenciaEntrega'),
   observacionesEntrega: document.getElementById('observacionesEntrega'),
-  recibeExiste: document.getElementById('recibeExiste'),
+  recibeExistente: document.getElementById('recibeExistente'),
   recibeNuevo: document.getElementById('recibeNuevo'),
-  recibeExistePanel: document.getElementById('recibeExistePanel'),
-  recibeNuevoPanel: document.getElementById('recibeNuevoPanel'),
-  numRecibe: document.getElementById('numRecibe'),
+  recibeToggle: document.getElementById('recibeToggle'),
+  recibeExistenteSection: document.getElementById('recibeExistenteSection'),
+  recibeNuevoSection: document.getElementById('recibeNuevoSection'),
+  concatenaNumRecibe: document.getElementById('concatenaNumRecibe'),
   numRecibeList: document.getElementById('numRecibeList'),
-  numRecibeEmpty: document.getElementById('numRecibeEmpty'),
   numeroRecibe: document.getElementById('numeroRecibe'),
   nombreRecibe: document.getElementById('nombreRecibe'),
-  tipoDocumentoPago: document.getElementById('tipoDocumentoPago'),
+  ordinalRecibe: document.getElementById('ordinalRecibe'),
   numeroDocumentoPago: document.getElementById('numeroDocumentoPago'),
-  montoPago: document.getElementById('montoPago'),
   cuentaNombre: document.getElementById('cuentaNombre'),
   cuentasList: document.getElementById('cuentasList'),
   cuentaBanco: document.getElementById('cuentaBanco'),
+  montoPago: document.getElementById('montoPago'),
   montoPendiente: document.getElementById('montoPendiente'),
-  baseAsignada: document.getElementById('baseAsignada'),
+  btnAgregarPago: document.getElementById('btnAgregarPago'),
+  pagosTable: document.querySelector('#pagosTable tbody'),
+  pagoBloqueado: document.getElementById('pagoBloqueado'),
+  basesCandidatasTable: document.querySelector('#basesCandidatasTable tbody'),
+  basesEtaTable: document.querySelector('#basesEtaTable tbody'),
+  etaHint: document.getElementById('etaHint'),
   baseSugerida: document.getElementById('baseSugerida'),
-  basesAsignacionList: document.getElementById('basesAsignacionList'),
-  basesCandidatasTable: document.getElementById('basesCandidatasTable').querySelector('tbody'),
-  basesEtaTable: document.getElementById('basesEtaTable').querySelector('tbody'),
-  basesEtaEmpty: document.getElementById('basesEtaEmpty'),
   resumenPedido: document.getElementById('resumenPedido'),
   resumenFactura: document.getElementById('resumenFactura'),
   resumenEntrega: document.getElementById('resumenEntrega'),
   resumenRecibe: document.getElementById('resumenRecibe'),
-  confirmOperacion: document.getElementById('confirmOperacion'),
-  emitirFactura: document.getElementById('emitirFactura')
+  resumenPago: document.getElementById('resumenPago'),
+  resumenBase: document.getElementById('resumenBase')
 };
 
-function detectLanguage() {
-  const browserLang = navigator.language || 'es';
-  if (browserLang.toLowerCase().startsWith('es')) {
-    return 'es';
+class FormWizard {
+  constructor() {
+    this.modal = new bootstrap.Modal(el.confirmModal);
   }
-  return 'en';
+
+  async init() {
+    this.setLanguage();
+    this.bindEvents();
+    await this.loadInitial();
+    this.setStep(1);
+  }
+
+  setLanguage() {
+    const browserLang = navigator.language || 'es';
+    state.lang = browserLang.toLowerCase().startsWith('es') ? 'es' : 'en';
+    document.documentElement.lang = state.lang;
+    const dict = i18n[state.lang];
+    document.querySelectorAll('[data-i18n]').forEach((node) => {
+      const key = node.getAttribute('data-i18n');
+      if (dict[key]) {
+        node.textContent = dict[key];
+      }
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+      const key = node.getAttribute('data-i18n-placeholder');
+      if (dict[key]) {
+        node.setAttribute('placeholder', dict[key]);
+      }
+    });
+  }
+
+  bindEvents() {
+    el.btnPrev.addEventListener('click', () => this.prev());
+    el.btnNext.addEventListener('click', () => this.next());
+    el.btnReset.addEventListener('click', () => this.reset());
+    el.btnConfirmEmit.addEventListener('click', () => this.emitirFactura());
+
+    el.btnFiltrarPedidos.addEventListener('click', () => loadPedidos());
+    el.btnLimpiarFiltro.addEventListener('click', () => {
+      el.filterCliente.value = '';
+      el.filterFecha.value = '';
+      loadPedidos();
+    });
+
+    el.baseNombreFinal.addEventListener('change', () => {
+      state.baseManual = true;
+      handleBaseSelection(el.baseNombreFinal.value);
+    });
+
+    el.entregaExistente.addEventListener('change', () => setEntregaModo('existente'));
+    el.entregaNuevo.addEventListener('change', () => setEntregaModo('nuevo'));
+    el.puntoEntregaTexto.addEventListener('change', () => selectPuntoEntrega(el.puntoEntregaTexto.value));
+
+    el.codDep.addEventListener('change', () => updateUbigeo());
+    el.codProv.addEventListener('change', () => updateUbigeo());
+    el.codDist.addEventListener('change', () => updateUbigeo());
+
+    el.direccionLinea.addEventListener('input', () => {
+      state.entrega.direccion_linea = el.direccionLinea.value.trim();
+      updateConcatenarEntrega();
+    });
+    el.referencia.addEventListener('input', () => {
+      state.entrega.referencia = el.referencia.value.trim();
+      updateConcatenarEntrega();
+    });
+    el.nombreEntrega.addEventListener('input', () => {
+      state.entrega.nombre = el.nombreEntrega.value.trim();
+      updateConcatenarEntrega();
+    });
+    el.dniEntrega.addEventListener('input', () => {
+      state.entrega.dni = el.dniEntrega.value.trim();
+      updateConcatenarEntrega();
+    });
+    el.agenciaEntrega.addEventListener('input', () => {
+      state.entrega.agencia = el.agenciaEntrega.value.trim();
+      updateConcatenarEntrega();
+    });
+    el.observacionesEntrega.addEventListener('input', () => {
+      state.entrega.observaciones = el.observacionesEntrega.value.trim();
+      updateConcatenarEntrega();
+    });
+
+    el.recibeExistente.addEventListener('change', () => setRecibeModo('existente'));
+    el.recibeNuevo.addEventListener('change', () => setRecibeModo('nuevo'));
+    el.concatenaNumRecibe.addEventListener('change', () => selectNumRecibe(el.concatenaNumRecibe.value));
+    el.numeroRecibe.addEventListener('input', () => {
+      state.recibe.numero = el.numeroRecibe.value.trim();
+      updateConcatenarRecibe();
+    });
+    el.nombreRecibe.addEventListener('input', () => {
+      state.recibe.nombre = el.nombreRecibe.value.trim();
+      updateConcatenarRecibe();
+    });
+
+    el.cuentaNombre.addEventListener('change', () => selectCuenta(el.cuentaNombre.value));
+    el.cuentaNombre.addEventListener('input', () => selectCuenta(el.cuentaNombre.value));
+    el.btnAgregarPago.addEventListener('click', () => addPago());
+    if (el.saldoFavorUsar) {
+      el.saldoFavorUsar.addEventListener('change', () => {
+        state.pagos = [];
+        updateSaldoFavorUsado();
+        renderPagos();
+        el.montoPago.value = formatNumber(state.pago.monto_pendiente);
+      });
+    }
+
+    el.fechaEmision.addEventListener('change', () => updateFechaP());
+    el.horaEmision.addEventListener('change', () => updateFechaP());
+  }
+
+  async loadInitial() {
+    await loadPedidos();
+    await loadBases();
+    await loadCuentas();
+    await loadMapsConfig();
+    const now = new Date();
+    state.factura.fecha_emision = now.toISOString().slice(0, 10);
+    state.factura.hora_emision = now.toTimeString().slice(0, 5);
+    updateFechaInputs();
+    updateFechaP();
+  }
+
+  setStep(step) {
+    state.step = step;
+    const visibleSteps = getVisibleSteps();
+    visibleSteps.forEach((number) => {
+      const section = el.steps[number];
+      if (section) {
+        section.classList.toggle('d-none', number !== step);
+      }
+    });
+
+    Object.keys(el.steps).forEach((key) => {
+      if (!visibleSteps.includes(Number(key))) {
+        el.steps[key].classList.add('d-none');
+      }
+    });
+
+    const pills = el.stepIndicator.querySelectorAll('.step-pill');
+    pills.forEach((pill) => {
+      const pillStep = Number(pill.getAttribute('data-step'));
+      if (!visibleSteps.includes(pillStep)) {
+        pill.classList.add('d-none');
+        return;
+      }
+      pill.classList.remove('d-none');
+      pill.classList.toggle('active', pillStep === step);
+    });
+
+    const index = visibleSteps.indexOf(step);
+    const progress = ((index + 1) / visibleSteps.length) * 100;
+    el.progressBar.style.width = `${progress}%`;
+
+    el.btnPrev.disabled = index === 0;
+    el.btnNext.textContent = index === visibleSteps.length - 1 ? i18n[state.lang].emitir : i18n[state.lang].next;
+  }
+
+  async next() {
+    clearAlerts();
+    if (state.step === 1) {
+      if (!state.pedidoSeleccionado) {
+        showAlert(i18n[state.lang].errorPedido);
+        return;
+      }
+      await prepareFactura();
+      this.setStep(2);
+      return;
+    }
+
+    if (state.step === 2) {
+      if (!validateDetalleFactura()) {
+        showAlert(i18n[state.lang].errorDetalle);
+        return;
+      }
+      await prepareEntrega();
+      this.setStep(3);
+      return;
+    }
+
+    if (state.step === 3) {
+      if (!validateEntrega()) {
+        showAlert(i18n[state.lang].errorEntrega);
+        return;
+      }
+      if (state.entrega.region_entrega === 'LIMA') {
+        await prepareRecibe();
+        this.setStep(4);
+      } else {
+        await preparePagos();
+        this.setStep(5);
+      }
+      return;
+    }
+
+    if (state.step === 4) {
+      if (!validateRecibe()) {
+        showAlert(i18n[state.lang].errorRecibe);
+        return;
+      }
+      await preparePagos();
+      this.setStep(5);
+      return;
+    }
+
+    if (state.step === 5) {
+      if (!validatePagos()) {
+        showAlert(i18n[state.lang].errorPago);
+        return;
+      }
+      await prepareBases();
+      this.setStep(6);
+      return;
+    }
+
+    if (state.step === 6) {
+      if (!validateBase()) {
+        showAlert(i18n[state.lang].errorBase);
+        return;
+      }
+      renderResumen();
+      this.setStep(7);
+      return;
+    }
+
+    if (state.step === 7) {
+      if (!el.confirmEmit.checked) {
+        showAlert(i18n[state.lang].errorConfirm);
+        return;
+      }
+      this.modal.show();
+    }
+  }
+
+  prev() {
+    clearAlerts();
+    const visibleSteps = getVisibleSteps();
+    const index = visibleSteps.indexOf(state.step);
+    if (index <= 0) return;
+    const previous = visibleSteps[index - 1];
+    this.setStep(previous);
+  }
+
+  async emitirFactura() {
+    this.modal.hide();
+    setLoading(true, el.loadingEmitir);
+    try {
+      const payload = buildEmitPayload();
+      const response = await fetch('/api/emitir-factura', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error('ERROR');
+      }
+      showSuccess(i18n[state.lang].successEmitir);
+      await this.reset();
+    } catch (error) {
+      showAlert(i18n[state.lang].errorServer);
+    } finally {
+      setLoading(false, el.loadingEmitir);
+    }
+  }
+
+  async reset() {
+    clearAlerts();
+    state.step = 1;
+    state.pedidoSeleccionado = null;
+    state.productosFactura = [];
+    state.factura.numero_documento = '';
+    state.factura.codigo_base = null;
+    state.factura.base_nombre = '';
+    state.factura.monto = 0;
+    state.factura.costo_envio = 0;
+    state.factura.total = 0;
+    state.factura.saldo = 0;
+    state.entrega = {
+      modo: 'existente',
+      puntos: [],
+      seleccionado: null,
+      codigo_puntoentrega: null,
+      region_entrega: null,
+      direccion_linea: '',
+      referencia: '',
+      nombre: '',
+      dni: '',
+      agencia: '',
+    observaciones: '',
+    cod_dep: '15',
+    cod_prov: '01',
+    cod_dist: '',
+    distrito_nombre: '',
+    distritos: [],
+    ubigeo: '',
+    latitud: null,
+    longitud: null,
+    concatenarpuntoentrega: ''
+  };
+    state.recibe = {
+      modo: 'existente',
+      lista: [],
+      seleccionado: null,
+      ordinal_numrecibe: null,
+      numero: '',
+      nombre: '',
+      concatenarnumrecibe: ''
+    };
+    state.pagos = [];
+    state.pago.monto_pendiente = state.factura.total;
+    state.pago.monto_pago = '';
+    state.pago.codigo_cuentabancaria = null;
+    state.pago.cuenta_nombre = '';
+    state.pago.cuenta_banco = '';
+    state.saldoFavor = { total: 0, ntc: 0, rcp: 0, usado: 0 };
+    state.baseManual = false;
+    state.baseSugerida = null;
+    const now = new Date();
+    state.factura.fecha_emision = now.toISOString().slice(0, 10);
+    state.factura.hora_emision = now.toTimeString().slice(0, 5);
+    el.baseNombreFinal.value = '';
+    el.baseSeleccionada.textContent = '-';
+    el.baseSugerida.textContent = '-';
+    el.puntoEntregaTexto.value = '';
+    el.codDep.value = '15';
+    el.codProv.value = '01';
+    el.codDist.value = '';
+    el.direccionLinea.value = '';
+    el.referencia.value = '';
+    el.nombreEntrega.value = '';
+    el.dniEntrega.value = '';
+    el.agenciaEntrega.value = '';
+    el.observacionesEntrega.value = '';
+    el.mapSearch.value = '';
+    el.latitud.value = '';
+    el.longitud.value = '';
+    el.concatenaNumRecibe.value = '';
+    el.numeroRecibe.value = '';
+    el.nombreRecibe.value = '';
+    el.ordinalRecibe.value = '';
+    el.cuentaNombre.value = '';
+    el.cuentaBanco.value = '';
+    el.montoPago.value = '';
+    el.montoPendiente.value = '';
+    el.numeroDocumentoPago.value = '';
+    el.confirmEmit.checked = false;
+    if (el.saldoFavorUsar) el.saldoFavorUsar.checked = false;
+    updateFechaInputs();
+    updateFacturaInputs();
+    updateFechaP();
+    updateTotals();
+    updateSaldoFavorUI();
+    await loadPedidos();
+    renderProductos();
+    renderPagos();
+    renderBasesCandidatas();
+    renderBasesEta();
+    renderEntregaUI();
+    renderRecibeUI();
+    this.setStep(1);
+  }
 }
 
-function t(key) {
-  return i18n[state.lang][key] || i18n.es[key] || key;
-}
-
-function applyTranslations() {
-  document.querySelectorAll('[data-i18n]').forEach((node) => {
-    const key = node.dataset.i18n;
-    node.textContent = t(key);
-  });
+function setLoading(show, spinner = null) {
+  el.loadingOverlay.classList.toggle('d-none', !show);
+  if (spinner) {
+    spinner.classList.toggle('d-none', !show);
+  }
 }
 
 function showAlert(message) {
-  el.formAlert.textContent = message;
-  el.formAlert.classList.remove('d-none');
-  el.formSuccess.classList.add('d-none');
+  el.alertBox.textContent = message;
+  el.alertBox.classList.remove('d-none');
+  el.successBox.classList.add('d-none');
 }
 
 function showSuccess(message) {
-  el.formSuccess.textContent = message;
-  el.formSuccess.classList.remove('d-none');
-  el.formAlert.classList.add('d-none');
+  el.successBox.textContent = message;
+  el.successBox.classList.remove('d-none');
+  el.alertBox.classList.add('d-none');
 }
 
 function clearAlerts() {
-  el.formAlert.classList.add('d-none');
-  el.formSuccess.classList.add('d-none');
+  el.alertBox.classList.add('d-none');
+  el.successBox.classList.add('d-none');
 }
 
-function setLoading(isLoading) {
-  el.loadingOverlay.classList.toggle('d-none', !isLoading);
-}
-
-async function apiFetch(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || 'Request failed');
+function getVisibleSteps() {
+  if (state.entrega.region_entrega === 'LIMA') {
+    return [1, 2, 3, 4, 5, 6, 7];
   }
-  return response.json();
+  return [1, 2, 3, 5, 6, 7];
 }
 
-function formatMoney(value) {
-  return Number(value || 0).toFixed(2);
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error('ERROR');
+  }
+  return data;
 }
 
-const wizard = new FormWizard();
-
-function mapListToDatalist(list, datalist, valueKey, labelKey) {
-  datalist.innerHTML = '';
-  list.forEach((item) => {
-    const option = document.createElement('option');
-    option.value = item[labelKey];
-    option.dataset.value = item[valueKey];
-    datalist.appendChild(option);
-  });
+function pickField(obj, keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      return obj[key];
+    }
+  }
+  return undefined;
 }
 
-function findByLabel(list, labelKey, label) {
-  return list.find((item) => item[labelKey] === label) || null;
+function normalizeBaseCandidata(row) {
+  const codigo = pickField(row, ['codigo_base', 'codigoBase', 'CODIGO_BASE', 'Codigo_base', 'codigo']);
+  const lat = pickField(row, ['latitud', 'LATITUD', 'Latitud', 'lat', 'LAT']);
+  const lng = pickField(row, ['longitud', 'LONGITUD', 'Longitud', 'lng', 'LNG', 'long', 'LONG']);
+  return {
+    ...row,
+    codigo_base: codigo ?? row.codigo_base,
+    latitud: lat ?? row.latitud,
+    longitud: lng ?? row.longitud
+  };
 }
 
-function initDateTime() {
-  const now = new Date();
-  el.fechaEmision.value = now.toISOString().slice(0, 10);
-  el.horaEmision.value = now.toTimeString().slice(0, 5);
-  state.data.vFechaemision = el.fechaEmision.value;
-  state.data.vHoraemision = el.horaEmision.value;
+function buildOriginAddress() {
+  const base = state.entrega.concatenarpuntoentrega || state.entrega.direccion_linea || '';
+  if (!base) return '';
+  const extras = [];
+  if (state.entrega.distrito_nombre) extras.push(state.entrega.distrito_nombre);
+  if (state.entrega.region_entrega) extras.push(state.entrega.region_entrega);
+  const joined = [base, ...extras].filter(Boolean).join(', ');
+  return joined.trim();
 }
 
-function updateFechaP() {
-  const fecha = el.fechaEmision.value;
-  const hora = el.horaEmision.value || '00:00';
-  state.data.vFechaemision = fecha;
-  state.data.vHoraemision = hora;
-  state.data.vFechaP = `${fecha} ${hora}:00`;
+async function loadPedidos() {
+  setLoading(true, el.loadingPedidos);
+  try {
+    const params = new URLSearchParams();
+    if (el.filterCliente.value.trim()) {
+      params.append('cliente', el.filterCliente.value.trim());
+    }
+    if (el.filterFecha.value) {
+      params.append('fecha', el.filterFecha.value);
+    }
+    const query = params.toString();
+    const data = await fetchJson(`/api/pedidos${query ? `?${query}` : ''}`);
+    state.pedidos = data.rows || [];
+    renderPedidos();
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
+  } finally {
+    setLoading(false, el.loadingPedidos);
+  }
 }
 
 function renderPedidos() {
   el.pedidosTable.innerHTML = '';
   state.pedidos.forEach((pedido) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+    const row = document.createElement('tr');
+    row.innerHTML = `
       <td>${pedido.codigo_pedido}</td>
-      <td>${pedido.nombre_cliente}</td>
-      <td>${pedido.numero_cliente}</td>
-      <td>${pedido.fecha || ''}</td>
-      <td>${pedido.created_at || ''}</td>
-      <td><button class="btn btn-sm btn-outline-light" data-id="${pedido.codigo_pedido}">${t('next')}</button></td>
+      <td>${pedido.nombre_cliente || ''}</td>
+      <td>${pedido.numero_cliente || ''}</td>
+      <td>${formatDate(pedido.fecha)}</td>
+      <td>${formatDateTime(pedido.created_at)}</td>
     `;
-    tr.querySelector('button').addEventListener('click', () => selectPedido(pedido));
-    el.pedidosTable.appendChild(tr);
+    if (state.pedidoSeleccionado && state.pedidoSeleccionado.codigo_pedido === pedido.codigo_pedido) {
+      row.classList.add('selected');
+    }
+    row.addEventListener('click', () => {
+      state.pedidoSeleccionado = pedido;
+      renderPedidos();
+      wizard.next();
+    });
+    el.pedidosTable.appendChild(row);
   });
 }
 
-async function loadPedidos() {
-  setLoading(true);
+async function prepareFactura() {
+  setLoading(true, el.loadingFactura);
   try {
-    const params = new URLSearchParams();
-    if (el.filterCliente.value) params.append('cliente', el.filterCliente.value);
-    if (el.filterFecha.value) params.append('fecha', el.filterFecha.value);
-    const data = await apiFetch(`/api/pedidos-pendientes?${params.toString()}`);
-    state.pedidos = data.rows || [];
-    renderPedidos();
+    const data = await fetchJson(`/api/pedido-detalle/${state.pedidoSeleccionado.codigo_pedido}`);
+    state.productosFactura = (data.rows || [])
+      .filter((item) => Number(item.saldo || 0) > 0)
+      .map((item) => ({
+        codigo_producto: item.codigo_producto,
+        nombre_producto: item.nombre_producto,
+        saldo: Number(item.saldo || 0),
+        precio_unitario: Number(item.precio_unitario || 0),
+        cantidad: Number(item.saldo || 0),
+        precio_total: Number(item.saldo || 0) * Number(item.precio_unitario || 0)
+      }));
+
+    const doc = await fetchJson('/api/next-documento');
+    state.factura.numero_documento = String(doc.next || '');
+    state.factura.tipo_documento = 'FAC';
+
+    updateFacturaInputs();
+    renderProductos();
+    updateTotals();
+    await loadSaldoFavor();
   } catch (error) {
-    showAlert(error.message);
+    showAlert(i18n[state.lang].errorServer);
   } finally {
-    setLoading(false);
+    setLoading(false, el.loadingFactura);
   }
 }
 
-async function selectPedido(pedido) {
-  state.data.vcodigo_pedido = String(pedido.codigo_pedido);
-  state.data.vClienteCodigo = String(pedido.codigo_cliente);
-  state.data.vnombre_cliente = pedido.nombre_cliente;
-  state.data.vnumero_cliente = pedido.numero_cliente;
-  state.data.vfecha = pedido.fecha;
-  await prepareStep2();
-  wizard.show(2);
+async function loadSaldoFavor() {
+  state.saldoFavor.total = 0;
+  state.saldoFavor.ntc = 0;
+  state.saldoFavor.rcp = 0;
+  state.saldoFavor.usado = 0;
+  updateSaldoFavorUI();
+  const cliente = state.pedidoSeleccionado?.codigo_cliente;
+  if (!cliente) {
+    return;
+  }
+  const data = await fetchJson(`/api/saldo-favor?cliente=${cliente}`);
+  const rows = data.rows || [];
+  rows.forEach((row) => {
+    const saldo = Number(row.saldo || 0);
+    if (row.tipo_documento === 'NTC') {
+      state.saldoFavor.ntc += saldo;
+    } else if (row.tipo_documento === 'RCP') {
+      state.saldoFavor.rcp += saldo;
+    }
+  });
+  state.saldoFavor.total = state.saldoFavor.ntc + state.saldoFavor.rcp;
+  updateSaldoFavorUsado();
+  recalcPendiente();
+}
+
+
+function updateFacturaInputs() {
+  el.tipoDocumento.value = state.factura.tipo_documento;
+  el.numeroDocumento.value = state.factura.numero_documento;
+}
+
+function updateFechaInputs() {
+  el.fechaEmision.value = state.factura.fecha_emision;
+  el.horaEmision.value = state.factura.hora_emision;
+}
+
+function updateFechaP() {
+  state.factura.fecha_emision = el.fechaEmision.value || state.factura.fecha_emision;
+  state.factura.hora_emision = el.horaEmision.value || state.factura.hora_emision;
+  if (state.factura.fecha_emision && state.factura.hora_emision) {
+    state.factura.fechaP = `${state.factura.fecha_emision} ${state.factura.hora_emision}:00`;
+  }
 }
 
 function renderProductos() {
   el.productosTable.innerHTML = '';
-  state.data.vProdFactura.forEach((item, index) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${item.nombre_producto}</td>
-      <td>${formatMoney(item.saldo)}</td>
+  const disableRemove = state.productosFactura.length <= 1;
+  state.productosFactura.forEach((item, index) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.nombre_producto || ''}</td>
+      <td>${formatNumber(item.saldo)}</td>
       <td>
-        <input type="text" class="form-control form-control-sm" value="${item.cantidad}" data-index="${index}" />
+        <input class="form-control form-control-sm cantidad-input" data-index="${index}" value="${item.cantidad}" />
       </td>
-      <td>${formatMoney(item.precio_unitario)}</td>
-      <td>${formatMoney(item.precio_total)}</td>
+      <td>${formatNumber(item.precio_total)}</td>
       <td>
-        <button class="btn btn-sm btn-outline-warning" data-remove="${index}">-</button>
+        <button class="btn btn-outline-light btn-sm" data-remove="${index}" ${disableRemove ? 'disabled' : ''}>${i18n[state.lang].clear}</button>
       </td>
     `;
-    tr.querySelector('input').addEventListener('input', (event) => updateCantidad(event, index));
-    tr.querySelector('button').addEventListener('click', () => removeProducto(index));
-    el.productosTable.appendChild(tr);
+    el.productosTable.appendChild(row);
+  });
+
+  el.productosTable.querySelectorAll('.cantidad-input').forEach((input) => {
+    input.addEventListener('input', (event) => {
+      const index = Number(event.target.getAttribute('data-index'));
+      const value = event.target.value.trim();
+      if (value === '' || !regex.decimal.test(value)) {
+        state.productosFactura[index].cantidad = value;
+      } else {
+        state.productosFactura[index].cantidad = Number(value);
+        state.productosFactura[index].precio_total =
+          Number(value) * Number(state.productosFactura[index].precio_unitario || 0);
+      }
+      updateTotals();
+      renderProductos();
+    });
+  });
+
+  el.productosTable.querySelectorAll('[data-remove]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (state.productosFactura.length <= 1) return;
+      const index = Number(button.getAttribute('data-remove'));
+      state.productosFactura.splice(index, 1);
+      updateTotals();
+      renderProductos();
+    });
   });
 }
 
-function updateCantidad(event, index) {
-  const value = event.target.value.trim();
-  if (value && !reDecimal.test(value)) {
-    return;
+function updateTotals() {
+  const monto = state.productosFactura.reduce((acc, item) => acc + Number(item.precio_total || 0), 0);
+  state.factura.monto = monto;
+  state.factura.total = monto + Number(state.factura.costo_envio || 0);
+  state.factura.saldo = state.factura.total;
+  el.montoFactura.textContent = formatNumber(state.factura.monto);
+  el.costoEnvio.textContent = formatNumber(state.factura.costo_envio || 0);
+  el.totalFactura.textContent = formatNumber(state.factura.total);
+  el.saldoFactura.textContent = formatNumber(state.factura.saldo);
+  updateSaldoFavorUsado();
+  recalcPendiente();
+}
+
+function updateSaldoFavorUI() {
+  if (el.saldoFavorTotal) el.saldoFavorTotal.textContent = formatNumber(state.saldoFavor.total);
+  if (el.saldoFavorNtc) el.saldoFavorNtc.textContent = formatNumber(state.saldoFavor.ntc);
+  if (el.saldoFavorRcp) el.saldoFavorRcp.textContent = formatNumber(state.saldoFavor.rcp);
+  if (el.saldoFavorUsar) {
+    el.saldoFavorUsar.disabled = state.saldoFavor.total <= 0;
+    if (el.saldoFavorUsar.disabled) {
+      el.saldoFavorUsar.checked = false;
+    }
   }
-  const cantidad = value ? Number(value) : 0;
-  const item = state.data.vProdFactura[index];
-  item.cantidad = cantidad;
-  item.precio_total = cantidad * Number(item.precio_unitario);
-  renderProductos();
-  updateTotales();
 }
 
-function removeProducto(index) {
-  if (state.data.vProdFactura.length <= 1) {
-    return;
+function updateSaldoFavorUsado() {
+  const usar = el.saldoFavorUsar?.checked ? state.factura.total : 0;
+  state.saldoFavor.usado = Math.min(state.saldoFavor.total, usar);
+  updateSaldoFavorUI();
+}
+
+function recalcPendiente() {
+  const pagosTotal = sumPagos();
+  let pendiente = state.factura.total - state.saldoFavor.usado - pagosTotal;
+  if (pendiente < 0) {
+    pendiente = 0;
   }
-  state.data.vProdFactura.splice(index, 1);
-  renderProductos();
-  updateTotales();
+  state.pago.monto_pendiente = pendiente;
+  if (el.montoPendiente) {
+    el.montoPendiente.value = formatNumber(state.pago.monto_pendiente);
+  }
+  const bloqueado = state.pago.monto_pendiente <= 0;
+  if (el.montoPago) {
+    if (bloqueado) {
+      el.montoPago.value = formatNumber(state.pago.monto_pendiente);
+    } else if (!el.montoPago.value) {
+      el.montoPago.value = formatNumber(state.pago.monto_pendiente);
+    }
+  }
+  if (el.pagoBloqueado) {
+    el.pagoBloqueado.classList.toggle('d-none', !bloqueado);
+  }
+  if (el.montoPago) el.montoPago.disabled = bloqueado;
+  if (el.btnAgregarPago) el.btnAgregarPago.disabled = bloqueado;
+  if (el.cuentaNombre) el.cuentaNombre.disabled = bloqueado;
+  if (el.cuentaBanco) el.cuentaBanco.disabled = bloqueado;
 }
 
-function updateTotales() {
-  const monto = state.data.vProdFactura.reduce((acc, item) => acc + Number(item.precio_total || 0), 0);
-  state.data.VfMonto = monto;
-  state.data.VfTotal = monto + Number(state.data.vCostoEnvio || 0);
-  state.data.Vfsaldo = state.data.VfTotal;
-  el.montoFactura.textContent = formatMoney(state.data.VfMonto);
-  el.costoEnvio.textContent = formatMoney(state.data.vCostoEnvio);
-  el.totalFactura.textContent = formatMoney(state.data.VfTotal);
-  el.montoPendiente.textContent = formatMoney(state.data.VfTotal);
+function validateDetalleFactura() {
+  if (!state.productosFactura.length) {
+    return false;
+  }
+  let valid = true;
+  state.productosFactura.forEach((item) => {
+    const cantidad = item.cantidad;
+    if (cantidad === '' || !regex.decimal.test(String(cantidad))) {
+      valid = false;
+      return;
+    }
+    if (Number(cantidad) > Number(item.saldo || 0)) {
+      valid = false;
+    }
+  });
+  return valid;
 }
 
-async function prepareStep2() {
-  setLoading(true);
+async function prepareEntrega() {
+  setLoading(true, el.loadingEntrega);
   try {
-    updateFechaP();
-    const nextFactura = await apiFetch('/api/next-factura');
-    state.data.vNumero_documento = String(nextFactura.next || '');
-    el.numeroFactura.value = state.data.vNumero_documento;
-
-    const detalle = await apiFetch(`/api/pedido-detalle/${state.data.vcodigo_pedido}`);
-    state.data.vProdFactura = (detalle.rows || []).map((item) => ({
-      codigo_producto: item.codigo_producto,
-      nombre_producto: item.nombre_producto,
-      saldo: Number(item.saldo || 0),
-      precio_unitario: Number(item.precio_unitario || 0),
-      cantidad: Number(item.saldo || 0),
-      precio_total: Number(item.saldo || 0) * Number(item.precio_unitario || 0)
-    }));
-
-    renderProductos();
-    updateTotales();
-
-    await loadBases();
+    const cliente = state.pedidoSeleccionado.codigo_cliente;
+    const data = await fetchJson(`/api/puntos-entrega?cliente=${cliente}`);
+    state.entrega.puntos = data.rows || [];
+    renderEntregaUI();
+    if (!state.entrega.puntos.length) {
+      setEntregaModo('nuevo');
+    }
   } catch (error) {
-    showAlert(error.message);
+    showAlert(i18n[state.lang].errorServer);
   } finally {
-    setLoading(false);
+    setLoading(false, el.loadingEntrega);
   }
 }
 
-async function loadBases() {
-  const data = await apiFetch('/api/bases');
-  state.bases = data.rows || [];
-  mapListToDatalist(state.bases, el.basesFacturaList, 'codigo_base', 'nombre');
-  mapListToDatalist(state.bases, el.basesAsignacionList, 'codigo_base', 'nombre');
+function renderEntregaUI() {
+  el.puntosEntregaList.innerHTML = '';
+  state.entrega.puntos.forEach((punto) => {
+    const option = document.createElement('option');
+    option.value = punto.concatenarpuntoentrega || '';
+    el.puntosEntregaList.appendChild(option);
+  });
+  const hasExisting = state.entrega.puntos.length > 0;
+  el.entregaExistente.parentElement.classList.toggle('d-none', !hasExisting);
+  el.entregaExistenteSection.classList.toggle('d-none', state.entrega.modo !== 'existente');
+  el.entregaNuevoSection.classList.toggle('d-none', state.entrega.modo !== 'nuevo');
 }
 
-async function loadPuntosEntrega() {
-  if (!state.data.vClienteCodigo) return;
-  const data = await apiFetch(`/api/puntos-entrega/${state.data.vClienteCodigo}`);
-  state.puntosEntrega = data.rows || [];
-  mapListToDatalist(state.puntosEntrega, el.puntosEntregaList, 'codigo_puntoentrega', 'concatenarpuntoentrega');
-  const hasPuntos = state.puntosEntrega.length > 0;
-  el.puntosEntregaEmpty.classList.toggle('d-none', hasPuntos);
-  el.entregaExiste.disabled = !hasPuntos;
-  el.entregaExiste.closest('.form-check').classList.toggle('d-none', !hasPuntos);
-  if (!hasPuntos) {
-    el.entregaNuevo.checked = true;
-    state.data.vEntregaModo = 'nuevo';
-    toggleEntregaMode();
+function setEntregaModo(modo) {
+  state.entrega.modo = modo;
+  el.entregaExistente.checked = modo === 'existente';
+  el.entregaNuevo.checked = modo === 'nuevo';
+  renderEntregaUI();
+  if (modo === 'nuevo') {
+    state.entrega.seleccionado = null;
+    initMap();
+    loadUbigeo();
+    loadNextPuntoEntrega();
+  } else {
+    state.entrega.codigo_puntoentrega = state.entrega.seleccionado?.codigo_puntoentrega || null;
   }
 }
 
-function toggleEntregaMode() {
-  const mode = document.querySelector('input[name="entregaOption"]:checked').value;
-  state.data.vEntregaModo = mode;
-  el.entregaExistePanel.classList.toggle('d-none', mode !== 'existe');
-  el.entregaNuevoPanel.classList.toggle('d-none', mode !== 'nuevo');
-  if (mode === 'nuevo') {
-    ensureMapa();
-    fetchNextPuntoEntrega();
-    updateRegion();
+function selectPuntoEntrega(value) {
+  const selected = state.entrega.puntos.find(
+    (punto) => (punto.concatenarpuntoentrega || '').toLowerCase() === value.toLowerCase()
+  );
+  state.entrega.seleccionado = selected || null;
+  if (selected) {
+    state.entrega.codigo_puntoentrega = selected.codigo_puntoentrega;
+    state.entrega.region_entrega = String(selected.region_entrega || '').toUpperCase();
+    state.entrega.cod_dep = selected.cod_dep || state.entrega.cod_dep;
+    state.entrega.cod_prov = selected.cod_prov || state.entrega.cod_prov;
+    state.entrega.cod_dist = selected.cod_dist || state.entrega.cod_dist;
+    state.entrega.distrito_nombre = selected.distrito || state.entrega.distrito_nombre;
+    state.entrega.ubigeo = selected.ubigeo || state.entrega.ubigeo;
+    state.entrega.direccion_linea = selected.direccion_linea || '';
+    state.entrega.referencia = selected.referencia || '';
+    state.entrega.nombre = selected.nombre || '';
+    state.entrega.dni = selected.dni || '';
+    state.entrega.agencia = selected.agencia || '';
+    state.entrega.observaciones = selected.observaciones || '';
+    state.entrega.latitud = selected.latitud ? Number(selected.latitud) : null;
+    state.entrega.longitud = selected.longitud ? Number(selected.longitud) : null;
+    state.entrega.concatenarpuntoentrega = selected.concatenarpuntoentrega || '';
+    setCostoEnvio();
   }
-}
-
-async function fetchNextPuntoEntrega() {
-  if (!state.data.vClienteCodigo) return;
-  const data = await apiFetch(`/api/next-puntoentrega/${state.data.vClienteCodigo}`);
-  state.data.Vcodigo_puntoentrega = String(data.next || '');
-}
-
-function setEntregaFromExisting(label) {
-  const selected = findByLabel(state.puntosEntrega, 'concatenarpuntoentrega', label);
-  if (!selected) return;
-  state.data.vPuntoEntregaTexto = selected.concatenarpuntoentrega;
-  state.data.vRegion_Entrega = selected.region_entrega || '';
-  state.data.vDireccionLinea = selected.direccion_linea || '';
-  state.data.vReferencia = selected.referencia || '';
-  state.data.vNombre = selected.nombre || '';
-  state.data.vDni = selected.dni || '';
-  state.data.vAgencia = selected.agencia || '';
-  state.data.vObservaciones = selected.observaciones || '';
-  state.data.Vcodigo_puntoentrega = selected.codigo_puntoentrega || '';
-  state.data.vConcatenarpuntoentrega = selected.concatenarpuntoentrega || '';
-  updateCostoEnvio();
-  wizard.updateProgress();
 }
 
 async function loadUbigeo() {
-  const departamentos = await apiFetch('/api/ubigeo/departamentos');
-  state.ubigeo.departamentos = departamentos.rows || [];
-  mapListToDatalist(state.ubigeo.departamentos, el.departamentosList, 'cod_dep', 'departamento');
-
-  await loadProvincias();
-  await loadDistritos();
-
-  const depDefault = state.ubigeo.departamentos.find((d) => d.cod_dep === state.data.vCod_Dep);
-  if (depDefault) el.departamento.value = depDefault.departamento;
-  const provDefault = state.ubigeo.provincias.find((p) => p.cod_prov === state.data.vCod_Prov);
-  if (provDefault) el.provincia.value = provDefault.provincia;
+  try {
+    const deps = await fetchJson('/api/ubigeo/departamentos');
+    el.departamentosList.innerHTML = '';
+    deps.rows.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.cod_dep;
+      option.label = item.departamento;
+      el.departamentosList.appendChild(option);
+    });
+    el.codDep.value = state.entrega.cod_dep;
+    await loadProvincias(state.entrega.cod_dep);
+    el.codProv.value = state.entrega.cod_prov;
+    await loadDistritos(state.entrega.cod_dep, state.entrega.cod_prov);
+    updateRegion();
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
+  }
 }
 
-async function loadProvincias() {
-  const data = await apiFetch(`/api/ubigeo/provincias/${state.data.vCod_Dep}`);
-  state.ubigeo.provincias = data.rows || [];
-  mapListToDatalist(state.ubigeo.provincias, el.provinciasList, 'cod_prov', 'provincia');
+async function loadProvincias(codDep) {
+  const data = await fetchJson(`/api/ubigeo/provincias?cod_dep=${codDep}`);
+  el.provinciasList.innerHTML = '';
+  data.rows.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.cod_prov;
+    option.label = item.provincia;
+    el.provinciasList.appendChild(option);
+  });
 }
 
-async function loadDistritos() {
-  const data = await apiFetch(`/api/ubigeo/distritos/${state.data.vCod_Dep}/${state.data.vCod_Prov}`);
-  state.ubigeo.distritos = data.rows || [];
-  mapListToDatalist(state.ubigeo.distritos, el.distritosList, 'cod_dist', 'distrito');
+async function loadDistritos(codDep, codProv) {
+  const data = await fetchJson(`/api/ubigeo/distritos?cod_dep=${codDep}&cod_prov=${codProv}`);
+  el.distritosList.innerHTML = '';
+  state.entrega.distritos = data.rows || [];
+  state.entrega.distritos.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.cod_dist;
+    option.label = item.distrito;
+    el.distritosList.appendChild(option);
+  });
 }
 
-function updateUbigeoFromInput() {
-  const dep = findByLabel(state.ubigeo.departamentos, 'departamento', el.departamento.value);
-  if (dep) state.data.vCod_Dep = dep.cod_dep;
-
-  const prov = findByLabel(state.ubigeo.provincias, 'provincia', el.provincia.value);
-  if (prov) state.data.vCod_Prov = prov.cod_prov;
-
-  const dist = findByLabel(state.ubigeo.distritos, 'distrito', el.distrito.value);
-  if (dist) state.data.vCod_Dist = dist.cod_dist;
-
-  state.data.Vubigeo = `${state.data.vCod_Dep}${state.data.vCod_Prov}${state.data.vCod_Dist || ''}`;
+async function updateUbigeo() {
+  state.entrega.cod_dep = el.codDep.value.trim() || '15';
+  state.entrega.cod_prov = el.codProv.value.trim() || '01';
+  state.entrega.cod_dist = el.codDist.value.trim();
+  await loadProvincias(state.entrega.cod_dep);
+  await loadDistritos(state.entrega.cod_dep, state.entrega.cod_prov);
+  const distrito = state.entrega.distritos.find((item) => String(item.cod_dist) === String(state.entrega.cod_dist));
+  state.entrega.distrito_nombre = distrito ? distrito.distrito : '';
   updateRegion();
 }
 
 function updateRegion() {
-  if (state.data.vCod_Dep === '15' && state.data.vCod_Prov === '01') {
-    state.data.vRegion_Entrega = 'LIMA';
+  state.entrega.region_entrega =
+    state.entrega.cod_dep === '15' && state.entrega.cod_prov === '01' ? 'LIMA' : 'PROV';
+  state.entrega.ubigeo = `${state.entrega.cod_dep}${state.entrega.cod_prov}${state.entrega.cod_dist || ''}`;
+  el.fieldsLima.classList.toggle('d-none', state.entrega.region_entrega !== 'LIMA');
+  el.fieldsProv.classList.toggle('d-none', state.entrega.region_entrega !== 'PROV');
+  setCostoEnvio();
+  updateConcatenarEntrega();
+}
+
+function setCostoEnvio() {
+  state.factura.costo_envio = state.entrega.region_entrega === 'PROV' ? 50 : 0;
+  updateTotals();
+}
+
+function updateConcatenarEntrega() {
+  if (state.entrega.region_entrega === 'LIMA') {
+    const parts = [
+      state.entrega.direccion_linea,
+      state.entrega.distrito_nombre || state.entrega.cod_dist,
+      state.entrega.referencia
+    ].filter(Boolean);
+    state.entrega.concatenarpuntoentrega = parts.join(' | ');
   } else {
-    state.data.vRegion_Entrega = 'PROV';
-  }
-  updateCostoEnvio();
-  applyRegionFields();
-  wizard.updateProgress();
-}
-
-function updateCostoEnvio() {
-  state.data.vCostoEnvio = state.data.vRegion_Entrega === 'PROV' ? 50 : 0;
-  updateTotales();
-}
-
-function applyRegionFields() {
-  const isLima = state.data.vRegion_Entrega === 'LIMA';
-  el.direccionLinea.parentElement.classList.toggle('d-none', !isLima);
-  el.referencia.parentElement.classList.toggle('d-none', !isLima);
-  el.latitud.parentElement.classList.toggle('d-none', !isLima);
-  el.longitud.parentElement.classList.toggle('d-none', !isLima);
-  el.nombreEntrega.parentElement.classList.toggle('d-none', isLima);
-  el.dniEntrega.parentElement.classList.toggle('d-none', isLima);
-  el.agenciaEntrega.parentElement.classList.toggle('d-none', isLima);
-  el.observacionesEntrega.parentElement.classList.toggle('d-none', isLima);
-}
-
-function buildConcatenarPuntoEntrega() {
-  if (state.data.vRegion_Entrega === 'LIMA') {
-    const parts = [state.data.vDireccionLinea, el.distrito.value, state.data.vReferencia].filter(Boolean);
-    state.data.vConcatenarpuntoentrega = parts.join(' | ');
-  } else {
-    const parts = [state.data.vNombre, state.data.vDni, state.data.vAgencia, state.data.vObservaciones].filter(Boolean);
-    state.data.vConcatenarpuntoentrega = parts.join(' | ');
+    const parts = [state.entrega.nombre, state.entrega.dni, state.entrega.agencia, state.entrega.observaciones].filter(Boolean);
+    state.entrega.concatenarpuntoentrega = parts.join(' | ');
   }
 }
 
-async function loadNumRecibe() {
-  if (!state.data.vClienteCodigo) return;
-  const data = await apiFetch(`/api/numrecibe/${state.data.vClienteCodigo}`);
-  state.numRecibe = data.rows || [];
-  mapListToDatalist(state.numRecibe, el.numRecibeList, 'ordinal_numrecibe', 'concatenarnumrecibe');
-  const hasRecibe = state.numRecibe.length > 0;
-  el.numRecibeEmpty.classList.toggle('d-none', hasRecibe);
-  el.recibeExiste.disabled = !hasRecibe;
-  el.recibeExiste.closest('.form-check').classList.toggle('d-none', !hasRecibe);
-  if (!hasRecibe) {
-    el.recibeNuevo.checked = true;
-    state.data.vRecibeModo = 'nuevo';
-    toggleRecibeMode();
+function validateEntrega() {
+  if (state.entrega.modo === 'existente') {
+    return !!state.entrega.seleccionado;
   }
-}
-
-function toggleRecibeMode() {
-  const mode = document.querySelector('input[name="recibeOption"]:checked').value;
-  state.data.vRecibeModo = mode;
-  el.recibeExistePanel.classList.toggle('d-none', mode !== 'existe');
-  el.recibeNuevoPanel.classList.toggle('d-none', mode !== 'nuevo');
-  if (mode === 'nuevo') {
-    fetchNextNumRecibe();
+  if (!state.entrega.cod_dep || !state.entrega.cod_prov) {
+    return false;
   }
+  if (state.entrega.region_entrega === 'LIMA') {
+    return !!state.entrega.direccion_linea;
+  }
+  return !!state.entrega.nombre;
 }
 
-async function fetchNextNumRecibe() {
-  if (!state.data.vClienteCodigo) return;
-  const data = await apiFetch(`/api/next-numrecibe/${state.data.vClienteCodigo}`);
-  state.data.vOrdinal_numrecibe = String(data.next || '');
-}
-
-function setRecibeFromExisting(label) {
-  const selected = findByLabel(state.numRecibe, 'concatenarnumrecibe', label);
-  if (!selected) return;
-  state.data.vOrdinal_numrecibe = selected.ordinal_numrecibe;
-  state.data.vNumeroRecibe = selected.numero;
-  state.data.vNombreRecibe = selected.nombre;
-  state.data.vConcatenarnumrecibe = selected.concatenarnumrecibe;
-}
-
-async function loadCuentas() {
-  const data = await apiFetch('/api/cuentas-bancarias');
-  state.cuentas = data.rows || [];
-  mapListToDatalist(state.cuentas, el.cuentasList, 'codigo_cuentabancaria', 'nombre');
-}
-
-function setCuentaFromInput(label) {
-  const selected = findByLabel(state.cuentas, 'nombre', label);
-  if (!selected) return;
-  state.data.vCuentaBancaria = selected.codigo_cuentabancaria;
-  state.data.vCuentaNombre = selected.nombre;
-  state.data.vCuentaBanco = selected.banco;
-  el.cuentaBanco.value = selected.banco || '';
-}
-
-async function prepareStep5() {
-  const nextRecibo = await apiFetch('/api/next-recibo');
-  state.data.vNumero_documento_pago = String(nextRecibo.next || '');
-  el.numeroDocumentoPago.value = state.data.vNumero_documento_pago;
-  el.montoPago.value = formatMoney(state.data.VfTotal);
-  state.data.vMontoPago = state.data.VfTotal;
-  state.data.vMontoPendiente = state.data.VfTotal;
-  el.montoPendiente.textContent = formatMoney(state.data.VfTotal);
-}
-
-function buildProdFacturaJson() {
-  return state.data.vProdFactura.map((item) => ({
-    vFProducto: item.codigo_producto,
-    vFCantidadProducto: item.cantidad,
-    vFPrecioTotal: item.precio_total
-  }));
-}
-
-async function prepareStep6() {
-  setLoading(true);
+async function prepareRecibe() {
+  setLoading(true, el.loadingRecibe);
   try {
-    updateFechaP();
-    const payload = {
-      vProdFactura: buildProdFacturaJson(),
-      vFechaP: state.data.vFechaP
-    };
-    const data = await apiFetch('/api/bases-candidatas', {
+    const cliente = state.pedidoSeleccionado.codigo_cliente;
+    const data = await fetchJson(`/api/numrecibe?cliente=${cliente}`);
+    state.recibe.lista = data.rows || [];
+    renderRecibeUI();
+    if (!state.recibe.lista.length) {
+      await setRecibeModo('nuevo');
+    }
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
+  } finally {
+    setLoading(false, el.loadingRecibe);
+  }
+}
+
+function renderRecibeUI() {
+  el.numRecibeList.innerHTML = '';
+  state.recibe.lista.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.concatenarnumrecibe || '';
+    el.numRecibeList.appendChild(option);
+  });
+  const hasExisting = state.recibe.lista.length > 0;
+  el.recibeExistente.parentElement.classList.toggle('d-none', !hasExisting);
+  el.recibeExistenteSection.classList.toggle('d-none', state.recibe.modo !== 'existente');
+  el.recibeNuevoSection.classList.toggle('d-none', state.recibe.modo !== 'nuevo');
+}
+
+async function setRecibeModo(modo) {
+  state.recibe.modo = modo;
+  el.recibeExistente.checked = modo === 'existente';
+  el.recibeNuevo.checked = modo === 'nuevo';
+  renderRecibeUI();
+  if (modo === 'nuevo') {
+    state.recibe.seleccionado = null;
+    const cliente = state.pedidoSeleccionado.codigo_cliente;
+    try {
+      const data = await fetchJson(`/api/next-numrecibe?cliente=${cliente}`);
+      state.recibe.ordinal_numrecibe = data.next;
+      el.ordinalRecibe.value = data.next;
+    } catch (error) {
+      showAlert(i18n[state.lang].errorServer);
+    }
+  }
+}
+
+function selectNumRecibe(value) {
+  const selected = state.recibe.lista.find(
+    (item) => (item.concatenarnumrecibe || '').toLowerCase() === value.toLowerCase()
+  );
+  state.recibe.seleccionado = selected || null;
+  if (selected) {
+    state.recibe.ordinal_numrecibe = selected.ordinal_numrecibe;
+    state.recibe.numero = selected.numero;
+    state.recibe.nombre = selected.nombre;
+    state.recibe.concatenarnumrecibe = selected.concatenarnumrecibe;
+  }
+}
+
+function updateConcatenarRecibe() {
+  const parts = [state.recibe.numero, state.recibe.nombre].filter(Boolean);
+  state.recibe.concatenarnumrecibe = parts.join(' | ');
+}
+
+function validateRecibe() {
+  if (state.entrega.region_entrega !== 'LIMA') {
+    return true;
+  }
+  if (state.recibe.modo === 'existente') {
+    return !!state.recibe.seleccionado;
+  }
+  return !!state.recibe.numero && !!state.recibe.nombre;
+}
+
+async function preparePagos() {
+  setLoading(true, el.loadingPagos);
+  try {
+    const data = await fetchJson('/api/next-documento-pago');
+    state.pago.numero_documento_base = data.next;
+    el.numeroDocumentoPago.value = data.next;
+    recalcPendiente();
+    el.montoPago.value = state.pago.monto_pendiente ? formatNumber(state.pago.monto_pendiente) : '';
+    el.btnAgregarPago.disabled = false;
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
+  } finally {
+    setLoading(false, el.loadingPagos);
+  }
+}
+
+function normalizeText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function selectCuenta(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) {
+    state.pago.codigo_cuentabancaria = null;
+    state.pago.cuenta_nombre = '';
+    state.pago.cuenta_banco = '';
+    el.cuentaBanco.value = '';
+    return;
+  }
+  const selected =
+    state.cuentas.find((item) => normalizeText(item.nombre) === normalized) ||
+    state.cuentas.find((item) => normalizeText(`${item.nombre} | ${item.banco}`) === normalized);
+  if (selected) {
+    state.pago.codigo_cuentabancaria = selected.codigo_cuentabancaria;
+    state.pago.cuenta_nombre = selected.nombre;
+    state.pago.cuenta_banco = selected.banco;
+    el.cuentaBanco.value = selected.banco || '';
+  }
+}
+
+function parseMoney(value) {
+  const cleaned = String(value || '')
+    .replace(/[^\d,.-]/g, '')
+    .replace(',', '.');
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : NaN;
+}
+
+function addPago() {
+  const montoNum = parseMoney(el.montoPago.value);
+  if (!Number.isFinite(montoNum)) {
+    showAlert(i18n[state.lang].errorPago);
+    return;
+  }
+  if (montoNum <= 0) {
+    showAlert(i18n[state.lang].errorPago);
+    return;
+  }
+  if (montoNum > state.pago.monto_pendiente) {
+    showAlert(i18n[state.lang].errorPago);
+    return;
+  }
+  if (!state.pago.codigo_cuentabancaria) {
+    selectCuenta(el.cuentaNombre.value);
+  }
+  if (state.pago.codigo_cuentabancaria == null) {
+    showAlert(i18n[state.lang].errorPago);
+    return;
+  }
+
+  const numdocumento = Number(state.pago.numero_documento_base || 0) + state.pagos.length;
+  state.pagos.push({
+    numdocumento,
+    monto: montoNum,
+    codigo_cuentabancaria: state.pago.codigo_cuentabancaria,
+    cuenta_nombre: state.pago.cuenta_nombre
+  });
+
+  renderPagos();
+  el.montoPago.value = state.pago.monto_pendiente ? formatNumber(state.pago.monto_pendiente) : '';
+  el.btnAgregarPago.disabled = false;
+}
+
+function renderPagos() {
+  el.pagosTable.innerHTML = '';
+  state.pagos.forEach((pago, index) => {
+    const numero = pago.numdocumento ?? Number(state.pago.numero_documento_base) + index;
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${numero}</td>
+      <td>${pago.cuenta_nombre || ''}</td>
+      <td>${formatNumber(pago.monto)}</td>
+      <td><button class="btn btn-outline-light btn-sm" data-remove="${index}">${i18n[state.lang].clear}</button></td>
+    `;
+    row.querySelector('button').addEventListener('click', () => removePago(index));
+    el.pagosTable.appendChild(row);
+  });
+  recalcPendiente();
+}
+
+function removePago(index) {
+  const removed = state.pagos.splice(index, 1)[0];
+  if (removed) {
+    renderPagos();
+    el.montoPago.value = formatNumber(state.pago.monto_pendiente);
+    el.btnAgregarPago.disabled = false;
+  }
+}
+
+function sumPagos() {
+  return state.pagos.reduce((acc, item) => acc + Number(item.monto || 0), 0);
+}
+
+function validatePagos() {
+  if (!state.pagos.length) {
+    return true;
+  }
+  const hasMissingCuenta = state.pagos.some((pago) => !pago.codigo_cuentabancaria);
+  if (hasMissingCuenta) {
+    showAlert(i18n[state.lang].errorCuenta);
+    return false;
+  }
+  if (!state.pagos.every((pago) => Number(pago.monto) > 0)) {
+    return false;
+  }
+  return true;
+}
+
+async function prepareBases() {
+  setLoading(true, el.loadingBases);
+  try {
+    const items = state.productosFactura.map((item) => ({
+      vFProducto: item.codigo_producto,
+      vFCantidadProducto: Number(item.cantidad || 0),
+      vFPrecioTotal: Number(item.precio_total || 0)
+    }));
+    const data = await fetchJson('/api/bases-candidatas', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, fechaP: state.factura.fechaP })
     });
-    state.basesCandidatas = data.rows || [];
+    const seen = new Set();
+    state.basesCandidatas = (data.rows || [])
+      .map((row) => normalizeBaseCandidata(row))
+      .filter((row) => {
+        if (!row.codigo_base) return false;
+        const key = String(row.codigo_base);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    renderBaseList(state.basesCandidatas.map((item) => String(item.codigo_base)));
     renderBasesCandidatas();
     await computeEta();
   } catch (error) {
-    showAlert(error.message);
+    showAlert(i18n[state.lang].errorServer);
   } finally {
-    setLoading(false);
+    setLoading(false, el.loadingBases);
+  }
+}
+
+async function computeEta() {
+  state.basesEta = [];
+  el.baseSugerida.textContent = '-';
+  state.baseSugerida = null;
+  if (!state.basesCandidatas.length) {
+    renderBasesEta();
+    return;
+  }
+  const hasCoords = Number.isFinite(state.entrega.latitud) && Number.isFinite(state.entrega.longitud);
+  const originAddress = hasCoords ? '' : buildOriginAddress();
+  if (!hasCoords && !originAddress) {
+    renderBasesEta();
+    return;
+  }
+
+  try {
+    const destinations = state.basesCandidatas
+      .map((base) => ({
+        codigo_base: base.codigo_base,
+        lat: Number(base.latitud),
+        lng: Number(base.longitud)
+      }))
+      .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+
+    if (!destinations.length) {
+      renderBasesEta();
+      return;
+    }
+
+    const data = await fetchJson('/api/distance-matrix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origin: hasCoords ? { lat: state.entrega.latitud, lng: state.entrega.longitud } : null,
+        originAddress: hasCoords ? '' : originAddress,
+        destinations
+      })
+    });
+
+    state.basesEta = (data.rows || []).map((item) => ({
+      codigo_base: item.codigo_base,
+      duration: item.duration,
+      distance: item.distance,
+      status: item.status
+    }));
+    renderBasesEta();
+    applyBaseSugerida();
+  } catch (error) {
+    renderBasesEta();
   }
 }
 
 function renderBasesCandidatas() {
   el.basesCandidatasTable.innerHTML = '';
   state.basesCandidatas.forEach((base) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${base.codigo_base}</td>
-      <td>${base.latitud || ''}</td>
-      <td>${base.longitud || ''}</td>
+    const name = getBaseName(base.codigo_base);
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${name}</td>
+      <td>${base.latitud || ''}, ${base.longitud || ''}</td>
     `;
-    el.basesCandidatasTable.appendChild(tr);
+    el.basesCandidatasTable.appendChild(row);
   });
-
-  const basesPrioridad = state.basesCandidatas.map((b) => b.codigo_base);
-  const ordered = [...state.bases].sort((a, b) => {
-    const aIs = basesPrioridad.includes(a.codigo_base) ? 0 : 1;
-    const bIs = basesPrioridad.includes(b.codigo_base) ? 0 : 1;
-    return aIs - bIs;
-  });
-  mapListToDatalist(ordered, el.basesAsignacionList, 'codigo_base', 'nombre');
 }
 
-async function computeEta() {
+function renderBasesEta() {
   el.basesEtaTable.innerHTML = '';
-  el.basesEtaEmpty.classList.toggle('d-none', true);
-  state.basesEta = [];
-
-  if (!state.data.vLatitud || !state.data.vLongitud || state.basesCandidatas.length === 0) {
-    el.basesEtaEmpty.classList.toggle('d-none', state.basesCandidatas.length > 0);
+  if (!state.basesEta.length) {
+    el.etaHint.textContent = i18n[state.lang].etaHint;
     return;
   }
-
-  const response = await apiFetch('/api/distance-matrix', {
-    method: 'POST',
-    body: JSON.stringify({
-      origin: `${state.data.vLatitud},${state.data.vLongitud}`,
-      destinations: state.basesCandidatas.map((b) => `${b.latitud},${b.longitud}`),
-      destinations_meta: state.basesCandidatas.map((b) => ({ codigo_base: b.codigo_base }))
-    })
+  const sorted = [...state.basesEta].filter((item) => item.status === 'OK').sort((a, b) => {
+    return (a.duration?.value || 0) - (b.duration?.value || 0);
   });
-
-  state.basesEta = response.rows || [];
-  state.basesEta.sort((a, b) => a.duration_value - b.duration_value);
-
-  state.basesEta.forEach((item) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${item.codigo_base}</td><td>${item.duration_text}</td>`;
-    el.basesEtaTable.appendChild(tr);
+  sorted.forEach((item) => {
+    const row = document.createElement('tr');
+    const baseName = getBaseName(item.codigo_base);
+    const etaText = item.duration ? item.duration.text : '-';
+    row.innerHTML = `
+      <td>${baseName}</td>
+      <td>${etaText}</td>
+    `;
+    el.basesEtaTable.appendChild(row);
   });
+  el.etaHint.textContent = '';
+}
 
-  if (state.basesEta.length > 0) {
-    const best = state.basesEta[0];
-    const base = state.bases.find((b) => b.codigo_base === best.codigo_base);
-    if (base) {
-      state.data.vcodigo_base = base.codigo_base;
-      state.data.vBaseNombre = base.nombre;
-      el.baseAsignada.value = base.nombre;
-      el.baseSugerida.value = `${base.nombre} (${best.duration_text})`;
-    }
+function applyBaseSugerida() {
+  const sorted = [...state.basesEta].filter((item) => item.status === 'OK').sort((a, b) => {
+    return (a.duration?.value || 0) - (b.duration?.value || 0);
+  });
+  if (!sorted.length) return;
+  const best = sorted[0];
+  const name = getBaseName(best.codigo_base);
+  state.baseSugerida = {
+    codigo_base: best.codigo_base,
+    nombre: name
+  };
+  el.baseSugerida.textContent = `${name} (${best.duration?.text || ''})`;
+  if (!state.baseManual || !state.factura.codigo_base) {
+    state.factura.codigo_base = best.codigo_base;
+    state.factura.base_nombre = name;
+    el.baseNombreFinal.value = name;
+    updateBasePill();
+  }
+}
+
+function validateBase() {
+  return !!state.factura.codigo_base;
+}
+
+function renderResumen() {
+  const pedido = state.pedidoSeleccionado || {};
+  el.resumenPedido.innerHTML = `
+    <div>Pedido: ${pedido.codigo_pedido || '-'}</div>
+    <div>Cliente: ${pedido.nombre_cliente || '-'} (${pedido.numero_cliente || '-'})</div>
+    <div>Fecha: ${formatDate(pedido.fecha)}</div>
+  `;
+
+  el.resumenFactura.innerHTML = `
+    <div>Documento: ${state.factura.tipo_documento} ${state.factura.numero_documento}</div>
+    <div>Fecha emision: ${state.factura.fechaP}</div>
+    <div>Monto: ${formatNumber(state.factura.monto)}</div>
+    <div>Costo envio: ${formatNumber(state.factura.costo_envio)}</div>
+    <div>Total: ${formatNumber(state.factura.total)}</div>
+  `;
+
+  const entregaTipo = state.entrega.modo === 'existente' ? i18n[state.lang].modoExistente : i18n[state.lang].modoNuevo;
+  el.resumenEntrega.innerHTML = `
+    <div>Modo: ${entregaTipo}</div>
+    <div>Region: ${state.entrega.region_entrega || '-'}</div>
+    <div>Punto: ${state.entrega.concatenarpuntoentrega || state.entrega.seleccionado?.concatenarpuntoentrega || '-'}</div>
+  `;
+
+  const recibeTipo = state.recibe.modo === 'existente' ? i18n[state.lang].modoExistente : i18n[state.lang].modoNuevo;
+  el.resumenRecibe.innerHTML = `
+    <div>Modo: ${state.entrega.region_entrega === 'LIMA' ? recibeTipo : i18n[state.lang].noAplica}</div>
+    <div>Recibe: ${state.recibe.concatenarnumrecibe || state.recibe.seleccionado?.concatenarnumrecibe || '-'}</div>
+  `;
+
+  if (!state.pagos.length) {
+    el.resumenPago.innerHTML = `<div>${i18n[state.lang].sinPagos}</div>`;
   } else {
-    el.basesEtaEmpty.classList.remove('d-none');
+    el.resumenPago.innerHTML = state.pagos
+      .map((pago, idx) => {
+        const numero = pago.numdocumento ?? Number(state.pago.numero_documento_base) + idx;
+        return `<div>RCP ${numero}: ${formatNumber(pago.monto)}</div>`;
+      })
+      .join('');
+  }
+
+  el.resumenBase.innerHTML = `
+    <div>Base: ${state.factura.base_nombre || '-'}</div>
+    <div>Codigo: ${state.factura.codigo_base || '-'}</div>
+  `;
+}
+
+function buildEmitPayload() {
+  const pedido = state.pedidoSeleccionado || {};
+  const entrega = state.entrega;
+  const recibe = state.recibe;
+  const factura = state.factura;
+
+  return {
+    pedido: {
+      codigo_pedido: pedido.codigo_pedido,
+      codigo_cliente: pedido.codigo_cliente
+    },
+    factura: {
+      tipo_documento: factura.tipo_documento,
+      numero_documento: factura.numero_documento,
+      fechaP: factura.fechaP,
+      codigo_base: factura.codigo_base,
+      monto: factura.monto,
+      saldo: factura.saldo,
+      saldo_favor_usado: state.saldoFavor.usado,
+      costo_envio: factura.costo_envio,
+      detalles: state.productosFactura.map((item) => ({
+        codigo_producto: item.codigo_producto,
+        cantidad: Number(item.cantidad || 0),
+        precio_total: Number(item.precio_total || 0)
+      }))
+    },
+    entrega: {
+      modo: entrega.modo,
+      ubigeo: entrega.ubigeo,
+      codigo_puntoentrega: entrega.codigo_puntoentrega,
+      codigo_cliente_puntoentrega: pedido.codigo_cliente,
+      direccion_linea: entrega.direccion_linea,
+      referencia: entrega.referencia,
+      nombre: entrega.nombre,
+      dni: entrega.dni,
+      agencia: entrega.agencia,
+      observaciones: entrega.observaciones,
+      region_entrega: entrega.region_entrega,
+      concatenarpuntoentrega: entrega.concatenarpuntoentrega || entrega.seleccionado?.concatenarpuntoentrega,
+      latitud: entrega.latitud,
+      longitud: entrega.longitud
+    },
+    recibe: {
+      modo: recibe.modo,
+      ordinal_numrecibe: recibe.ordinal_numrecibe,
+      numero: recibe.numero,
+      nombre: recibe.nombre,
+      concatenarnumrecibe: recibe.concatenarnumrecibe || recibe.seleccionado?.concatenarnumrecibe
+    },
+    pagos: state.pagos.map((pago) => ({
+      numdocumento: pago.numdocumento,
+      monto: pago.monto,
+      codigo_cuentabancaria: pago.codigo_cuentabancaria
+    }))
+  };
+}
+
+function formatNumber(value) {
+  const number = Number(value || 0);
+  return number.toFixed(2);
+}
+
+function formatDate(value) {
+  if (!value) return '-';
+  return String(value).slice(0, 10);
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  const text = String(value);
+  return text.length > 16 ? text.slice(0, 16).replace('T', ' ') : text;
+}
+
+function handleBaseSelection(value) {
+  const selected = state.bases.find((base) => (base.nombre || '').toLowerCase() === value.toLowerCase());
+  if (selected) {
+    state.factura.codigo_base = selected.codigo_base;
+    state.factura.base_nombre = selected.nombre;
+    el.baseNombreFinal.value = selected.nombre;
+    updateBasePill();
   }
 }
 
-function buildResumen() {
-  el.resumenPedido.textContent = `${state.data.vcodigo_pedido} | ${state.data.vnombre_cliente} | ${state.data.vnumero_cliente}`;
-  el.resumenFactura.textContent = `FAC ${state.data.vNumero_documento} | Total ${formatMoney(state.data.VfTotal)}`;
-  const entregaModo = state.data.vEntregaModo === 'nuevo' ? 'NUEVO' : 'EXISTENTE';
-  el.resumenEntrega.textContent = `${entregaModo} | ${state.data.vRegion_Entrega || ''} | ${state.data.vConcatenarpuntoentrega || state.data.vPuntoEntregaTexto}`;
-  const recibeModo = state.data.vRecibeModo === 'nuevo' ? 'NUEVO' : 'EXISTENTE';
-  el.resumenRecibe.textContent = `${recibeModo} | ${state.data.vConcatenarnumrecibe || ''}`;
+function updateBasePill() {
+  el.baseSeleccionada.textContent = state.factura.base_nombre
+    ? `${state.factura.base_nombre} (${state.factura.codigo_base})`
+    : '-';
 }
 
-function validateStep(step) {
-  clearAlerts();
-  if (step === 1) {
-    if (!state.data.vcodigo_pedido) {
-      showAlert(t('selectOrder'));
-      return false;
-    }
-  }
-  if (step === 2) {
-    updateFechaP();
-    for (const item of state.data.vProdFactura) {
-      if (Number(item.cantidad) > Number(item.saldo)) {
-        showAlert(t('errorCantidad'));
-        return false;
-      }
-    }
-  }
-  if (step === 3) {
-    if (state.data.vEntregaModo === 'nuevo') {
-      state.data.vDireccionLinea = el.direccionLinea.value.trim();
-      state.data.vReferencia = el.referencia.value.trim();
-      state.data.vLatitud = el.latitud.value.trim();
-      state.data.vLongitud = el.longitud.value.trim();
-      state.data.vNombre = el.nombreEntrega.value.trim();
-      state.data.vDni = el.dniEntrega.value.trim();
-      state.data.vAgencia = el.agenciaEntrega.value.trim();
-      state.data.vObservaciones = el.observacionesEntrega.value.trim();
-      updateUbigeoFromInput();
-      if (state.data.vRegion_Entrega === 'LIMA') {
-        if (!state.data.vDireccionLinea) {
-          showAlert(t('errorGeneric'));
-          return false;
-        }
-      } else {
-        if (state.data.vDni && !reDni.test(state.data.vDni)) {
-          showAlert('DNI invalido');
-          return false;
-        }
-      }
-      buildConcatenarPuntoEntrega();
-    } else {
-      if (!state.data.vPuntoEntregaTexto) {
-        showAlert(t('errorGeneric'));
-        return false;
-      }
-    }
-  }
-  if (step === 4 && state.data.vRegion_Entrega === 'LIMA') {
-    if (state.data.vRecibeModo === 'nuevo') {
-      state.data.vNumeroRecibe = el.numeroRecibe.value.trim();
-      state.data.vNombreRecibe = el.nombreRecibe.value.trim();
-      state.data.vConcatenarnumrecibe = [state.data.vNumeroRecibe, state.data.vNombreRecibe].filter(Boolean).join(' | ');
-      if (!state.data.vNumeroRecibe || !state.data.vNombreRecibe) {
-        showAlert(t('errorGeneric'));
-        return false;
-      }
-    } else {
-      if (!state.data.vConcatenarnumrecibe) {
-        showAlert(t('errorGeneric'));
-        return false;
-      }
-    }
-  }
-  if (step === 5) {
-    const monto = el.montoPago.value.trim();
-    if (monto && !reDecimal.test(monto)) {
-      showAlert(t('errorGeneric'));
-      return false;
-    }
-    state.data.vMontoPago = monto ? Number(monto) : 0;
-    if (state.data.vMontoPago > state.data.vMontoPendiente) {
-      showAlert(t('errorPago'));
-      return false;
-    }
-    setCuentaFromInput(el.cuentaNombre.value);
-    if (state.data.vMontoPago > 0 && !state.data.vCuentaBancaria) {
-      showAlert(t('errorGeneric'));
-      return false;
-    }
-  }
-  if (step === 6) {
-    const base = findByLabel(state.bases, 'nombre', el.baseAsignada.value);
-    if (base) {
-      state.data.vcodigo_base = base.codigo_base;
-      state.data.vBaseNombre = base.nombre;
-    }
-  }
-  if (step === 7) {
-    buildResumen();
-  }
-  return true;
-}
-
-async function emitFactura() {
-  if (!el.confirmOperacion.checked) {
-    showAlert(t('errorGeneric'));
-    return;
-  }
-  setLoading(true);
+async function loadNextPuntoEntrega() {
   try {
-    const payload = {
-      data: state.data,
-      prodFactura: state.data.vProdFactura.map((item, index) => ({
-        ...item,
-        ordinal: index + 1
-      })),
-      prodFacturaJson: buildProdFacturaJson()
-    };
-    await apiFetch('/api/emitir-factura', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    showSuccess(t('successEmit'));
-    resetWizard();
+    const cliente = state.pedidoSeleccionado.codigo_cliente;
+    const data = await fetchJson(`/api/next-punto-entrega?cliente=${cliente}`);
+    state.entrega.codigo_puntoentrega = data.next;
   } catch (error) {
-    showAlert(error.message);
-  } finally {
-    setLoading(false);
+    showAlert(i18n[state.lang].errorServer);
   }
 }
 
-function resetWizard() {
-  state.currentStep = 1;
-  state.data = JSON.parse(JSON.stringify(initialData));
-  el.confirmOperacion.checked = false;
-  el.emitirFactura.disabled = true;
-  el.baseAsignada.value = '';
-  el.baseSugerida.value = '';
-  el.numRecibe.value = '';
-  el.puntoEntrega.value = '';
-  el.productosTable.innerHTML = '';
-  el.resumenPedido.textContent = '';
-  el.resumenFactura.textContent = '';
-  el.resumenEntrega.textContent = '';
-  el.resumenRecibe.textContent = '';
-  wizard.show(1);
-  loadPedidos();
-}
-
-function wireEvents() {
-  el.prevBtn.addEventListener('click', () => {
-    wizard.updateProgress();
-    const prevStep = wizard.prevStep();
-    if (prevStep) {
-      wizard.show(prevStep);
-    }
-  });
-
-  el.nextBtn.addEventListener('click', async () => {
-    if (!validateStep(state.currentStep)) return;
-    wizard.updateProgress();
-    const nextStep = wizard.nextStep();
-    if (nextStep) {
-      if (nextStep === 3) {
-        await loadPuntosEntrega();
-        await loadUbigeo();
-      }
-      if (nextStep === 4) {
-        await loadNumRecibe();
-      }
-      if (nextStep === 5) {
-        await prepareStep5();
-      }
-      if (nextStep === 6) {
-        await prepareStep6();
-      }
-      if (nextStep === 7) {
-        buildResumen();
-      }
-      wizard.show(nextStep);
-    }
-  });
-
-  el.saveDraft.addEventListener('click', () => {
-    showAlert('Borrador local actualizado.');
-  });
-
-  el.reloadPedidos.addEventListener('click', loadPedidos);
-
-  el.emitirFactura.disabled = true;
-  el.confirmOperacion.addEventListener('change', () => {
-    el.emitirFactura.disabled = !el.confirmOperacion.checked;
-  });
-  el.fechaEmision.addEventListener('change', updateFechaP);
-  el.horaEmision.addEventListener('change', updateFechaP);
-
-  el.baseFactura.addEventListener('change', () => {
-    const base = findByLabel(state.bases, 'nombre', el.baseFactura.value);
-    if (base) {
-      state.data.vcodigo_base = base.codigo_base;
-      state.data.vBaseNombre = base.nombre;
-    }
-  });
-
-  document.querySelectorAll('input[name="entregaOption"]').forEach((input) => {
-    input.addEventListener('change', toggleEntregaMode);
-  });
-
-  el.puntoEntrega.addEventListener('change', () => setEntregaFromExisting(el.puntoEntrega.value));
-
-  el.departamento.addEventListener('change', async () => {
-    updateUbigeoFromInput();
-    await loadProvincias();
-    await loadDistritos();
-  });
-
-  el.provincia.addEventListener('change', async () => {
-    updateUbigeoFromInput();
-    await loadDistritos();
-  });
-
-  el.distrito.addEventListener('change', updateUbigeoFromInput);
-
-  document.querySelectorAll('input[name="recibeOption"]').forEach((input) => {
-    input.addEventListener('change', toggleRecibeMode);
-  });
-
-  el.numRecibe.addEventListener('change', () => setRecibeFromExisting(el.numRecibe.value));
-  el.cuentaNombre.addEventListener('change', () => setCuentaFromInput(el.cuentaNombre.value));
-  el.montoPago.addEventListener('change', () => validateStep(5));
-
-  el.baseAsignada.addEventListener('change', () => {
-    const base = findByLabel(state.bases, 'nombre', el.baseAsignada.value);
-    if (base) {
-      state.data.vcodigo_base = base.codigo_base;
-      state.data.vBaseNombre = base.nombre;
-    }
-  });
-
-  el.emitirFactura.addEventListener('click', emitFactura);
-}
-
-let mapInstance = null;
-let mapMarker = null;
-let autocomplete = null;
-
-function ensureMapa() {
-  if (mapInstance) return;
-  if (!state.config) return;
-  if (!state.config.apiKey) {
-    showAlert('Google Maps API key missing');
-    return;
+async function loadBases() {
+  try {
+    const data = await fetchJson('/api/bases');
+    state.bases = data.rows || [];
+    renderBaseList();
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
   }
+}
 
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${state.config.apiKey}&libraries=places`;
-  script.async = true;
-  script.defer = true;
-  script.onload = () => initMap();
-  document.head.appendChild(script);
+function renderBaseList(priorityCodes = []) {
+  const prioritySet = new Set(priorityCodes.map((code) => String(code)));
+  const sorted = [...state.bases].sort((a, b) => {
+    const aPriority = prioritySet.has(String(a.codigo_base)) ? 0 : 1;
+    const bPriority = prioritySet.has(String(b.codigo_base)) ? 0 : 1;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+    return String(a.nombre || '').localeCompare(String(b.nombre || ''));
+  });
+  el.basesList.innerHTML = '';
+  sorted.forEach((base) => {
+    const option = document.createElement('option');
+    option.value = base.nombre;
+    el.basesList.appendChild(option);
+  });
+}
+
+async function loadCuentas() {
+  try {
+    const data = await fetchJson('/api/cuentas-bancarias');
+    state.cuentas = data.rows || [];
+    el.cuentasList.innerHTML = '';
+    state.cuentas.forEach((cuenta) => {
+      const option = document.createElement('option');
+      option.value = cuenta.nombre;
+      el.cuentasList.appendChild(option);
+    });
+  } catch (error) {
+    showAlert(i18n[state.lang].errorServer);
+  }
+}
+
+function getBaseName(codigoBase) {
+  const base = state.bases.find((item) => String(item.codigo_base) === String(codigoBase));
+  return base ? base.nombre : `Base ${codigoBase}`;
+}
+
+async function loadMapsConfig() {
+  try {
+    const data = await fetchJson('/api/maps-config');
+    state.mapsConfig = data;
+  } catch (error) {
+    state.mapsConfig = { apiKey: '', defaultCenter: null, defaultZoom: 12 };
+  }
 }
 
 function initMap() {
-  const center = state.config.defaultCenter || { lat: -12.0464, lng: -77.0428 };
-  mapInstance = new google.maps.Map(document.getElementById('map'), {
-    center,
-    zoom: state.config.defaultZoom || 12
-  });
-  mapMarker = new google.maps.Marker({ map: mapInstance, position: center });
+  if (state.mapLoaded) return;
+  if (!state.mapsConfig || !state.mapsConfig.apiKey) return;
 
-  autocomplete = new google.maps.places.Autocomplete(el.mapSearch);
-  autocomplete.addListener('place_changed', () => {
-    const place = autocomplete.getPlace();
-    if (!place.geometry) return;
-    const location = place.geometry.location;
-    setMapLocation(location.lat(), location.lng(), place.formatted_address || '');
-  });
-
-  mapInstance.addListener('click', (event) => {
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: event.latLng }, (results, status) => {
-      const address = status === 'OK' && results[0] ? results[0].formatted_address : '';
-      setMapLocation(event.latLng.lat(), event.latLng.lng(), address);
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${state.mapsConfig.apiKey}&libraries=places&callback=initWizardMap`;
+  script.async = true;
+  window.initWizardMap = () => {
+    const center = state.mapsConfig.defaultCenter || { lat: -12.0464, lng: -77.0428 };
+    const zoom = state.mapsConfig.defaultZoom || 12;
+    state.map = new google.maps.Map(el.mapCanvas, {
+      center,
+      zoom
     });
-  });
+    state.marker = new google.maps.Marker({ map: state.map });
+    const geocoder = new google.maps.Geocoder();
+
+    const autocomplete = new google.maps.places.Autocomplete(el.mapSearch, {
+      fields: ['geometry', 'formatted_address']
+    });
+
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      if (!place.geometry) return;
+      const location = place.geometry.location;
+      updateLocation(location.lat(), location.lng(), place.formatted_address);
+    });
+
+    state.map.addListener('click', (event) => {
+      const lat = event.latLng.lat();
+      const lng = event.latLng.lng();
+      updateLocation(lat, lng, null);
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          updateLocation(lat, lng, results[0].formatted_address);
+        }
+      });
+    });
+
+    state.mapLoaded = true;
+  };
+  document.body.appendChild(script);
 }
 
-function setMapLocation(lat, lng, address) {
-  if (!mapInstance) return;
-  const pos = { lat, lng };
-  mapInstance.setCenter(pos);
-  mapMarker.setPosition(pos);
+function updateLocation(lat, lng, address) {
+  state.entrega.latitud = lat;
+  state.entrega.longitud = lng;
   el.latitud.value = lat.toFixed(6);
   el.longitud.value = lng.toFixed(6);
+  if (state.marker) {
+    state.marker.setPosition({ lat, lng });
+    state.map.setCenter({ lat, lng });
+  }
   if (address) {
     el.direccionLinea.value = address;
+    state.entrega.direccion_linea = address;
+    updateConcatenarEntrega();
   }
-  state.data.vLatitud = el.latitud.value;
-  state.data.vLongitud = el.longitud.value;
-  if (state.currentStep >= 6 && state.basesCandidatas.length > 0) {
-    computeEta().catch(() => {});
+  if (state.basesCandidatas.length) {
+    computeEta();
   }
 }
 
-async function init() {
-  state.lang = detectLanguage();
-  applyTranslations();
-  wizard.updateProgress();
-  initDateTime();
-  wireEvents();
+const wizard = new FormWizard();
 
-  setLoading(true);
-  try {
-    state.config = await apiFetch('/api/config');
-    await loadPedidos();
-    await loadCuentas();
-  } catch (error) {
-    showAlert(error.message);
-  } finally {
-    setLoading(false);
-  }
-
-  wizard.show(1);
-}
-
-init();
+wizard.init();

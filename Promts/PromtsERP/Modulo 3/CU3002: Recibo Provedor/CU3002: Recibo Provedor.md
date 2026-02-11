@@ -104,7 +104,7 @@ Campos del pago:
 vFecha = Inicializar con la fecha del sistema (editable).
 vTipo_documento_compra = "RCC".
 vNum_documento_compra = correlativo numerico (12 digitos) no editable. Se debe generar con SQL: 
-`SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCC'` (si no hay registros empieza en 1).
+`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = 'RCC'` (si no hay registros empieza en 1).
 vCuentas = Llamada SP: `get_cuentasbancarias()` (devuelve campo_visible)
 Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
 Variables:
@@ -127,20 +127,31 @@ Validaciones:
 
 ## Grabar Recibo. Tomar los datos capturados en el paso 2:
 
-### Guardar en la tabla "mov_operaciones_contables".
-tipodocumento=vTipo_documento_compra  
-numdocumento=vNum_documento_compra  
-fecha=vFecha  
-monto=vMonto  
+### Guardar en la tabla "mov_contable_prov".
+tipo_documento_compra=vTipo_documento_compra  
+num_documento_compra=vNum_documento_compra  
+codigo_provedor=vCodigo_provedor  
 codigo_cuentabancaria=vCodigo_cuentabancaria  
-codigo_cuentabancaria_destino=NULL  
-descripcion=opcional  
+monto=vMonto  
+saldo=vMonto  
+fecha=vFecha  
 
 ### Detalle
 Para recibos proveedores (RCC) no registrar detalle.
 
+### Aplicar pago a facturas de compra (obligatorio)
+- Despues de guardar el RCC en `mov_contable_prov`, ejecutar:
+`CALL aplicar_recibo_a_facturas_prov(vCodigo_provedor, vNum_documento_compra, vMonto)`.
+
 ### Actualizar saldo del proveedor
-- Ejecutar el procedimiento `actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vMonto)`.
+- Ejecutar el procedimiento `actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vMonto)` despues de `aplicar_recibo_a_facturas_prov`.
+
+### Orden obligatorio de registro (transaccion)
+1. INSERT en `mov_contable_prov` (RCC).
+2. `CALL aplicar_recibo_a_facturas_prov(vCodigo_provedor, vNum_documento_compra, vMonto)`.
+3. `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vMonto)`.
+4. COMMIT. Si falla algo: ROLLBACK.
+
 
 
 No utilizar datos mock.

@@ -36,7 +36,8 @@ const state = {
   bases: [],
   baseNueva: null,
   baseNuevaNombre: '',
-  config: null
+  config: null,
+  codigoUsuario: null
 };
 
 const alertArea = document.getElementById('alertArea');
@@ -55,13 +56,14 @@ const baseOptions = document.getElementById('baseOptions');
 const detallePunto = document.getElementById('detallePunto');
 const detalleRecibe = document.getElementById('detalleRecibe');
 const detalleBase = document.getElementById('detalleBase');
+const detallePacking = document.getElementById('detallePacking');
 const mapCard = document.getElementById('mapCard');
 const summary = document.getElementById('summary');
 const codigoUsuario = document.getElementById('codigoUsuario');
 
 const wizard = new FormWizard(3);
 const baseCodeRe = /^[A-Za-z0-9_-]{1,30}$/;
-const userCodeRe = /^[A-Za-z0-9_-]{3,30}$/;
+const userCodeRe = /^[A-Za-z0-9_-]{1,30}$/;
 
 const i18n = {
   es: {
@@ -83,6 +85,7 @@ const i18n = {
     nombre_cliente: 'Cliente',
     num_cliente: 'Número',
     codigo_base: 'Base',
+    packing: 'Packing',
     concatenarpuntoentrega: 'Punto Entrega',
     concatenarnumrecibe: 'Recibe',
     next: 'Siguiente',
@@ -103,6 +106,7 @@ const i18n = {
     auth: 'Autorización',
     codigo_usuario: 'Código usuario',
     user_hint: 'Requerido para el registro de auditoría.',
+    user_hint_login: 'Se toma del login para el registro de auditoría.',
     confirm: 'Confirmación',
     confirm_text: 'Esta acción es transaccional. Si falla algo, no se registrará nada.',
     confirm_required: 'Debes confirmar que los datos son correctos.',
@@ -132,6 +136,7 @@ const i18n = {
     nombre_cliente: 'Client',
     num_cliente: 'Number',
     codigo_base: 'Base',
+    packing: 'Packing',
     concatenarpuntoentrega: 'Delivery Point',
     concatenarnumrecibe: 'Recipient',
     next: 'Next',
@@ -152,6 +157,7 @@ const i18n = {
     auth: 'Authorization',
     codigo_usuario: 'User code',
     user_hint: 'Required for audit logging.',
+    user_hint_login: 'Pulled from login for audit logging.',
     confirm: 'Confirmation',
     confirm_text: 'This action is transactional. If anything fails, nothing is recorded.',
     confirm_required: 'You must confirm that the data is correct.',
@@ -175,6 +181,27 @@ document.querySelectorAll('[data-i18n]').forEach((el) => {
   }
 });
 
+function getCodigoUsuarioFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get('codigo_usuario') || params.get('codigoUsuario');
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!userCodeRe.test(trimmed)) return null;
+  return trimmed;
+}
+
+function applyCodigoUsuarioFromLogin() {
+  const codigo = getCodigoUsuarioFromQuery();
+  if (!codigo) return;
+  state.codigoUsuario = codigo;
+  codigoUsuario.value = codigo;
+  codigoUsuario.readOnly = true;
+  const hint = document.querySelector('[data-i18n="user_hint"]');
+  if (hint && i18n[locale].user_hint_login) {
+    hint.textContent = i18n[locale].user_hint_login;
+  }
+}
+
 function showAlert(message, type = 'danger') {
   alertArea.innerHTML = `
     <div class="alert alert-${type}" role="alert">${message}</div>
@@ -195,6 +222,7 @@ function renderPaquetes(rows) {
       <td>${row.nombre_cliente}</td>
       <td>${row.num_cliente}</td>
       <td>${row.codigo_base}</td>
+      <td>${row.nombre_packing || row.codigo_packing || ''}</td>
       <td>${row.concatenarpuntoentrega}</td>
       <td>${row.concatenarnumrecibe}</td>
     `;
@@ -217,8 +245,6 @@ function renderMovDetalle(rows) {
     tr.innerHTML = `
       <td>${row.nombre_producto}</td>
       <td>${row.cantidad}</td>
-      <td>${row.saldo}</td>
-      <td>${row.precio_total}</td>
     `;
     movTableBody.appendChild(tr);
   });
@@ -273,7 +299,7 @@ async function fetchJson(url, options) {
 async function loadPaquetes() {
   clearAlert();
   step1Next.disabled = true;
-  paquetesTableBody.innerHTML = `<tr><td colspan="7">${i18n[locale].loading}</td></tr>`;
+  paquetesTableBody.innerHTML = `<tr><td colspan="8">${i18n[locale].loading}</td></tr>`;
   try {
     const data = await fetchJson('/api/paquetes-pendientes');
     renderPaquetes(data.rows || []);
@@ -287,6 +313,13 @@ async function loadStep2() {
   detallePunto.textContent = state.paquete.concatenarpuntoentrega || '';
   detalleRecibe.textContent = state.paquete.concatenarnumrecibe || '';
   detalleBase.textContent = state.paquete.codigo_base || '';
+  detallePacking.textContent = state.paquete.nombre_packing || state.paquete.codigo_packing || '';
+
+  state.baseNueva = null;
+  state.baseNuevaNombre = '';
+  baseSearch.value = '';
+  baseNombre.value = '';
+  baseOptions.hidden = true;
 
   const region = (state.paquete.region_entrega || '').toUpperCase();
   if (region === 'LIMA') {
@@ -296,7 +329,7 @@ async function loadStep2() {
     mapCard.hidden = true;
   }
 
-  movTableBody.innerHTML = `<tr><td colspan="4">${i18n[locale].loading}</td></tr>`;
+  movTableBody.innerHTML = `<tr><td colspan="2">${i18n[locale].loading}</td></tr>`;
   try {
     const [movData, basesData] = await Promise.all([
       fetchJson(`/api/mov-contable-detalle?tipo_documento=FAC&numero_documento=${encodeURIComponent(state.paquete.codigo_paquete)}`),
@@ -305,7 +338,12 @@ async function loadStep2() {
     state.movDetalles = movData.rows || [];
     state.bases = basesData.rows || [];
     renderMovDetalle(state.movDetalles);
-    renderBaseOptions(baseSearch.value || '');
+    const baseActual = state.bases.find(
+      (base) => String(base.codigo_base) === String(state.paquete.codigo_base)
+    );
+    if (baseActual) {
+      detalleBase.textContent = `${baseActual.codigo_base} - ${baseActual.nombre}`;
+    }
   } catch (err) {
     showAlert(err.message || 'Error');
   }
@@ -380,6 +418,7 @@ function buildSummary() {
     <div><strong>${i18n[locale].codigo_paquete}:</strong> ${state.paquete.codigo_paquete}</div>
     <div><strong>${i18n[locale].nombre_cliente}:</strong> ${state.paquete.nombre_cliente}</div>
     <div><strong>${i18n[locale].codigo_base_actual}:</strong> ${state.paquete.codigo_base}</div>
+    <div><strong>${i18n[locale].packing}:</strong> ${state.paquete.nombre_packing || state.paquete.codigo_packing || '-'}</div>
     <div><strong>${i18n[locale].codigo_base_nueva}:</strong> ${state.baseNueva || '-'}</div>
     <div><strong>${i18n[locale].nombre_base}:</strong> ${state.baseNuevaNombre || '-'}</div>
   `;
@@ -398,7 +437,7 @@ function validateStep2() {
 }
 
 function validateStep3() {
-  const value = codigoUsuario.value.trim();
+  const value = state.codigoUsuario || codigoUsuario.value.trim();
   if (!value || !userCodeRe.test(value)) {
     showAlert(i18n[locale].alert_usuario, 'warning');
     return false;
@@ -431,6 +470,10 @@ baseSearch.addEventListener('input', (event) => {
   renderBaseOptions(event.target.value);
 });
 
+baseSearch.addEventListener('focus', () => {
+  renderBaseOptions('');
+});
+
 baseSearch.addEventListener('blur', () => {
   setTimeout(() => {
     baseOptions.hidden = true;
@@ -459,6 +502,7 @@ submitBtn.addEventListener('click', async () => {
   submitSpinner.hidden = false;
 
   try {
+    const codigoUsuarioValue = state.codigoUsuario || codigoUsuario.value.trim();
     await fetchJson('/api/reasignar-base', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -467,7 +511,7 @@ submitBtn.addEventListener('click', async () => {
         vcodigo_paquete: state.paquete.codigo_paquete,
         vcodigo_base: state.paquete.codigo_base,
         vCodigo_base_nueva: state.baseNueva,
-        vcodigo_usuario: codigoUsuario.value.trim()
+        vcodigo_usuario: codigoUsuarioValue
       })
     });
     showAlert(i18n[locale].success, 'success');
@@ -487,7 +531,11 @@ function resetWizard() {
   state.movDetalles = [];
   baseSearch.value = '';
   baseNombre.value = '';
-  codigoUsuario.value = '';
+  if (state.codigoUsuario) {
+    codigoUsuario.value = state.codigoUsuario;
+  } else {
+    codigoUsuario.value = '';
+  }
   confirmCheck.checked = false;
   submitBtn.disabled = true;
   renderMovDetalle([]);
@@ -495,4 +543,5 @@ function resetWizard() {
   loadPaquetes();
 }
 
+applyCodigoUsuarioFromLogin();
 loadConfig().then(loadPaquetes);

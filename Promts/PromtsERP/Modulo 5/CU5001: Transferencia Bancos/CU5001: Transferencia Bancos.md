@@ -112,6 +112,7 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Regis
  numdocumento=vNumdocumento
  fecha=vFecha
  monto=vMonto
+ saldo=vMonto
  codigo_cuentabancaria=vCodigo_cuentabancaria
  codigo_cuentabancaria_destino=vCodigo_cuentabancaria_destino
  descripcion=vDescripcion

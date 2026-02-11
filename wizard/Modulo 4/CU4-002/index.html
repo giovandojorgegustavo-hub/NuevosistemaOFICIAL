@@ -100,8 +100,7 @@
                   <input type="hidden" id="vCodigo_base" name="vCodigo_base" />
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label" for="vCodigo_provedor">vCodigo_provedor</label>
-                  <input class="form-control" id="vCodigo_provedor" name="vCodigo_provedor" value="0" readonly />
+                  <input type="hidden" id="vCodigo_provedor" name="vCodigo_provedor" value="0" />
                 </div>
               </div>
 
@@ -114,7 +113,6 @@
                       <th class="text-end">Vcantidad_sistema</th>
                       <th class="text-end">Vcantidad_real</th>
                       <th class="text-end">Vcantidad</th>
-                      <th class="text-end">Vmonto</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -123,7 +121,7 @@
               </div>
               <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-light" id="addRowBtn">Agregar linea</button>
-                <span class="hint">Escribe para filtrar productos. Vmonto aplica solo para AJE.</span>
+                <span class="hint">Escribe para filtrar productos.</span>
               </div>
             </div>
 
@@ -142,7 +140,6 @@
                         <tr>
                           <th>Producto</th>
                           <th class="text-end">Vcantidad</th>
-                          <th class="text-end">Vmonto</th>
                           <th>Tipo</th>
                         </tr>
                       </thead>
@@ -163,7 +160,6 @@
                     <h4>Logs SQL</h4>
                     <p>Consulta las sentencias ejecutadas en la ultima transaccion.</p>
                   </div>
-                  <button type="button" class="btn btn-outline-info" id="refreshLogsBtn">Actualizar logs</button>
                 </div>
                 <pre id="sqlLogs" class="sql-box">Sin logs disponibles.</pre>
               </div>

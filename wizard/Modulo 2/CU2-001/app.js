@@ -49,9 +49,6 @@ const vCodigoUsuarioInput = document.getElementById('vCodigo_usuario');
 const ultimaAsistenciaText = document.getElementById('ultimaAsistencia');
 const abrirHorarioBtn = document.getElementById('abrirHorarioBtn');
 const confirmCheck = document.getElementById('confirmCheck');
-const logToggleBtn = document.getElementById('logToggleBtn');
-const logPanel = document.getElementById('logPanel');
-const logContent = document.getElementById('logContent');
 
 const wizard = new FormWizard(1);
 
@@ -70,8 +67,6 @@ const i18n = {
     sinRegistro: 'sin registro',
     abrirHorario: 'Abrir Horario',
     asistenciaRegistrada: 'Asistencia registrada',
-    verLogs: 'Ver Logs de sentencias SQL',
-    ocultarLogs: 'Ocultar Logs de sentencias SQL',
     confirmRequired: 'Debes confirmar que los datos son correctos.',
     loading: 'Procesando...',
     success: 'Horario abierto correctamente.',
@@ -88,8 +83,6 @@ const i18n = {
     sinRegistro: 'no record',
     abrirHorario: 'Open Schedule',
     asistenciaRegistrada: 'Attendance recorded',
-    verLogs: 'View SQL logs',
-    ocultarLogs: 'Hide SQL logs',
     confirmRequired: 'You must confirm that the data is correct.',
     loading: 'Processing...',
     success: 'Schedule opened successfully.',
@@ -143,6 +136,16 @@ function formatDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function formatDateTimeForDb(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+}
+
 function resolveCodes() {
   const userbase = window.userbase; // TODO: reemplazar cuando exista contexto real.
   const currentuser = window.currentuser; // TODO: reemplazar cuando exista contexto real.
@@ -158,10 +161,11 @@ function updateHiddenFields() {
 
 function updateUltimaAsistencia(value) {
   const dict = i18n[getLang()];
-  if (!value) {
+  const formatted = formatDateTime(value);
+  if (!formatted) {
     ultimaAsistenciaText.textContent = `${dict.ultima}: ${dict.sinRegistro}`;
   } else {
-    ultimaAsistenciaText.textContent = `${dict.ultima}: ${value}`;
+    ultimaAsistenciaText.textContent = `${dict.ultima}: ${formatted}`;
   }
 }
 
@@ -177,6 +181,82 @@ function setAsistenciaState(isActive) {
     abrirHorarioBtn.dataset.active = 'false';
     abrirHorarioBtn.textContent = i18n[getLang()].abrirHorario;
   }
+}
+
+function parseDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return { date: value, hasTime: true };
+  }
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return { date, hasTime: true };
+    }
+    return null;
+  }
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (dateRe.test(trimmed)) {
+    const [year, month, day] = trimmed.split('-').map((part) => Number(part));
+    if (!year || !month || !day) return null;
+    return { date: new Date(year, month - 1, day), hasTime: false };
+  }
+
+  if (trimmed.includes('T')) {
+    const isoDate = new Date(trimmed);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return { date: isoDate, hasTime: true };
+    }
+  }
+
+  const dateTimeMatch = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+  if (dateTimeMatch) {
+    const [, year, month, day, hour, minute, second = '0'] = dateTimeMatch;
+    const date = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second)
+    );
+    if (!Number.isNaN(date.getTime())) {
+      return { date, hasTime: true };
+    }
+  }
+
+  const fallback = new Date(trimmed);
+  if (!Number.isNaN(fallback.getTime())) {
+    return { date: fallback, hasTime: true };
+  }
+  return null;
+}
+
+function formatDateTime(value) {
+  const parsed = parseDateValue(value);
+  if (!parsed) return null;
+
+  const locale = navigator.language || 'es';
+  const datePart = parsed.date.toLocaleDateString(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  if (!parsed.hasTime) {
+    return datePart;
+  }
+  const timePart = parsed.date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  return `${datePart} ${timePart}`;
 }
 
 async function fetchUltimaAsistencia() {
@@ -217,49 +297,27 @@ async function abrirHorario() {
 
   setLoading(true);
   try {
+    const vFechaRegistro = formatDateTimeForDb(new Date());
     const response = await fetch('/api/abrir-horario', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         vFecha: state.vFecha,
+        vFecha_registro: vFechaRegistro,
         vCodigo_base: state.vCodigo_base,
         vCodigo_usuario: state.vCodigo_usuario
       })
     });
     const data = await response.json();
     if (!data.ok) throw new Error(data.message || 'ABRIR_HORARIO_ERROR');
-    state.vUltima_asistencia = data.ultima_asistencia || state.vFecha;
+    state.vUltima_asistencia = data.ultima_asistencia || vFechaRegistro;
     updateUltimaAsistencia(state.vUltima_asistencia);
     setAsistenciaState(true);
     showAlert(i18n[getLang()].success, 'success');
-    await loadSqlLogs();
   } catch (error) {
     showAlert(i18n[getLang()].error);
   } finally {
     setLoading(false);
-  }
-}
-
-async function loadSqlLogs() {
-  try {
-    const response = await fetch('/api/sql-logs');
-    const data = await response.json();
-    if (!data.ok) throw new Error('SQL_LOGS_ERROR');
-    logContent.textContent = data.lines.length ? data.lines.join('\n') : 'Sin registros SQL.';
-  } catch (error) {
-    logContent.textContent = 'No se pudieron cargar los logs.';
-  }
-}
-
-function toggleLogs() {
-  const isOpen = !logPanel.classList.contains('d-none');
-  if (isOpen) {
-    logPanel.classList.add('d-none');
-    logToggleBtn.textContent = i18n[getLang()].verLogs;
-  } else {
-    logPanel.classList.remove('d-none');
-    logToggleBtn.textContent = i18n[getLang()].ocultarLogs;
-    loadSqlLogs();
   }
 }
 
@@ -279,6 +337,5 @@ abrirHorarioBtn.addEventListener('click', abrirHorario);
 confirmCheck.addEventListener('change', () => {
   abrirHorarioBtn.disabled = !confirmCheck.checked;
 });
-logToggleBtn.addEventListener('click', toggleLogs);
 
 init();

@@ -1,6 +1,8 @@
 USE erpdb;
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `basespacking`;
+DROP TABLE IF EXISTS `packing`;
 DROP TABLE IF EXISTS `base_horarios`;
 DROP TABLE IF EXISTS `bases`;
 
@@ -14,6 +16,15 @@ CREATE TABLE `bases` (
   PRIMARY KEY (`codigo_base`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `packing` (
+  `codigo_packing` numeric(12,0) NOT NULL,
+  `nombre` varchar(255)   NOT NULL,
+  `tipo` varchar(100)   DEFAULT NULL,
+  `observacion` varchar(255)   DEFAULT NULL,
+  `created_at` datetime NOT NULL  ,
+  PRIMARY KEY (`codigo_packing`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `base_horarios` (
   `codigo_base` numeric(12,0) NOT NULL,
   `dia` int NOT NULL,
@@ -24,6 +35,15 @@ CREATE TABLE `base_horarios` (
   `estado` varchar(1) COLLATE utf8mb4_unicode_ci DEFAULT 'A',
   PRIMARY KEY (`codigo_base`, `dia`, `hr_apertura`),
   CONSTRAINT `fk_base_horarios_bases` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `basespacking` (
+  `codigo_base` numeric(12,0) NOT NULL,
+  `codigo_packing` numeric(12,0) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`codigo_base`, `codigo_packing`),
+  CONSTRAINT `fk_basespacking_bases` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
+  CONSTRAINT `fk_basespacking_packing` FOREIGN KEY (`codigo_packing`) REFERENCES `packing` (`codigo_packing`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DROP TABLE IF EXISTS `clientes`;
@@ -173,32 +193,42 @@ CREATE TABLE `cuentas_bancarias` (
 DROP TABLE IF EXISTS `mov_contable`;
 
 CREATE TABLE `mov_contable` (
-  `codigo_pedido` numeric(12,0) DEFAULT NULL,
+  `codigo_pedido` decimal(12,0) DEFAULT NULL,
   `fecha_emision` datetime DEFAULT CURRENT_TIMESTAMP,
   `fecha_vencimiento` datetime DEFAULT CURRENT_TIMESTAMP,
   `fecha_valor` datetime DEFAULT CURRENT_TIMESTAMP,
-  `codigo_cliente` numeric(12,0) NOT NULL,
-  `monto` numeric(12,2) DEFAULT NULL,
-  `saldo` numeric(12,2) DEFAULT NULL,
-  `tipo_documento` varchar(3) NOT NULL,
-  `numero_documento` numeric(12,0) NOT NULL,
-  `estado` enum('activo','anulado') NOT NULL DEFAULT 'activo',
-  `codigo_base` numeric(12,0) DEFAULT NULL,
-  `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
-  `codigo_cliente_numrecibe` numeric(12,0) DEFAULT NULL,
-  `ordinal_numrecibe` numeric(12,0) DEFAULT NULL,
-  `codigo_cliente_puntoentrega` numeric(12,0) DEFAULT NULL,
-  `codigo_puntoentrega` numeric(12,0) DEFAULT NULL,
-  `costoenvio` numeric(12,2) NOT NULL DEFAULT 0,
+  `codigo_cliente` decimal(12,0) NOT NULL,
+  `tipo_documento` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `numero_documento` decimal(12,0) NOT NULL,
+  `estado` enum('activo','anulado') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'activo',
+  `codigo_base` decimal(12,0) DEFAULT NULL,
+  `codigo_packing` decimal(12,0) DEFAULT NULL,
+  `codigo_cuentabancaria` decimal(12,0) DEFAULT NULL,
+  `codigo_cliente_numrecibe` decimal(12,0) DEFAULT NULL,
+  `ordinal_numrecibe` decimal(12,0) DEFAULT NULL,
+  `codigo_cliente_puntoentrega` decimal(12,0) DEFAULT NULL,
+  `codigo_puntoentrega` decimal(12,0) DEFAULT NULL,
+  `costoenvio` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `montodetalleproductos` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `monto` decimal(12,2) DEFAULT NULL,
+  `saldo` decimal(12,2) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`tipo_documento`, `numero_documento`),
-  FOREIGN KEY (`codigo_pedido`) REFERENCES `pedidos` (`codigo_pedido`),
-  FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`),
-  FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
-  FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
-  FOREIGN KEY (`codigo_cliente_numrecibe`,`ordinal_numrecibe`) REFERENCES `numrecibe` (`codigo_cliente_numrecibe`,`ordinal_numrecibe`),
-  FOREIGN KEY (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`) REFERENCES `puntos_entrega` (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`)
-) ENGINE=InnoDB;
+  PRIMARY KEY (`tipo_documento`,`numero_documento`),
+  KEY `codigo_pedido` (`codigo_pedido`),
+  KEY `codigo_cliente` (`codigo_cliente`),
+  KEY `codigo_base` (`codigo_base`),
+  KEY `codigo_packing` (`codigo_packing`),
+  KEY `codigo_cuentabancaria` (`codigo_cuentabancaria`),
+  KEY `codigo_cliente_numrecibe` (`codigo_cliente_numrecibe`,`ordinal_numrecibe`),
+  KEY `codigo_puntoentrega` (`codigo_puntoentrega`,`codigo_cliente_puntoentrega`),
+  CONSTRAINT `mov_contable_ibfk_1` FOREIGN KEY (`codigo_pedido`) REFERENCES `pedidos` (`codigo_pedido`),
+  CONSTRAINT `mov_contable_ibfk_2` FOREIGN KEY (`codigo_cliente`) REFERENCES `clientes` (`codigo_cliente`),
+  CONSTRAINT `mov_contable_ibfk_3` FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
+  CONSTRAINT `mov_contable_ibfk_4` FOREIGN KEY (`codigo_packing`) REFERENCES `packing` (`codigo_packing`),
+  CONSTRAINT `mov_contable_ibfk_5` FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
+  CONSTRAINT `mov_contable_ibfk_6` FOREIGN KEY (`codigo_cliente_numrecibe`, `ordinal_numrecibe`) REFERENCES `numrecibe` (`codigo_cliente_numrecibe`, `ordinal_numrecibe`),
+  CONSTRAINT `mov_contable_ibfk_7` FOREIGN KEY (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`) REFERENCES `puntos_entrega` (`codigo_puntoentrega`, `codigo_cliente_puntoentrega`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 
@@ -211,6 +241,7 @@ CREATE TABLE `mov_operaciones_contables` (
   `numdocumento` numeric(12,0) NOT NULL,
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `monto` numeric(12,2) NOT NULL DEFAULT 0,
+  `saldo` numeric(12,2) NOT NULL DEFAULT 0,
   `codigo_cuentabancaria` numeric(12,0) NOT NULL,
   `codigo_cuentabancaria_destino` numeric(12,0) DEFAULT NULL,
   `descripcion` text,
@@ -353,6 +384,7 @@ CREATE TABLE `mov_contable_prov` (
   `codigo_provedor` numeric(12,0) NOT NULL,
   `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
   `monto` numeric(12,2) NOT NULL DEFAULT 0,
+  `saldo` numeric(12,2) NOT NULL DEFAULT 0,
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`),
   FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`)
@@ -385,8 +417,37 @@ CREATE TABLE `detalle_movs_partidas` (
   `tipo_documento_venta` varchar(3) NOT NULL,
   `numero_documento` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
+  `costo_unitario` numeric(12,6) NOT NULL,
   `monto` numeric(12,2) NOT NULL,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `codigo_producto`, `tipo_documento_venta`, `numero_documento`)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `detalle_movs_partidas_prov`;
+
+CREATE TABLE `detalle_movs_partidas_prov` (
+  `tipo_documento_compra_origen` varchar(3) NOT NULL,
+  `num_documento_compra_origen` numeric(12,0) NOT NULL,
+  `codigo_provedor_origen` numeric(12,0) NOT NULL,
+  `codigo_producto` numeric(12,0) NOT NULL,
+  `tipo_documento_compra_destino` varchar(3) NOT NULL,
+  `num_documento_compra_destino` numeric(12,0) NOT NULL,
+  `codigo_provedor_destino` numeric(12,0) NOT NULL,
+  `cantidad` numeric(12,3) NOT NULL,
+  `costo_unitario` numeric(12,6) NOT NULL,
+  `monto` numeric(12,2) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (
+    `tipo_documento_compra_origen`,
+    `num_documento_compra_origen`,
+    `codigo_provedor_origen`,
+    `codigo_producto`,
+    `tipo_documento_compra_destino`,
+    `num_documento_compra_destino`,
+    `codigo_provedor_destino`
+  ),
+  CONSTRAINT `fk_partidas_prov_origen` FOREIGN KEY (`tipo_documento_compra_origen`, `num_documento_compra_origen`, `codigo_provedor_origen`) REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`),
+  CONSTRAINT `fk_partidas_prov_destino` FOREIGN KEY (`tipo_documento_compra_destino`, `num_documento_compra_destino`, `codigo_provedor_destino`) REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`),
+  CONSTRAINT `fk_partidas_prov_producto` FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `remito_compra`;
@@ -573,13 +634,18 @@ DROP TABLE IF EXISTS `mov_contable_gasto`;
 CREATE TABLE `mov_contable_gasto` (
   `tipodocumento` varchar(3) NOT NULL,
   `numdocumento` numeric(12,0) NOT NULL,
+  `tipo_documento_compra` varchar(3) NULL,
+  `num_documento_compra` numeric(12,0) NULL,
+  `codigo_provedor` numeric(12,0) NULL,
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `descripcion` varchar(60) NOT NULL,
   `monto` numeric(12,2) NOT NULL,
   `codigo_cuentabancaria` numeric(12,0) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipodocumento`, `numdocumento`),
-  FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`)
+  FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
+  FOREIGN KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
+    REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;
  
 DROP TABLE IF EXISTS `mov_contable_gasto_detalle`;
@@ -594,19 +660,6 @@ CREATE TABLE `mov_contable_gasto_detalle` (
   FOREIGN KEY (`codigoetiquetagasto`) REFERENCES `etiquetagastos` (`codigoetiquetagasto`)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS `fabricaciongastos`;
-CREATE TABLE `fabricaciongastos` (
-  `tipodocumentostock` varchar(3) NOT NULL,
-  `numdocumentostock` numeric(12,0) NOT NULL,
-  `tipodocumentogasto` varchar(3) NOT NULL,
-  `numdocumentogasto` numeric(12,0) NOT NULL,
-  `ordinal` numeric(12,0) NOT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`tipodocumentostock`, `numdocumentostock`, `tipodocumentogasto`, `numdocumentogasto`, `ordinal`),
-  FOREIGN KEY (`tipodocumentostock`, `numdocumentostock`) REFERENCES `movimiento_stock` (`tipodocumentostock`, `numdocumentostock`),
-  FOREIGN KEY (`tipodocumentogasto`, `numdocumentogasto`) REFERENCES `mov_contable_gasto` (`tipodocumento`, `numdocumento`)
-) ENGINE=InnoDB;
-
 DROP TABLE IF EXISTS `Facturas_Pagadas`;
 CREATE TABLE `Facturas_Pagadas` (
   `tipodocumento` varchar(3) NOT NULL,
@@ -616,4 +669,24 @@ CREATE TABLE `Facturas_Pagadas` (
   `monto_pagado` numeric(12,0) NOT NULL,
   `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipodocumento`, `numdocumento`, `tipo_documento_cli`, `numero_documento_cli`)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `Facturas_Pagadas_Prov`;
+CREATE TABLE `Facturas_Pagadas_Prov` (
+  `tipo_documento_pago` varchar(3) NOT NULL,
+  `num_documento_pago` numeric(12,0) NOT NULL,
+  `codigo_provedor_pago` numeric(12,0) NOT NULL,
+  `tipo_documento_compra` varchar(3) NOT NULL,
+  `num_documento_compra` numeric(12,0) NOT NULL,
+  `codigo_provedor_compra` numeric(12,0) NOT NULL,
+  `monto_pagado` numeric(12,2) NOT NULL,
+  `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (
+    `tipo_documento_pago`,
+    `num_documento_pago`,
+    `codigo_provedor_pago`,
+    `tipo_documento_compra`,
+    `num_documento_compra`,
+    `codigo_provedor_compra`
+  )
 ) ENGINE=InnoDB;

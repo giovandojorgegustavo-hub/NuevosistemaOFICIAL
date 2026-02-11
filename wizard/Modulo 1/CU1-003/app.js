@@ -99,6 +99,8 @@ const i18n = {
     colFecha: 'Updated',
     colCliente: 'Client',
     colNumero: 'Client number',
+    colBase: 'Base',
+    colPacking: 'Packing',
     colEntrega: 'Delivery point',
     colRecibe: 'Receiver',
     colProducto: 'Product',
@@ -106,6 +108,7 @@ const i18n = {
     labelEntrega: 'Delivery point',
     labelRecibe: 'Receiver',
     labelBase: 'Base',
+    labelPacking: 'Packing',
     labelMotorizado: 'Courier',
     labelWhatsapp: 'WhatsApp',
     labelLlamadas: 'Calls',
@@ -149,6 +152,8 @@ const i18n = {
     colFecha: 'Actualizado',
     colCliente: 'Cliente',
     colNumero: 'Numero',
+    colBase: 'Base',
+    colPacking: 'Packing',
     colEntrega: 'Punto entrega',
     colRecibe: 'Recibe',
     colProducto: 'Producto',
@@ -156,6 +161,7 @@ const i18n = {
     labelEntrega: 'Punto entrega',
     labelRecibe: 'Recibe',
     labelBase: 'Base',
+    labelPacking: 'Packing',
     labelMotorizado: 'Motorizado',
     labelWhatsapp: 'WhatsApp',
     labelLlamadas: 'Llamadas',
@@ -214,6 +220,7 @@ const elements = {
   detalleEntrega: document.getElementById('detalleEntrega'),
   detalleRecibe: document.getElementById('detalleRecibe'),
   detalleBase: document.getElementById('detalleBase'),
+  detallePacking: document.getElementById('detallePacking'),
   detalleMotorizado: document.getElementById('detalleMotorizado'),
   detalleWsp: document.getElementById('detalleWsp'),
   detalleLlamadas: document.getElementById('detalleLlamadas'),
@@ -299,15 +306,34 @@ function setLoading(isLoading) {
   elements.loadingOverlay.classList.toggle('d-none', !isLoading);
 }
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat(state.lang === 'es' ? 'es-PE' : 'en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(date);
+}
+
 function mapPaqueteRow(row) {
   return {
     vcodigo_paquete: row.codigo_paquete,
-    vfecha_actualizado: row.fecha_actualizado,
+    vfecha_actualizado: formatDateTime(row.fecha_actualizado),
     vcodigo_cliente: row.codigo_cliente,
     vnombre_cliente: row.nombre_cliente,
     vnum_cliente: row.num_cliente,
     vcodigo_puntoentrega: row.codigo_puntoentrega,
     vcodigo_base: row.codigo_base,
+    vnombre_base: row.nombre_base,
+    vcodigo_packing: row.codigo_packing,
+    vnombre_packing: row.nombre_packing,
     vordinal_numrecibe: row.ordinal_numrecibe,
     vconcatenarpuntoentrega: row.concatenarpuntoentrega,
     vRegion_Entrega: row.region_entrega,
@@ -381,7 +407,7 @@ function renderPaquetes() {
 
   if (!state.paquetes.length) {
     const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="7" class="text-center muted">-</td>`;
+    row.innerHTML = `<td colspan="9" class="text-center muted">-</td>`;
     elements.packagesTable.appendChild(row);
     return;
   }
@@ -394,6 +420,8 @@ function renderPaquetes() {
       <td>${pkg.vfecha_actualizado ?? ''}</td>
       <td>${pkg.vnombre_cliente ?? ''}</td>
       <td>${pkg.vnum_cliente ?? ''}</td>
+      <td>${pkg.vnombre_base ?? ''}</td>
+      <td>${pkg.vnombre_packing || pkg.vcodigo_packing || '-'}</td>
       <td>${pkg.vconcatenarpuntoentrega ?? ''}</td>
       <td>${pkg.vconcatenarnumrecibe ?? ''}</td>
     `;
@@ -448,6 +476,7 @@ function renderDetalle(pkg) {
   elements.detalleEntrega.textContent = pkg.vconcatenarpuntoentrega || '-';
   elements.detalleRecibe.textContent = pkg.vconcatenarnumrecibe || '-';
   elements.detalleBase.textContent = state.viaje?.vnombrebase || '-';
+  elements.detallePacking.textContent = pkg.vnombre_packing || pkg.vcodigo_packing || '-';
   elements.detalleMotorizado.textContent = state.viaje?.vnombre_motorizado || '-';
   elements.detalleWsp.textContent = state.viaje?.vnumero_wsp || '-';
   elements.detalleLlamadas.textContent = state.viaje?.vnum_llamadas || '-';

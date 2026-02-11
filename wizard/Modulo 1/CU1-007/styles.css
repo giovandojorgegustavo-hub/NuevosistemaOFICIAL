@@ -183,6 +183,12 @@ body {
   padding: var(--input-padding);
 }
 
+.form-control:not([readonly]),
+.form-select:not([readonly]) {
+  border-color: rgba(106, 193, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(30, 136, 255, 0.08);
+}
+
 .form-control:focus,
 .form-select:focus {
   border-color: var(--primary);
@@ -191,10 +197,63 @@ body {
   color: var(--white);
 }
 
+.form-control[readonly],
+.form-select[readonly] {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  color: #d7dde6;
+  cursor: default;
+  box-shadow: none;
+}
+
+.form-control[readonly]:focus,
+.form-select[readonly]:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: none;
+}
+
 .field-hint {
   color: var(--muted);
   font-size: var(--text-xs);
   margin-top: 6px;
+}
+
+.note-type {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.note-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.note-option .form-check-input {
+  margin: 0;
+}
+
+.note-option .form-check-input:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.note-option .form-check-input:checked + .form-check-label {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.base-name {
+  color: var(--white);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-top: 8px;
 }
 
 .typeahead {
@@ -223,6 +282,44 @@ body {
 .typeahead-item:hover,
 .typeahead-item.active {
   background: rgba(30, 136, 255, 0.2);
+}
+
+.map-section {
+  margin-top: 8px;
+  border: 1px solid rgba(106, 193, 255, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(16, 27, 53, 0.65);
+  padding: 12px;
+}
+
+.map-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.map-title {
+  font-size: var(--text-sm);
+  color: var(--primary-glow);
+  font-weight: 600;
+}
+
+.map-box {
+  width: 100%;
+  height: 260px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.map-placeholder {
+  margin-top: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(16, 27, 53, 0.45);
+  color: var(--muted);
+  padding: 12px;
+  font-size: var(--text-sm);
 }
 
 .step-note {

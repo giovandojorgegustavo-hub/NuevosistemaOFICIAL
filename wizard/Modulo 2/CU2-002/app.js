@@ -77,6 +77,8 @@ const i18n = {
     colNumero: 'Client number',
     colEntrega: 'Delivery point',
     colRecibe: 'Receiver',
+    labelPacking: 'Packing',
+    packingPlaceholder: 'Select packing...',
     labelEntrega: 'Delivery point',
     labelRecibe: 'Receiver number',
     mapTitle: 'Address and map',
@@ -88,6 +90,7 @@ const i18n = {
     reset: 'Clear',
     confirmLabel: 'I confirm that the data is correct.',
     errorConfirm: 'You must confirm the checklist before packing.',
+    errorPacking: 'Select a packing before continuing.',
     actionEmpacar: 'Pack',
     successSaved: 'Package registered as packed. Wizard reset.',
     errorSelection: 'Select a package to continue.',
@@ -115,6 +118,8 @@ const i18n = {
     colNumero: 'Numero cliente',
     colEntrega: 'Punto entrega',
     colRecibe: 'Num recibe',
+    labelPacking: 'Packing',
+    packingPlaceholder: 'Selecciona un packing...',
     labelEntrega: 'Punto entrega',
     labelRecibe: 'Num recibe',
     mapTitle: 'Direccion y mapa',
@@ -126,6 +131,7 @@ const i18n = {
     reset: 'Limpiar',
     confirmLabel: 'Confirmo que los datos son correctos.',
     errorConfirm: 'Debes marcar el checklist para empacar.',
+    errorPacking: 'Selecciona un packing antes de continuar.',
     actionEmpacar: 'Empacar',
     successSaved: 'Paquete empacado. Wizard reiniciado.',
     errorSelection: 'Selecciona un paquete para continuar.',
@@ -141,7 +147,9 @@ class FormWizard {
       lang: 'es',
       paquetes: [],
       detalles: [],
+      packings: [],
       selected: null,
+      selectedPacking: null,
       mapsConfig: null,
       mapReady: false,
       map: null,
@@ -160,6 +168,7 @@ class FormWizard {
       detalleTableBody: document.querySelector('#detalleTable tbody'),
       detalleEntrega: document.getElementById('detalleEntrega'),
       detalleRecibe: document.getElementById('detalleRecibe'),
+      packingSelect: document.getElementById('packingSelect'),
       resumenInfo: document.getElementById('resumenInfo'),
       mapSection: document.getElementById('mapSection'),
       mapCanvas: document.getElementById('map'),
@@ -216,6 +225,7 @@ class FormWizard {
     this.elements.btnNext.addEventListener('click', () => this.goNext());
     this.elements.btnReset.addEventListener('click', () => this.resetWizard());
     this.elements.confirmCheck.addEventListener('change', () => this.updateConfirmState());
+    this.elements.packingSelect.addEventListener('change', () => this.onPackingChange());
   }
 
   async fetchJson(url, options) {
@@ -345,6 +355,7 @@ class FormWizard {
 
     this.elements.detalleEntrega.textContent = this.state.selected.concatenarpuntoentrega || '-';
     this.elements.detalleRecibe.textContent = this.state.selected.concatenarnumrecibe || '-';
+    await this.loadPackings();
 
     await this.loadMapIfNeeded();
 
@@ -386,6 +397,63 @@ class FormWizard {
     });
   }
 
+  async loadPackings() {
+    const normalizeNumericId = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const num = Number(raw);
+      if (!Number.isFinite(num) || num <= 0) return '';
+      return String(Math.trunc(num));
+    };
+
+    const codigoBase = normalizeNumericId(this.state.selected?.codigo_base);
+    const codigoCliente = normalizeNumericId(this.state.selected?.codigo_cliente);
+    this.state.packings = [];
+    this.state.selectedPacking = null;
+    this.elements.packingSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = this.t('packingPlaceholder');
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    this.elements.packingSelect.appendChild(placeholder);
+
+    if (!codigoBase && !codigoCliente) {
+      this.elements.packingSelect.disabled = true;
+      return;
+    }
+
+    this.elements.packingSelect.disabled = true;
+    try {
+      const params = new URLSearchParams();
+      if (codigoBase) {
+        params.set('codigo_base', codigoBase);
+      }
+      if (codigoCliente) {
+        params.set('codigo_cliente', codigoCliente);
+      }
+      const data = await this.fetchJson(`/api/packings?${params.toString()}`);
+      const rows = data.rows || [];
+      this.state.packings = rows;
+      rows.forEach((row) => {
+        const option = document.createElement('option');
+        option.value = String(row.id);
+        option.textContent = row.name;
+        this.elements.packingSelect.appendChild(option);
+      });
+      this.elements.packingSelect.disabled = rows.length === 0;
+    } catch (error) {
+      this.elements.packingSelect.disabled = true;
+    }
+  }
+
+  onPackingChange() {
+    const selectedId = String(this.elements.packingSelect.value || '');
+    this.state.selectedPacking =
+      this.state.packings.find((row) => String(row.id) === selectedId) || null;
+    this.updateResumen();
+  }
+
   updateResumen() {
     const selected = this.state.selected;
     if (!selected) {
@@ -396,6 +464,7 @@ class FormWizard {
       { label: this.t('colCliente'), value: selected.nombre_cliente },
       { label: this.t('colEntrega'), value: selected.concatenarpuntoentrega },
       { label: this.t('colRecibe'), value: selected.concatenarnumrecibe },
+      { label: this.t('labelPacking'), value: this.state.selectedPacking?.name || '-' },
       { label: this.t('detalleGridTitle'), value: this.state.detalles.length }
     ];
     this.elements.resumenInfo.innerHTML = '';
@@ -497,6 +566,10 @@ class FormWizard {
     }
 
     if (this.state.step === 2) {
+      if (!this.state.selectedPacking) {
+        this.showAlert(this.t('errorPacking'));
+        return;
+      }
       this.setStep(3);
       this.updateResumen();
       return;
@@ -522,11 +595,16 @@ class FormWizard {
       this.showAlert(this.t('errorServer'));
       return;
     }
+    const codigoPacking = String(this.elements.packingSelect.value || '').trim();
+    if (!codigoPacking || !codigoRegex.test(codigoPacking)) {
+      this.showAlert(this.t('errorPacking'));
+      return;
+    }
 
     this.clearMessages();
     this.setLoading(this.elements.loadingGuardar, true);
     try {
-      const payload = { codigo_paquete: codigo };
+      const payload = { codigo_paquete: codigo, codigo_packing: codigoPacking };
       await this.fetchJson('/api/empacar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -545,7 +623,17 @@ class FormWizard {
     this.state.step = 1;
     this.state.selected = null;
     this.state.detalles = [];
+    this.state.packings = [];
+    this.state.selectedPacking = null;
     this.elements.confirmCheck.checked = false;
+    this.elements.packingSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = this.t('packingPlaceholder');
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    this.elements.packingSelect.appendChild(placeholder);
+    this.elements.packingSelect.disabled = true;
     this.renderDetalle();
     this.renderPaquetes();
     this.updateResumen();

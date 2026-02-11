@@ -81,7 +81,7 @@ Paso 1. Seleccion de paquete en camino.
 
 Muestra un Grid llamado "vPaquetesEnCamino" con los datos del SP: `get_paquetes_por_estado(p_estado="en camino")`
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -90,6 +90,9 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
+vnombre_base visible no editable
+vcodigo_packing visible no editable
+vnombre_packing visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -107,6 +110,7 @@ Paso 2. Mostrar informacion de un paquete (solo lectura, solo si se selecciono 1
 Mostrar como lectura:
 - vconcatenarpuntoentrega
 - vconcatenarnumrecibe
+- vnombre_packing
 
 Direccion y Mapa (solo lectura).
 Solo si vRegion_Entrega = "LIMA":
@@ -166,18 +170,25 @@ Al confirmar, guardar:
 
 Por cada paquete seleccionado:
 - Vordinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = vcodigo_paquete AND tipo_documento = 'FAC'` (si no hay registros empieza en 1).
+
+
 - Insertar en `paquetedetalle`:
   - codigo_paquete = vcodigo_paquete
   - ordinal = Vordinal
   - estado = nuevo estado
   - tipo_documento = "FAC"
+
+
 - Si estado = robado/llegado: actualizar `detalleviaje.fecha_fin = NOW()` para ese paquete.
+
 - Si estado = robado: emitir Nota de Credito sin detalle por el monto total de la factura y actualizar saldo de cliente.
   - tipo_documento = "NTC".
   - numero_documento = `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'NTC'`.
   - Obtener factura usando el `vcodigo_paquete` (es el mismo `mov_contable.numero_documento`) y `tipo_documento = 'FAC'`.
-  - Usar el `monto` total de la factura como valor de la nota de credito.
-  - Consulta: `SELECT codigo_pedido, codigo_cliente, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, monto FROM mov_contable WHERE tipo_documento = 'FAC' AND numero_documento = vcodigo_paquete`.
+- Usar el `monto` total de la factura como valor de la nota de credito.
+- Consulta (bloquear factura): `SELECT codigo_pedido, codigo_cliente, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, monto, saldo FROM mov_contable WHERE tipo_documento = 'FAC' AND numero_documento = vcodigo_paquete FOR UPDATE`.
+
+
   - Insertar en `mov_contable` solo cabecera (sin detalle):
     - codigo_pedido = factura.codigo_pedido
     - fecha_emision = NOW()
@@ -189,6 +200,10 @@ Por cada paquete seleccionado:
     - tipo_documento = "NTC"
     - numero_documento = correlativo NTC
     - costoenvio = factura.costoenvio
+    
+  - Aplicar NTC a la factura (si tiene saldo):
+    - `CALL aplicar_nota_credito_a_factura("NTC", correlativo, "FAC", vcodigo_paquete, factura.monto)`
+    - Si la factura ya está en saldo 0: no aplicar nada; la NTC queda con saldo completo.
   - Ejecutar SP: `actualizarsaldosclientes(factura.codigo_cliente, "NTC", factura.monto)` (sumar saldo cliente).
 - Ejecutar SP: `cambiar_estado_paquete(vcodigo_paquete, nuevo_estado)`.
 

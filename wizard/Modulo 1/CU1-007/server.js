@@ -94,7 +94,8 @@ function parseErpConfig() {
   }
   return {
     name: connection.name || '',
-    dsn: connection.dsn
+    dsn: connection.dsn,
+    google: data.google_maps || null
   };
 }
 
@@ -133,6 +134,23 @@ app.use((req, res, next) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
+});
+
+app.get('/api/maps-config', (req, res) => {
+  try {
+    const config = parseErpConfig();
+    const google = config.google
+      ? {
+          apiKey: config.google.api_key || '',
+          defaultCenter: config.google.default_center || null,
+          defaultZoom: config.google.default_zoom || 12
+        }
+      : null;
+    return res.json({ ok: true, data: google });
+  } catch (error) {
+    logError(error, 'MAPS CONFIG ERROR');
+    return res.status(500).json({ ok: false, message: 'SERVER_ERROR' });
+  }
 });
 
 app.get('/api/clientes', async (req, res) => {
@@ -208,17 +226,56 @@ app.get('/api/detalle-factura', async (req, res) => {
   }
 });
 
+app.get('/api/factura-cabecera', async (req, res) => {
+  const codigoPaquete = req.query.codigo_paquete;
+  if (!codigoPaquete) {
+    return res.status(400).json({ ok: false, message: 'MISSING_PAQUETE' });
+  }
+  try {
+    const pool = app.locals.db;
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await runQuery(
+        conn,
+        `SELECT
+           mc.fecha_emision,
+           pe.concatenarpuntoentrega AS lugar_entrega
+         FROM mov_contable mc
+         LEFT JOIN puntos_entrega pe
+           ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
+          AND pe.codigo_cliente_puntoentrega = mc.codigo_cliente_puntoentrega
+         WHERE mc.tipo_documento = 'FAC'
+           AND mc.numero_documento = ?
+         LIMIT 1`,
+        [codigoPaquete]
+      );
+      return res.json({ ok: true, data: rows[0] || null });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'CABECERA FACTURA ERROR');
+    return res.status(500).json({ ok: false, message: 'SERVER_ERROR' });
+  }
+});
+
 app.post('/api/emitir-nota-credito', async (req, res) => {
   const payload = req.body || {};
   const detalle = Array.isArray(payload.detalle) ? payload.detalle : [];
+  const tipoNotaRaw = payload.vTipo_nota || (detalle.length ? 'PRODUCTO' : 'DINERO');
+  const tipoNota = String(tipoNotaRaw).toUpperCase();
+  const totalNota = Number(payload.vTotalNota || 0);
   if (!payload.vFecha_emision || !payload.vTipo_documento || !payload.vNumero_documento) {
     return res.status(400).json({ ok: false, message: 'MISSING_HEADER' });
   }
   if (!payload.vCodigo_cliente || !payload.vCodigo_base) {
     return res.status(400).json({ ok: false, message: 'MISSING_CLIENT' });
   }
-  if (!detalle.length) {
+  if (tipoNota === 'PRODUCTO' && !detalle.length) {
     return res.status(400).json({ ok: false, message: 'MISSING_DETAIL' });
+  }
+  if (!Number.isFinite(totalNota) || totalNota <= 0) {
+    return res.status(400).json({ ok: false, message: 'INVALID_TOTAL' });
   }
 
   const pool = app.locals.db;
@@ -228,54 +285,68 @@ app.post('/api/emitir-nota-credito', async (req, res) => {
 
     await runQuery(
       conn,
-      'INSERT INTO mov_contable (fecha_emision, tipo_documento, numero_documento, codigo_cliente, codigo_base, saldo) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO mov_contable (fecha_emision, tipo_documento, numero_documento, codigo_cliente, codigo_base, monto, saldo) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [
         payload.vFecha_emision,
         payload.vTipo_documento,
         payload.vNumero_documento,
         payload.vCodigo_cliente,
         payload.vCodigo_base,
-        payload.vTotalNota
+        totalNota,
+        totalNota
       ]
     );
 
-    for (const item of detalle) {
-      await runQuery(
-        conn,
-        'INSERT INTO mov_contable_detalle (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [
-          payload.vTipo_documento,
-          payload.vNumero_documento,
-          item.vOrdinalDetMovCont,
+    if (detalle.length) {
+      for (const item of detalle) {
+        await runQuery(
+          conn,
+          'INSERT INTO mov_contable_detalle (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            payload.vTipo_documento,
+            payload.vNumero_documento,
+            item.vOrdinalDetMovCont,
+            item.vCodigo_producto,
+            item.vCantidad,
+            item.vSaldo,
+            item.vPrecio_total
+          ]
+        );
+
+        await runQuery(conn, 'CALL upd_stock_bases(?, ?, ?, ?, ?)', [
+          payload.vCodigo_base,
           item.vCodigo_producto,
           item.vCantidad,
-          item.vSaldo,
-          item.vPrecio_total
-        ]
-      );
+          payload.vTipo_documento,
+          payload.vNumero_documento
+        ]);
 
-      await runQuery(conn, 'CALL upd_stock_bases(?, ?, ?, ?, ?)', [
-        payload.vCodigo_base,
-        item.vCodigo_producto,
-        item.vCantidad,
-        payload.vTipo_documento,
-        payload.vNumero_documento
-      ]);
+        await runQuery(conn, 'CALL aplicar_devolucion_partidas(?, ?, ?, ?, ?, ?)', [
+          'FAC',
+          payload.vCodigo_paquete,
+          payload.vTipo_documento,
+          payload.vNumero_documento,
+          item.vCodigo_producto,
+          item.vCantidad
+        ]);
+      }
+    }
 
-      await runQuery(conn, 'CALL aplicar_devolucion_partidas(?, ?, ?, ?, ?, ?)', [
-        'FAC',
-        payload.vCodigo_paquete,
+    // Aplicar NTC a la factura especifica (si aun tiene saldo).
+    if (payload.vCodigo_paquete && totalNota > 0) {
+      await runQuery(conn, 'CALL aplicar_nota_credito_a_factura(?, ?, ?, ?, ?)', [
         payload.vTipo_documento,
         payload.vNumero_documento,
-        item.vCodigo_producto,
-        item.vCantidad
+        'FAC',
+        payload.vCodigo_paquete,
+        totalNota
       ]);
     }
 
     await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [
       payload.vCodigo_cliente,
       payload.vTipo_documento,
-      payload.vTotalNota
+      totalNota
     ]);
 
     await conn.commit();

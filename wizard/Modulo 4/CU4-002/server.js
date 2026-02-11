@@ -8,7 +8,7 @@ const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU4-002';
-const PORT = 3017;
+const PORT = 3018;
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -220,6 +220,40 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
+app.get('/api/productos-stock', async (req, res) => {
+  const codigoBase = req.query.codigo_base;
+  if (!codigoBase) {
+    return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+  try {
+    const pool = app.locals.pool;
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await runQuery(
+        conn,
+        `SELECT p.codigo_producto,
+                p.nombre,
+                COALESCE(sp.saldo_partidas, 0) AS saldo_actual
+         FROM productos p
+         LEFT JOIN (
+           SELECT codigo_producto, SUM(saldo) AS saldo_partidas
+           FROM detalle_mov_contable_prov
+           GROUP BY codigo_producto
+         ) sp
+           ON sp.codigo_producto = p.codigo_producto
+         ORDER BY p.nombre`,
+        []
+      );
+      res.json({ ok: true, data: rows });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'GET PRODUCTOS STOCK ERROR');
+    res.status(500).json({ ok: false, message: 'GET_PRODUCTOS_STOCK_ERROR' });
+  }
+});
+
 app.get('/api/saldo-stock', async (req, res) => {
   const codigoBase = req.query.codigo_base;
   const codigoProducto = req.query.codigo_producto;
@@ -232,16 +266,38 @@ app.get('/api/saldo-stock', async (req, res) => {
     try {
       const [[row]] = await runQuery(
         conn,
-        'SELECT saldo_actual FROM saldo_stock WHERE codigo_base = ? AND codigo_producto = ?',
-        [codigoBase, codigoProducto]
+        'SELECT COALESCE(SUM(saldo), 0) AS saldo_partidas FROM detalle_mov_contable_prov WHERE codigo_producto = ?',
+        [codigoProducto]
       );
-      res.json({ ok: true, saldo: row ? Number(row.saldo_actual) : 0 });
+      res.json({ ok: true, saldo: row ? Number(row.saldo_partidas) : 0 });
     } finally {
       conn.release();
     }
   } catch (error) {
     logError(error, 'GET SALDO ERROR');
     res.status(500).json({ ok: false, message: 'GET_SALDO_ERROR' });
+  }
+});
+
+app.get('/api/costo-ultimo', async (req, res) => {
+  const codigoProducto = req.query.codigo_producto;
+  if (!codigoProducto) {
+    return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+  try {
+    const pool = app.locals.pool;
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await runQuery(conn, 'CALL get_ultimo_costo_producto(?)', [codigoProducto]);
+      const data = unwrapProcedureRows(rows);
+      const row = Array.isArray(data) && data.length ? data[0] : null;
+      res.json({ ok: true, costo_unitario: row && row.costo_unitario !== null ? Number(row.costo_unitario) : null });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'GET COSTO ULTIMO ERROR');
+    res.status(500).json({ ok: false, message: 'GET_COSTO_ULTIMO_ERROR' });
   }
 });
 
@@ -401,7 +457,7 @@ app.post('/api/ajustes', async (req, res) => {
     logSql('ROLLBACK');
     await conn.rollback();
     logError(error, 'AJUSTE ERROR');
-    res.status(500).json({ ok: false, message: 'AJUSTE_ERROR' });
+    res.status(500).json({ ok: false, message: error?.message || 'AJUSTE_ERROR' });
   } finally {
     conn.release();
   }

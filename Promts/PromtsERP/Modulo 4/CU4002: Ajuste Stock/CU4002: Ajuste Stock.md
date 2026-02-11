@@ -71,7 +71,7 @@ Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario t
 # **Pasos del formulario-multipaso.
 
 1. Registrar Ajuste (AJE/AJS).
-2. Confirmar y ejecutar ajuste (actualizar partidas y saldo_stock).
+2. Confirmar y registrar ajuste.
 
 # **Descripcion de los pasos del formulario de registro.
 
@@ -109,16 +109,18 @@ Campos devueltos: `codigo_producto`, `nombre`
 Variables:
 vcodigo_producto no visible editable
 vNombreProducto visible editable
+Al seleccionar una base, el grid debe listar automaticamente todos los productos, mostrando `Vcantidad_sistema` desde `saldo_stock` (0 si no existe). El usuario solo actualiza `Vcantidad_real`.
 
 El Grid debe tener las siguientes columnas:
 vcodigo_producto, Vcantidad_sistema, Vcantidad_real, Vcantidad,
 Vmonto (solo AJE, costo total por item; en AJS el campo es invisible).
-Vcantidad_sistema = cargar automaticamente desde la tabla saldo_stock segun vCodigo_base y vcodigo_producto (saldo_actual). Campo de solo lectura. se actualiza cada vez q se pone un producto o una base. no es editable
+Vcantidad_sistema = cargar automaticamente desde la suma de `detalle_mov_contable_prov.saldo` por `vcodigo_producto` (saldo de partidas). Campo de solo lectura. se actualiza cada vez q se pone un producto o una base. no es editable
 
 Vcantidad_real = campo editable donde el usuario registra el conteo fisico. Acepta decimales con hasta 2 digitos.
 Vcantidad = campo calculado automaticamente como Vcantidad_real - Vcantidad_sistema. Campo de solo lectura. Esta es la cantidad que se debe registrar en el ajuste.
 
-Vmonto = editable solo cuando la linea es AJE (Vcantidad > 0). Es el costo total por item. En AJS el campo es invisible y el valor se fuerza a 0.
+Vmonto = **no visible** en la interfaz. Se calcula en segundo plano para lineas AJE (Vcantidad > 0) y se envia en el payload.
+Para lineas AJE, **llamar a un procedimiento** que reciba `vcodigo_producto` y devuelva el costo unitario del ultimo registro en `detalle_mov_contable_prov` (ordenado por fecha desc, num_documento_compra desc y ordinal desc). Luego **precargar** `Vmonto = costo_unitario * Vcantidad`. Si no existe costo, dejar `Vmonto` en blanco.
 
 vordinaldetalle_AJS = se calcula con SQL:
 `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = 'AJS' AND numdocumentostock = vNumdocumentostock_AJS` (si no hay filas, usar 1).
@@ -128,60 +130,56 @@ vordinaldetalle_AJE = se calcula con SQL:
 
 En la vista, cada campo debe usar el mismo nombre de variable definido arriba y registrar ese valor.
 
-Paso 2. Confirmar y ejecutar ajuste.
+Paso 2. Confirmar y registrar ajuste.
 
-Al terminar el formulario multipasos, cuando el usuario da click al boton "Registrar Ajuste" el sistema debera realizar las siguientes transacciones sobre la DB:
-
-Nota: Por cada ajuste se generan 2 registros de cabecera en movimiento_stock:
-- Uno para AJE (si hay lineas positivas).
-- Otro para AJS (si hay lineas negativas).
-Cada cabecera tiene su propio numdocumentostock correlativo.
-
-- Si existen lineas con Vcantidad < 0 (AJS - Ajuste Salida):
-  - Crear cabecera en `movimiento_stock` con tipodocumentostock = "AJS" y su numdocumentostock propio.
-  - Guardar en la tabla `detalle_movimiento_stock` los datos del grid "vDetalleAjuste" con ordinal correlativo por item:
-    - ordinal=vordinaldetalle_AJS
-    - tipodocumentostock="AJS"
-    - numdocumentostock=vNumdocumentostock_AJS
-    - codigo_producto=vcodigo_producto
-    - cantidad=ABS(Vcantidad)
-  - Por cada item, aplicar partidas consumiendo saldos mas antiguos con:
-    - `CALL aplicar_salida_partidas("AJS", vNumdocumentostock_AJS, vcodigo_producto, ABS(Vcantidad))`
-    - Este procedimiento descuenta saldo en `detalle_mov_contable_prov` y registra en `detalle_movs_partidas`.
-
-- Si existen lineas con Vcantidad = 0:
-  - Registrar en `detalle_movimiento_stock` como "AJS" (cantidad = 0) para trazabilidad.
-  - NO aplicar `aplicar_salida_partidas`.
-
-- Si existen lineas con Vcantidad > 0 (AJE - Ajuste Entrada):
-  - Crear cabecera en `movimiento_stock` con tipodocumentostock = "AJE" y su numdocumentostock propio.
-  - Crear cabecera minima en `mov_contable_prov` (para cumplir FK del detalle):
-    - tipo_documento_compra = "AJE"
-    - num_documento_compra = vNumdocumentostock_AJE
-    - codigo_provedor = vCodigo_provedor (0)
-    - fecha = vFecha
-    - monto = SUM(Vmonto)
-  - Registrar detalle en `detalle_mov_contable_prov` con ordinal correlativo por item:
-    - tipo_documento_compra = "AJE"
-    - num_documento_compra = vNumdocumentostock_AJE
-    - codigo_provedor = vCodigo_provedor
-    - ordinal = vordinaldetalle_AJE
-    - codigo_producto = vcodigo_producto
-    - cantidad = Vcantidad
-    - cantidad_entregada = Vcantidad
-    - saldo = Vcantidad
-    - monto = Vmonto
-
-- Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item del grid `vDetalleAjuste`.
-  Para cada fila:
-  - `p_codigo_base = vCodigo_base`
-  - `p_codigo_producto = vcodigo_producto`
-  - `p_cantidad = ABS(Vcantidad)`
-  - `p_tipodoc = ("AJE" si Vcantidad > 0, "AJS" si Vcantidad < 0)` (el SP debe soportar AJE/AJS)
-  - `p_numdoc = (vNumdocumentostock_AJE o vNumdocumentostock_AJS segun linea)`
+- Mostrar resumen de base, productos y cantidades.
+- Requerir confirmacion explicita antes de registrar.
 
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
+
+## Tablas a registrar
+movimiento_stock (AJS, si existen lineas con Vcantidad <= 0):
+tipodocumentostock="AJS"  
+numdocumentostock=vNumdocumentostock_AJS  
+fecha=vFecha  
+codigo_base=vCodigo_base  
+
+detalle_movimiento_stock (AJS, por item con Vcantidad <= 0):
+ordinal=vordinaldetalle_AJS  
+tipodocumentostock="AJS"  
+numdocumentostock=vNumdocumentostock_AJS  
+codigo_producto=vcodigo_producto  
+cantidad=ABS(Vcantidad)  
+
+movimiento_stock (AJE, si existen lineas con Vcantidad > 0):
+tipodocumentostock="AJE"  
+numdocumentostock=vNumdocumentostock_AJE  
+fecha=vFecha  
+codigo_base=vCodigo_base  
+
+mov_contable_prov (AJE, cabecera minima):
+tipo_documento_compra="AJE"  
+num_documento_compra=vNumdocumentostock_AJE  
+codigo_provedor=vCodigo_provedor  
+fecha=vFecha  
+monto=SUM(Vmonto)  
+
+detalle_mov_contable_prov (AJE, por item con Vcantidad > 0):
+tipo_documento_compra="AJE"  
+num_documento_compra=vNumdocumentostock_AJE  
+codigo_provedor=vCodigo_provedor  
+ordinal=vordinaldetalle_AJE  
+codigo_producto=vcodigo_producto  
+cantidad=Vcantidad  
+cantidad_entregada=Vcantidad  
+saldo=Vcantidad  
+monto=Vmonto  
+
+## Procedimientos que se llaman
+`CALL aplicar_salida_partidas("AJS", vNumdocumentostock_AJS, vcodigo_producto, ABS(Vcantidad))` por item con Vcantidad < 0  
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto, ABS(Vcantidad), "AJE", vNumdocumentostock_AJE)` por item con Vcantidad > 0  
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto, ABS(Vcantidad), "AJS", vNumdocumentostock_AJS)` por item con Vcantidad < 0  
 
 **

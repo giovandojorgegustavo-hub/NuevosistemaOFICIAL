@@ -324,16 +324,16 @@ app.get('/api/bases', async (req, res) => {
 
 app.post('/api/bases-candidatas', async (req, res) => {
   const rawItems = req.body?.vProdFactura ?? req.body?.items ?? [];
-  const fechaPedido = req.body?.vFechaP ?? req.body?.fechaPedido ?? null;
+  const fechaFactura = req.body?.vFechaP ?? req.body?.fechaFactura ?? null;
   const payload = typeof rawItems === 'string' ? rawItems : JSON.stringify(rawItems || []);
-  if (!fechaPedido) {
-    return res.status(400).json({ ok: false, message: 'FECHA_PEDIDO_REQUIRED' });
+  if (!fechaFactura) {
+    return res.status(400).json({ ok: false, message: 'FECHA_FACTURA_REQUIRED' });
   }
   try {
     const { pool } = app.locals.db;
     const conn = await pool.getConnection();
     try {
-      const result = await runQuery(conn, 'CALL get_bases_candidatas(?, ?)', [payload, fechaPedido]);
+      const result = await runQuery(conn, 'CALL get_bases_candidatas(?, ?)', [payload, fechaFactura]);
       const rows = pickResultset(result, (row) => 'latitud' in row || 'longitud' in row || 'LATITUD' in row);
       res.json({ ok: true, rows });
     } finally {
@@ -342,6 +342,54 @@ app.post('/api/bases-candidatas', async (req, res) => {
   } catch (error) {
     logError(error, 'BASES CANDIDATAS ERROR');
     res.status(500).json({ ok: false, message: 'BASES_CANDIDATAS_ERROR' });
+  }
+});
+
+app.post('/api/distance-matrix', async (req, res) => {
+  const apiKey = app.locals.db?.googleMaps?.api_key || '';
+  const origin = req.body?.origin;
+  const destinations = Array.isArray(req.body?.destinations) ? req.body.destinations : [];
+  if (!apiKey) {
+    return res.status(500).json({ ok: false, message: 'NO_API_KEY' });
+  }
+  if (typeof fetch !== 'function') {
+    return res.status(500).json({ ok: false, message: 'FETCH_NOT_AVAILABLE' });
+  }
+  if (!origin || typeof origin.lat !== 'number' || typeof origin.lng !== 'number') {
+    return res.status(400).json({ ok: false, message: 'INVALID_ORIGIN' });
+  }
+  if (!destinations.length) {
+    return res.json({ ok: true, rows: [] });
+  }
+
+  try {
+    const destinationsParam = destinations.map((item) => `${item.lat},${item.lng}`).join('|');
+    const originsParam = `${origin.lat},${origin.lng}`;
+    const params = new URLSearchParams({
+      origins: originsParam,
+      destinations: destinationsParam,
+      mode: 'driving',
+      key: apiKey
+    });
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?${params.toString()}`;
+    logLine(`DISTANCE_MATRIX: origins=${originsParam} destinations=${destinationsParam}`);
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok || data?.status !== 'OK') {
+      logError(JSON.stringify(data), 'Distance Matrix API error');
+      return res.status(502).json({ ok: false, message: 'DISTANCE_MATRIX_ERROR' });
+    }
+    const rows = data?.rows?.[0]?.elements || [];
+    const mapped = rows.map((element, index) => ({
+      codigo_base: destinations[index]?.codigo_base,
+      status: element.status,
+      duration: element.duration || null,
+      distance: element.distance || null
+    }));
+    res.json({ ok: true, rows: mapped });
+  } catch (error) {
+    logError(error, 'Error al consultar Distance Matrix');
+    res.status(500).json({ ok: false, message: 'ERROR' });
   }
 });
 
@@ -451,7 +499,7 @@ app.get('/api/next/recibo', async (req, res) => {
     try {
       const [[row]] = await runQuery(
         conn,
-        "SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'"
+        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'"
       );
       res.json({ ok: true, next: row?.next || 1 });
     } finally {
@@ -463,6 +511,27 @@ app.get('/api/next/recibo', async (req, res) => {
   }
 });
 
+app.get('/api/saldo-favor', async (req, res) => {
+  const cliente = Number(req.query.cliente || 0);
+  if (!cliente) {
+    return res.status(400).json({ ok: false, message: 'CLIENTE_REQUIRED' });
+  }
+  try {
+    const { pool } = app.locals.db;
+    const conn = await pool.getConnection();
+    try {
+      const [rows] = await runQuery(conn, 'CALL get_saldo_favor_cliente(?)', [cliente]);
+      res.json({ ok: true, rows: rows[0] || [] });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'SALDO_FAVOR ERROR');
+    res.status(500).json({ ok: false, message: 'SALDO_FAVOR_ERROR' });
+  }
+});
+
+
 app.post('/api/emitir', async (req, res) => {
   const payload = req.body || {};
   const cliente = payload.cliente || {};
@@ -471,6 +540,7 @@ app.post('/api/emitir', async (req, res) => {
   const entrega = payload.entrega || {};
   const recibe = payload.recibe || {};
   const pagos = Array.isArray(payload.pagos) ? payload.pagos : [];
+  const saldoFavorUsado = Number(factura.saldo_favor_usado || 0) || 0;
   const base = payload.base || {};
 
   const { pool } = app.locals.db;
@@ -565,25 +635,35 @@ app.post('/api/emitir', async (req, res) => {
       );
     }
 
+    const montoDetalleProductos = Number(factura.monto || 0);
+    const costoEnvio = Number(factura.costo_envio || 0);
+    const montoFactura = montoDetalleProductos + costoEnvio;
+    const saldoFactura = montoFactura;
+
+    const usaRecibe = entrega.region === 'LIMA';
+    const codigoClienteNumrecibe = usaRecibe ? cliente.codigo : null;
+    const ordinalNumrecibe = usaRecibe ? recibe.ordinal : null;
+
     await runQuery(
       conn,
-      'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, monto, saldo, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, montodetalleproductos, monto, saldo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         pedido.codigo,
-        pedido.fecha,
-        pedido.fecha,
-        pedido.fecha,
+        factura.fecha,
+        factura.fecha,
+        factura.fecha,
         cliente.codigo,
-        factura.saldo,
-        factura.saldo,
         'FAC',
         factura.numero,
         base.codigo,
-        cliente.codigo,
-        recibe.ordinal,
+        codigoClienteNumrecibe,
+        ordinalNumrecibe,
         cliente.codigo,
         entrega.codigo_puntoentrega,
-        factura.costo_envio
+        costoEnvio,
+        montoDetalleProductos,
+        montoFactura,
+        saldoFactura
       ]
     );
 
@@ -617,20 +697,31 @@ app.post('/api/emitir', async (req, res) => {
       );
     }
 
-    await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [cliente.codigo, 'FAC', factura.saldo]);
+    await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [cliente.codigo, 'FAC', saldoFactura]);
+
+    if (saldoFavorUsado > 0) {
+      await runQuery(conn, 'CALL aplicar_saldo_favor_a_factura(?, ?, ?)', [
+        cliente.codigo,
+        factura.numero,
+        saldoFavorUsado
+      ]);
+    }
 
     if (pagos.length) {
       for (const pago of pagos) {
         await runQuery(
           conn,
-          'INSERT INTO mov_operaciones_contables (tipodocumento, numdocumento, fecha, monto, codigo_cuentabancaria, codigo_cuentabancaria_destino) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO mov_contable (codigo_cliente, tipo_documento, numero_documento, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cuentabancaria, monto, saldo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
+            cliente.codigo,
             'RCP',
             pago.numdocumento,
-            pedido.fecha,
-            pago.monto,
+            factura.fecha,
+            factura.fecha,
+            factura.fecha,
             pago.cuentaCodigo,
-            null
+            pago.monto,
+            pago.monto
           ]
         );
         await runQuery(conn, 'CALL aplicar_recibo_a_facturas(?, ?, ?)', [cliente.codigo, pago.numdocumento, pago.monto]);

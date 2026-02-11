@@ -143,6 +143,19 @@ app.post('/api/reasignar-base', async (req, res) => {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
+  try {
+    const userRows = await execQuery(
+      'SELECT 1 FROM usuarios WHERE codigo_usuario = ? LIMIT 1',
+      [vcodigo_usuario]
+    );
+    if (!userRows || userRows.length === 0) {
+      return res.status(400).json({ error: 'Código de usuario inválido.' });
+    }
+  } catch (err) {
+    logLine(`ERROR validar usuario: ${err.stack || err.message}`, true);
+    return res.status(500).json({ error: 'DB error' });
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -157,6 +170,9 @@ app.post('/api/reasignar-base', async (req, res) => {
   } catch (err) {
     await connection.rollback();
     logLine(`ERROR reasignar-base: ${err.stack || err.message}`, true);
+    if (err && err.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Código de usuario inválido.' });
+    }
     res.status(500).json({ error: 'DB error' });
   } finally {
     connection.release();

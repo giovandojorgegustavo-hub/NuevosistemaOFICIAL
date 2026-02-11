@@ -9,7 +9,7 @@
   --accent: #17d3a5;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --muted: #9aa4b2;
+  --muted: #cfd6e4;
   --white: #ffffff;
 
   --font-family: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -126,10 +126,12 @@ body {
 .wizard-header h1 {
   font-size: var(--text-xxl);
   margin-bottom: 4px;
+  color: var(--white);
+  font-weight: 700;
 }
 
 .wizard-header p {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.82);
   margin-bottom: 0;
 }
 
@@ -195,10 +197,12 @@ body {
 .section-header h2 {
   font-size: var(--text-xl);
   margin-bottom: 4px;
+  color: var(--white);
+  font-weight: 700;
 }
 
 .section-header p {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.82);
   margin-bottom: 0;
 }
 
@@ -246,12 +250,14 @@ body {
 }
 
 .label {
-  color: var(--muted);
+  color: var(--white);
   font-size: var(--text-sm);
+  font-weight: 700;
 }
 
 .value {
-  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 400;
 }
 
 .link {
@@ -279,7 +285,7 @@ body {
 }
 
 .muted {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.7);
   font-size: var(--text-sm);
 }
 
@@ -296,7 +302,7 @@ body {
 }
 
 .selection-count {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .summary-grid {
@@ -312,7 +318,7 @@ body {
 }
 
 .hint {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.75);
   font-size: var(--text-sm);
 }
 
@@ -329,7 +335,7 @@ body {
 }
 
 .loading-text {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .logs-pre {

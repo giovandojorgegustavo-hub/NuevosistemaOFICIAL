@@ -176,6 +176,64 @@ app.get('/api/paquetes-pendientes', async (req, res) => {
   }
 });
 
+app.get('/api/packings', async (req, res) => {
+  const normalizeNumericId = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num <= 0) return '';
+    return String(Math.trunc(num));
+  };
+
+  const codigoBase = normalizeNumericId(req.query.codigo_base);
+  const codigoCliente = normalizeNumericId(req.query.codigo_cliente);
+  const hasBase = Boolean(codigoBase);
+  const hasCliente = Boolean(codigoCliente);
+  if (!hasBase && !hasCliente) {
+    return res.json({ ok: true, rows: [] });
+  }
+
+  try {
+    const conn = await dbState.pool.getConnection();
+    try {
+      let sourceRows = [];
+
+      if (hasBase) {
+        const [result] = await runQuery(conn, 'CALL get_packingporbase(?)', [codigoBase]);
+        sourceRows = unwrapRows(result);
+      }
+
+      // Fallback: si no hay base valida o no retorna resultados, usar cliente.
+      if (!sourceRows.length && hasCliente) {
+        const [rows] = await runQuery(
+          conn,
+          `SELECT DISTINCT p.codigo_packing, p.nombre, p.tipo
+           FROM mov_contable mc
+           INNER JOIN basespacking bp ON bp.codigo_base = mc.codigo_base
+           INNER JOIN packing p ON p.codigo_packing = bp.codigo_packing
+           WHERE mc.codigo_cliente = ?
+           ORDER BY p.nombre, p.codigo_packing`,
+          [codigoCliente]
+        );
+        sourceRows = rows || [];
+      }
+
+      const rows = sourceRows.map((row) => ({
+        id: row.codigo_packing,
+        name: row.nombre,
+        tipo: row.tipo,
+        observacion: row.observacion ?? row.descripcion ?? ''
+      }));
+      res.json({ ok: true, rows });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'Error al cargar packings');
+    res.status(500).json({ ok: false, message: 'ERROR' });
+  }
+});
+
 app.get('/api/detalle/:codigo', async (req, res) => {
   const codigo = String(req.params.codigo || '').trim();
   try {
@@ -210,9 +268,13 @@ app.get('/api/logs', async (req, res) => {
 
 app.post('/api/empacar', async (req, res) => {
   const codigo = String(req.body.codigo_paquete || '').trim();
+  const codigoPacking = String(req.body.codigo_packing || '').trim();
   const codigoRegex = /^\d+$/;
   if (!codigo || !codigoRegex.test(codigo)) {
     return res.status(400).json({ ok: false, message: 'INVALID_INPUT' });
+  }
+  if (!codigoPacking || !codigoRegex.test(codigoPacking)) {
+    return res.status(400).json({ ok: false, message: 'INVALID_PACKING' });
   }
 
   const conn = await dbState.pool.getConnection();
@@ -229,6 +291,13 @@ app.post('/api/empacar', async (req, res) => {
 
     const codigoBase = paquete.codigo_base;
 
+    const [packingsResult] = await runQuery(conn, 'CALL get_packingporbase(?)', [codigoBase]);
+    const packings = unwrapRows(packingsResult);
+    const packingOk = packings.some((row) => String(row.codigo_packing) === codigoPacking);
+    if (!packingOk) {
+      throw new Error('PACKING_NOT_FOUND');
+    }
+
     const [nextRows] = await runQuery(
       conn,
       "SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = ? AND tipo_documento = 'FAC'",
@@ -243,6 +312,12 @@ app.post('/api/empacar', async (req, res) => {
     );
 
     await runQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigo, 'empacado']);
+
+    await runQuery(
+      conn,
+      "UPDATE mov_contable SET codigo_packing = ? WHERE tipo_documento = 'FAC' AND numero_documento = ?",
+      [codigoPacking, codigo]
+    );
 
     const [detalleResult] = await runQuery(conn, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
     const detalles = unwrapRows(detalleResult);

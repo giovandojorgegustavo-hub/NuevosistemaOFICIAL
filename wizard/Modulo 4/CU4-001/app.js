@@ -190,6 +190,13 @@ class FormWizard {
     return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   }
 
+  setTextIfExists(id, value) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = value;
+    }
+  }
+
   validateStep1() {
     const errors = [];
     const vFecha = document.getElementById('vFecha').value.trim();
@@ -249,11 +256,11 @@ class FormWizard {
   }
 
   updateReview() {
-    document.getElementById('reviewFecha').textContent = document.getElementById('vFecha').value;
-    document.getElementById('reviewSalida').textContent = document.getElementById('vNumdocumentostockSalida').value;
-    document.getElementById('reviewEntrada').textContent = document.getElementById('vNumdocumentostockEntrada').value;
-    document.getElementById('reviewBaseOrigen').textContent = document.getElementById('vBaseNombre').value;
-    document.getElementById('reviewBaseDestino').textContent = document.getElementById('vBaseNombreDestino').value;
+    this.setTextIfExists('reviewFecha', document.getElementById('vFecha').value);
+    this.setTextIfExists('reviewSalida', document.getElementById('vNumdocumentostockSalida').value);
+    this.setTextIfExists('reviewEntrada', document.getElementById('vNumdocumentostockEntrada').value);
+    this.setTextIfExists('reviewBaseOrigen', document.getElementById('vBaseNombre').value);
+    this.setTextIfExists('reviewBaseDestino', document.getElementById('vBaseNombreDestino').value);
 
     const detalle = this.getDetalleItems();
     const tbody = document.getElementById('reviewDetalle');
@@ -303,8 +310,8 @@ class FormWizard {
     document.getElementById('vTipodocumentostockEntrada').value = data.vTipodocumentostockEntrada;
     document.getElementById('vNumdocumentostockSalida').value = data.vNumdocumentostockSalida;
     document.getElementById('vNumdocumentostockEntrada').value = data.vNumdocumentostockEntrada;
-    document.getElementById('metricSalida').textContent = data.vNumdocumentostockSalida;
-    document.getElementById('metricEntrada').textContent = data.vNumdocumentostockEntrada;
+    this.setTextIfExists('metricSalida', data.vNumdocumentostockSalida);
+    this.setTextIfExists('metricEntrada', data.vNumdocumentostockEntrada);
   }
 
   renderDatalists() {

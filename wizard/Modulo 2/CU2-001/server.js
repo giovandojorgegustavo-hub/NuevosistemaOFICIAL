@@ -122,14 +122,6 @@ async function runQuery(conn, sql, params) {
   return conn.query(sql, params);
 }
 
-function getSqlLines(raw) {
-  return raw
-    .split('\n')
-    .filter((line) => line.includes('[SQL]') || line.includes('SQL:'))
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(ROOT_DIR));
@@ -167,10 +159,11 @@ app.get('/api/ultima-asistencia', async (req, res) => {
 app.post('/api/abrir-horario', async (req, res) => {
   const payload = req.body || {};
   const vFecha = payload.vFecha;
+  const vFechaRegistro = payload.vFecha_registro || vFecha;
   const vCodigoBase = payload.vCodigo_base;
   const vCodigoUsuario = payload.vCodigo_usuario;
 
-  if (!vFecha || !vCodigoBase || !vCodigoUsuario) {
+  if (!vFecha || !vCodigoBase || !vCodigoUsuario || !vFechaRegistro) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
   }
 
@@ -180,16 +173,22 @@ app.post('/api/abrir-horario', async (req, res) => {
     logSql('BEGIN');
     await conn.beginTransaction();
 
-    await runQuery(conn, 'INSERT INTO bitacoraBase (fecha, codigo_base, codigo_usuario) VALUES (?, ?, ?)', [
-      vFecha,
-      vCodigoBase,
-      vCodigoUsuario
-    ]);
+    const [[row]] = await runQuery(
+      conn,
+      'SELECT COALESCE(MAX(codigo_bitacora), 0) + 1 AS next_codigo FROM bitacoraBase FOR UPDATE'
+    );
+    const nextCodigo = Number(row?.next_codigo) || 1;
+
+    await runQuery(
+      conn,
+      'INSERT INTO bitacoraBase (codigo_bitacora, fecha, codigo_base, codigo_usuario) VALUES (?, ?, ?, ?)',
+      [nextCodigo, vFechaRegistro, vCodigoBase, vCodigoUsuario]
+    );
 
     logSql('COMMIT');
     await conn.commit();
 
-    res.json({ ok: true, ultima_asistencia: vFecha });
+    res.json({ ok: true, ultima_asistencia: vFechaRegistro });
   } catch (error) {
     logSql('ROLLBACK');
     await conn.rollback();
@@ -197,20 +196,6 @@ app.post('/api/abrir-horario', async (req, res) => {
     res.status(500).json({ ok: false, message: 'ABRIR_HORARIO_ERROR' });
   } finally {
     conn.release();
-  }
-});
-
-app.get('/api/sql-logs', (req, res) => {
-  try {
-    if (!global.logFilePath || !fs.existsSync(global.logFilePath)) {
-      return res.json({ ok: true, lines: [] });
-    }
-    const raw = fs.readFileSync(global.logFilePath, 'utf-8');
-    const lines = getSqlLines(raw);
-    res.json({ ok: true, lines });
-  } catch (error) {
-    logError(error, 'SQL LOGS ERROR');
-    res.status(500).json({ ok: false, message: 'SQL_LOGS_ERROR' });
   }
 });
 

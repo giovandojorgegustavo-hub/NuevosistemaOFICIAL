@@ -93,6 +93,7 @@ En la vista, cada campo debe usar el mismo nombre de variable definido arriba y 
 En el mismo paso, cuando el usuario da click al boton "Abrir Horario" el sistema debera realizar las siguientes transacciones sobre la DB:
 
 - Guardar en la tabla `bitacoraBase`:
+  codigo_bitacora = Consecutivo (MAX(codigo_bitacora) + 1) dentro de la transaccion
   fecha=vFecha
   codigo_base=vCodigo_base
   codigo_usuario=vCodigo_usuario

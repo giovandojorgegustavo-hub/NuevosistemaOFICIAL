@@ -32,6 +32,9 @@ class FormWizard {
     this.detalleBody = document.getElementById('detalleBody');
     this.decimalRegex = /^\d+(\.\d{1,2})?$/;
     this.dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    this.currentBase = '';
+    this.baseFetchId = 0;
+    this.costoCache = new Map();
   }
 
   async init() {
@@ -55,8 +58,7 @@ class FormWizard {
     });
 
     document.getElementById('vBaseNombre').addEventListener('input', (event) => {
-      this.syncBaseCode(event.target.value);
-      this.refreshSaldoForAllRows();
+      this.handleBaseInput(event);
     });
   }
 
@@ -136,12 +138,13 @@ class FormWizard {
     }
   }
 
-  addDetalleRow() {
+  addDetalleRow(prefill = {}) {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>
         <input type="text" class="form-control form-control-sm" name="vNombreProducto" list="productosList" placeholder="Producto" />
         <input type="hidden" name="vcodigo_producto" />
+        <input type="hidden" name="Vmonto" />
         <small class="text-muted" data-producto-label>--</small>
       </td>
       <td class="text-end">
@@ -152,9 +155,6 @@ class FormWizard {
       </td>
       <td class="text-end">
         <input type="text" class="form-control form-control-sm text-end" name="Vcantidad" placeholder="0.00" readonly />
-      </td>
-      <td class="text-end">
-        <input type="text" class="form-control form-control-sm text-end" name="Vmonto" placeholder="0.00" />
       </td>
       <td class="text-end">
         <button type="button" class="btn btn-sm btn-outline-light">Quitar</button>
@@ -172,7 +172,43 @@ class FormWizard {
     cantidadRealInput.addEventListener('input', () => {
       this.updateCantidadForRow(row);
     });
-    this.setMontoVisibility(row, 0);
+
+    const codigoInput = row.querySelector('input[name="vcodigo_producto"]');
+    const label = row.querySelector('[data-producto-label]');
+    const sistemaInput = row.querySelector('input[name="Vcantidad_sistema"]');
+    const cantidadInput = row.querySelector('input[name="Vcantidad"]');
+    const montoInput = row.querySelector('input[name="Vmonto"]');
+    montoInput.addEventListener('input', () => {
+      if (!montoInput.disabled) {
+        montoInput.dataset.manual = montoInput.value.trim() ? 'true' : '';
+      }
+    });
+
+    if (prefill.vNombreProducto) {
+      productoInput.value = prefill.vNombreProducto;
+    }
+    if (prefill.vcodigo_producto) {
+      codigoInput.value = prefill.vcodigo_producto;
+      label.textContent = `${prefill.vcodigo_producto} · ${prefill.vNombreProducto || productoInput.value}`;
+    }
+    if (prefill.Vcantidad_sistema !== undefined && prefill.Vcantidad_sistema !== null) {
+      sistemaInput.value = Number(prefill.Vcantidad_sistema || 0).toFixed(2);
+    }
+    if (prefill.Vcantidad_real !== undefined && prefill.Vcantidad_real !== null) {
+      cantidadRealInput.value = Number(prefill.Vcantidad_real || 0).toFixed(2);
+    }
+    if (prefill.Vcantidad !== undefined && prefill.Vcantidad !== null) {
+      cantidadInput.value = Number(prefill.Vcantidad || 0).toFixed(2);
+    }
+    if (prefill.Vmonto !== undefined && prefill.Vmonto !== null) {
+      montoInput.value = Number(prefill.Vmonto || 0).toFixed(2);
+    }
+
+    if (prefill.vcodigo_producto) {
+      this.updateCantidadForRow(row);
+    } else {
+      this.setMontoVisibility(row, 0);
+    }
     this.detalleBody.appendChild(row);
   }
 
@@ -183,12 +219,23 @@ class FormWizard {
     );
     const label = input.parentElement.querySelector('[data-producto-label]');
     const codigoField = input.parentElement.querySelector('input[name="vcodigo_producto"]');
+    const row = input.closest('tr');
+    const montoInput = row ? row.querySelector('input[name="Vmonto"]') : null;
     if (match) {
       label.textContent = `${match.codigo_producto} · ${match.nombre}`;
       codigoField.value = match.codigo_producto;
     } else {
       label.textContent = 'No reconocido';
       codigoField.value = '';
+    }
+    if (row) {
+      row.dataset.costoUnitario = '';
+      if (montoInput) {
+        montoInput.dataset.manual = '';
+        if (!montoInput.disabled) {
+          montoInput.value = '';
+        }
+      }
     }
   }
 
@@ -197,8 +244,10 @@ class FormWizard {
     const target = document.getElementById('vCodigo_base');
     if (match) {
       target.value = match.codigo_base;
+      return String(match.codigo_base);
     } else {
       target.value = '';
+      return '';
     }
   }
 
@@ -209,6 +258,101 @@ class FormWizard {
   refreshSaldoForAllRows() {
     const rows = Array.from(this.detalleBody.querySelectorAll('tr'));
     rows.forEach((row) => this.updateSaldoForRow(row));
+  }
+
+  async handleBaseInput(event) {
+    const codigoBase = this.syncBaseCode(event.target.value);
+    await this.updateProductosForBase(codigoBase);
+  }
+
+  async updateProductosForBase(codigoBase) {
+    if (codigoBase === this.currentBase) {
+      return;
+    }
+    this.currentBase = codigoBase;
+    this.baseFetchId += 1;
+    const requestId = this.baseFetchId;
+
+    if (!codigoBase) {
+      this.productos = [];
+      this.fillDataList('productosList', this.productos, 'codigo_producto');
+      this.resetDetalleProductos();
+      this.setLoading(false);
+      return;
+    }
+    try {
+      this.setLoading(true, 'Cargando productos...');
+      const response = await fetch(`/api/productos-stock?codigo_base=${encodeURIComponent(codigoBase)}`);
+      const data = await response.json();
+      if (requestId !== this.baseFetchId) {
+        return;
+      }
+      if (!data.ok) {
+        throw new Error(data.message || 'No se pudieron cargar productos');
+      }
+      this.productos = data.data || [];
+      this.fillDataList('productosList', this.productos, 'codigo_producto');
+      this.renderDetalleFromProductos(this.productos);
+    } catch (error) {
+      this.showAlert(error.message || 'Error cargando productos');
+    } finally {
+      if (requestId === this.baseFetchId) {
+        this.setLoading(false);
+      }
+    }
+  }
+
+  renderDetalleFromProductos(items) {
+    this.detalleBody.innerHTML = '';
+    if (!items.length) {
+      this.addDetalleRow();
+      return;
+    }
+    items.forEach((item) => {
+      const saldo = Number(item.saldo_actual || 0);
+      this.addDetalleRow({
+        vcodigo_producto: item.codigo_producto,
+        vNombreProducto: item.nombre,
+        Vcantidad_sistema: saldo
+      });
+    });
+  }
+
+  resetDetalleProductos(clearAll = true) {
+    const rows = Array.from(this.detalleBody.querySelectorAll('tr'));
+    rows.forEach((row) => {
+      const nombreInput = row.querySelector('input[name="vNombreProducto"]');
+      const codigoInput = row.querySelector('input[name="vcodigo_producto"]');
+      const label = row.querySelector('[data-producto-label]');
+      const sistemaInput = row.querySelector('input[name="Vcantidad_sistema"]');
+      const realInput = row.querySelector('input[name="Vcantidad_real"]');
+      const cantidadInput = row.querySelector('input[name="Vcantidad"]');
+      const montoInput = row.querySelector('input[name="Vmonto"]');
+
+      const match = !clearAll
+        ? this.productos.find(
+            (item) =>
+              this.equalsIgnoreCase(item.nombre, nombreInput.value) ||
+              String(item.codigo_producto) === String(codigoInput.value)
+          )
+        : null;
+
+      if (!match) {
+        nombreInput.value = '';
+        codigoInput.value = '';
+        label.textContent = '--';
+        sistemaInput.value = '0.00';
+        realInput.value = '';
+        cantidadInput.value = '0.00';
+        montoInput.value = '0.00';
+        this.setMontoVisibility(row, 0);
+      } else {
+        nombreInput.value = match.nombre;
+        codigoInput.value = match.codigo_producto;
+        label.textContent = `${match.codigo_producto} · ${match.nombre}`;
+        this.updateSaldoForRow(row);
+      }
+    });
   }
 
   async updateSaldoForRow(row) {
@@ -239,20 +383,80 @@ class FormWizard {
     const sistema = Number(row.querySelector('input[name="Vcantidad_sistema"]').value || 0);
     const realInput = row.querySelector('input[name="Vcantidad_real"]');
     const cantidadInput = row.querySelector('input[name="Vcantidad"]');
-    const realValue = Number(realInput.value || 0);
+    const realRaw = String(realInput.value || '').trim();
+    if (!realRaw) {
+      cantidadInput.value = '0.00';
+      this.setMontoVisibility(row, 0);
+      return;
+    }
+    const realValue = Number(realRaw);
     const cantidad = realValue - sistema;
     cantidadInput.value = Number.isFinite(cantidad) ? cantidad.toFixed(2) : '0.00';
     this.setMontoVisibility(row, cantidad);
+    if (Number.isFinite(cantidad)) {
+      this.updateMontoFromCosto(row, cantidad);
+    }
+  }
+
+  async updateMontoFromCosto(row, cantidad) {
+    const codigoProducto = row.querySelector('input[name="vcodigo_producto"]').value.trim();
+    if (!codigoProducto) {
+      return;
+    }
+    const montoInput = row.querySelector('input[name="Vmonto"]');
+    if (!montoInput) {
+      return;
+    }
+    if (cantidad <= 0) {
+      montoInput.value = '0.00';
+      return;
+    }
+    if (montoInput.disabled) {
+      return;
+    }
+    if (montoInput.dataset.manual === 'true') {
+      return;
+    }
+    const costoUnitario = await this.getCostoUnitario(codigoProducto);
+    if (!Number.isFinite(costoUnitario)) {
+      montoInput.value = '';
+      return;
+    }
+    const monto = costoUnitario * cantidad;
+    montoInput.value = Number.isFinite(monto) ? monto.toFixed(2) : '';
+  }
+
+  async getCostoUnitario(codigoProducto) {
+    if (this.costoCache.has(codigoProducto)) {
+      return this.costoCache.get(codigoProducto);
+    }
+    try {
+      const response = await fetch(`/api/costo-ultimo?codigo_producto=${encodeURIComponent(codigoProducto)}`);
+      const data = await response.json();
+      if (!data.ok) {
+        throw new Error(data.message || 'No se pudo obtener costo');
+      }
+      const costo = data.costo_unitario;
+      const parsed = Number(costo);
+      const value = Number.isFinite(parsed) ? parsed : null;
+      this.costoCache.set(codigoProducto, value);
+      return value;
+    } catch (error) {
+      this.showAlert(error.message || 'Error consultando costo');
+      this.costoCache.set(codigoProducto, null);
+      return null;
+    }
   }
 
   setMontoVisibility(row, cantidad) {
     const montoInput = row.querySelector('input[name="Vmonto"]');
+    if (!montoInput) {
+      return;
+    }
     if (cantidad > 0) {
-      montoInput.closest('td').classList.remove('d-none');
       montoInput.disabled = false;
     } else {
       montoInput.value = '0.00';
-      montoInput.closest('td').classList.add('d-none');
       montoInput.disabled = true;
     }
   }
@@ -268,6 +472,20 @@ class FormWizard {
     }
     if (!vBaseNombre || !vCodigo_base) {
       errors.push('Selecciona una base valida');
+    }
+
+    const rows = Array.from(this.detalleBody.querySelectorAll('tr'));
+    const faltantes = rows.filter((row) => {
+      const codigo = row.querySelector('input[name="vcodigo_producto"]').value.trim();
+      const nombre = row.querySelector('input[name="vNombreProducto"]').value.trim();
+      const real = row.querySelector('input[name="Vcantidad_real"]').value.trim();
+      if (!codigo && !nombre) {
+        return false;
+      }
+      return !real;
+    });
+    if (faltantes.length) {
+      errors.push('Completa Vcantidad_real en todas las lineas o quitalas');
     }
 
     const detalle = this.getDetalleItems();
@@ -286,10 +504,10 @@ class FormWizard {
     }
 
     const montoErrores = detalle.filter(
-      (item) => item.Vcantidad > 0 && !this.decimalRegex.test(String(item.Vmonto))
+      (item) => item.Vcantidad > 0 && item.Vmonto && !this.decimalRegex.test(String(item.Vmonto))
     );
     if (montoErrores.length) {
-      errors.push('Vmonto es obligatorio para lineas AJE');
+      errors.push('Vmonto debe ser un numero con hasta 2 decimales');
     }
 
     return errors;
@@ -314,7 +532,17 @@ class FormWizard {
           Vmonto: monto
         };
       })
-      .filter((item) => item.vcodigo_producto || item.Vcantidad_real || item.vNombreProducto);
+      .filter((item) => {
+        if (!item.Vcantidad_real) {
+          return false;
+        }
+        const realNum = Number(item.Vcantidad_real);
+        const sistemaNum = Number(item.Vcantidad_sistema || 0);
+        if (!Number.isFinite(realNum)) {
+          return true;
+        }
+        return Math.abs(realNum - sistemaNum) > 0;
+      });
   }
 
   updateReview() {
@@ -325,16 +553,13 @@ class FormWizard {
     let totalAje = 0;
     let totalAjs = 0;
     let totalCero = 0;
-    let montoTotal = 0;
 
     detalle.forEach((item) => {
       const cantidad = Number(item.Vcantidad || 0);
-      const monto = Number(item.Vmonto || 0);
       let tipo = 'AJS';
       if (cantidad > 0) {
         tipo = 'AJE';
         totalAje += 1;
-        montoTotal += monto;
       } else if (cantidad < 0) {
         totalAjs += 1;
       } else {
@@ -345,7 +570,6 @@ class FormWizard {
       tr.innerHTML = `
         <td>${item.vNombreProducto || item.vcodigo_producto}</td>
         <td class="text-end">${cantidad.toFixed(2)}</td>
-        <td class="text-end">${tipo === 'AJE' ? monto.toFixed(2) : '0.00'}</td>
         <td>${tipo}</td>
       `;
       reviewDetalle.appendChild(tr);
@@ -356,17 +580,15 @@ class FormWizard {
       <div>Lineas AJE: <strong>${totalAje}</strong></div>
       <div>Lineas AJS: <strong>${totalAjs}</strong></div>
       <div>Lineas AJS (cantidad 0): <strong>${totalCero}</strong></div>
-      <div>Monto total AJE: <strong>${montoTotal.toFixed(2)}</strong></div>
     `;
   }
 
   async loadInitialData() {
     try {
       this.setLoading(true, 'Cargando datos...');
-      const [initRes, basesRes, productosRes] = await Promise.all([
+      const [initRes, basesRes] = await Promise.all([
         fetch('/api/init'),
-        fetch('/api/bases'),
-        fetch('/api/productos')
+        fetch('/api/bases')
       ]);
 
       const initData = await initRes.json();
@@ -383,12 +605,7 @@ class FormWizard {
       }
       this.bases = basesData.data || [];
       this.fillDataList('basesList', this.bases, 'codigo_base');
-
-      const productosData = await productosRes.json();
-      if (!productosData.ok) {
-        throw new Error(productosData.message || 'No se pudieron cargar productos');
-      }
-      this.productos = productosData.data || [];
+      this.productos = [];
       this.fillDataList('productosList', this.productos, 'codigo_producto');
     } catch (error) {
       this.showAlert(error.message || 'Error cargando datos');
@@ -463,6 +680,9 @@ class FormWizard {
   resetForm() {
     document.getElementById('ajusteForm').reset();
     document.getElementById('vCodigo_base').value = '';
+    this.currentBase = '';
+    this.baseFetchId = 0;
+    this.costoCache.clear();
     this.detalleBody.innerHTML = '';
     this.addDetalleRow();
     this.hideAlert();

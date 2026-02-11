@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU3001 - Compras Factura</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">NX</div>
+        <div>
+          <div class="brand-title" data-i18n="title">Compras Factura</div>
+          <div class="brand-subtitle" data-i18n="subtitle">Global IaaS &amp; PaaS Procurement Hub</div>
+        </div>
+      </div>
+      <div class="status-pill" id="statusPill" data-i18n="statusReady">Ready</div>
+    </header>
+
+    <main class="app-main">
+      <section class="wizard-card">
+        <div class="wizard-header">
+          <div>
+            <h1 data-i18n="wizardTitle">CU3001 - Compras Factura</h1>
+            <p class="text-muted" data-i18n="wizardHint">Multi-paso con control total y trazabilidad SQL.</p>
+          </div>
+          <div class="step-indicator" id="stepIndicator">1 / 3</div>
+        </div>
+
+        <div class="progress wizard-progress" role="progressbar" aria-label="progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="formAlert"></div>
+        <div class="alert alert-success d-none" id="formSuccess"></div>
+
+        <form id="wizardForm" novalidate>
+          <section class="step-panel active" data-step="1">
+            <div class="step-header">
+              <h2 data-i18n="step1Title">1. Seleccionar o crear proveedor</h2>
+              <p data-i18n="step1Hint">Selecciona un proveedor existente o registra uno nuevo.</p>
+            </div>
+
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="fechaLabel">Fecha</label>
+                <input type="date" class="form-control" id="fechaInput" readonly />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label" data-i18n="proveedorModo">Modo de proveedor</label>
+                <div class="radio-chip-group">
+                  <label class="radio-chip">
+                    <input type="radio" name="proveedorModo" value="existente" checked />
+                    <span data-i18n="proveedorExistente">Proveedor existente</span>
+                  </label>
+                  <label class="radio-chip">
+                    <input type="radio" name="proveedorModo" value="nuevo" />
+                    <span data-i18n="proveedorNuevo">Proveedor nuevo</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1" id="proveedorExistentePanel">
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="proveedorSearchLabel">Buscar proveedor</label>
+                <div class="typeahead">
+                  <input type="text" class="form-control" id="proveedorSearch" placeholder="Proveedor" autocomplete="off" />
+                  <div class="typeahead-list list-group" id="proveedorList"></div>
+                </div>
+                <small class="text-muted" id="proveedoresCount">0</small>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1 d-none" id="proveedorNuevoPanel">
+              <input type="hidden" id="proveedorCodigoNuevo" />
+              <div class="col-lg-6">
+                <label class="form-label" data-i18n="proveedorNombreLabel">Nombre proveedor</label>
+                <input type="text" class="form-control" id="proveedorNombreNuevo" placeholder="Proveedor" />
+              </div>
+            </div>
+          </section>
+
+          <section class="step-panel" data-step="2">
+            <div class="step-header">
+              <h2 data-i18n="step2Title">2. Agregar productos</h2>
+              <p data-i18n="step2Hint">Registra los items de la compra.</p>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
+                <input type="text" class="form-control" id="tipoDocumento" readonly />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="numeroDocumento">Numero documento</label>
+                <input type="text" class="form-control" id="numeroDocumento" readonly />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" data-i18n="totalLabel">Total compra</label>
+                <input type="text" class="form-control" id="totalCompra" readonly />
+              </div>
+            </div>
+
+            <div class="table-actions mt-4">
+              <button type="button" class="btn btn-outline-light" id="addRowBtn" data-i18n="addRow">Agregar fila</button>
+              <div class="text-muted" id="detalleCount">0 items</div>
+            </div>
+
+            <div class="table-responsive mt-3">
+              <table class="table table-hover align-middle" id="detalleTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colCantidad">Cantidad</th>
+                    <th data-i18n="colMonto">Monto</th>
+                    <th data-i18n="colAccion">Accion</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="step-panel" data-step="3">
+            <div class="step-header">
+              <h2 data-i18n="step3Title">3. Confirmar y facturar compra</h2>
+              <p data-i18n="step3Hint">Revisa el resumen antes de registrar.</p>
+            </div>
+
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-label" data-i18n="summaryProveedor">Proveedor</div>
+                <div class="summary-value" id="summaryProveedor">-</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label" data-i18n="summaryFecha">Fecha</div>
+                <div class="summary-value" id="summaryFecha">-</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label" data-i18n="summaryTotal">Total compra</div>
+                <div class="summary-value" id="summaryTotal">-</div>
+              </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+              <table class="table table-hover align-middle" id="summaryTable">
+                <thead>
+                  <tr>
+                    <th data-i18n="colProducto">Producto</th>
+                    <th data-i18n="colCantidad">Cantidad</th>
+                    <th data-i18n="colMonto">Monto</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="confirmCheck" />
+              <label class="form-check-label" for="confirmCheck" data-i18n="confirmLabel">
+                Confirmo que los datos son correctos.
+              </label>
+            </div>
+          </section>
+
+          <div class="wizard-actions">
+            <button type="button" class="btn btn-outline-light" id="prevBtn" data-i18n="prev">Anterior</button>
+            <button type="button" class="btn btn-primary" id="nextBtn" data-i18n="next">Siguiente</button>
+            <button type="button" class="btn btn-accent d-none" id="submitBtn" data-i18n="facturar">
+              Facturar Compra
+            </button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

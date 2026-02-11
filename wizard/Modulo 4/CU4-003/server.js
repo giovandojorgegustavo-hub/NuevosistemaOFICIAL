@@ -8,10 +8,37 @@ const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU4-003';
-const PORT = 3018;
+const PORT = 3019;
 
 function pad(value) {
   return String(value).padStart(2, '0');
+}
+
+function formatDateOnly(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function normalizeSqlDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateOnly(value);
+  }
+  if (typeof value === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    const isoMatch = value.match(/^(\d{4}-\d{2}-\d{2})T/);
+    if (isoMatch) {
+      return isoMatch[1];
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatDateOnly(parsed);
+    }
+  }
+  return null;
 }
 
 function timestamp() {
@@ -250,7 +277,8 @@ app.post('/api/detalle-compra', async (req, res) => {
 
 app.post('/api/registrar-remito', async (req, res) => {
   const payload = req.body || {};
-  const vFecha = payload.vFecha;
+  const vFechaRaw = payload.vFecha;
+  const vFecha = normalizeSqlDate(vFechaRaw);
   const vCodigo_base = payload.vCodigo_base;
   const vTipo_documento_compra_origen = payload.vTipo_documento_compra_origen;
   const vNum_documento_compra_origen = payload.vNum_documento_compra_origen;
@@ -259,8 +287,12 @@ app.post('/api/registrar-remito', async (req, res) => {
     ? payload.vDetalleRemitoCompra
     : [];
 
-  if (!vFecha || !vCodigo_base || !vTipo_documento_compra_origen || !vNum_documento_compra_origen || !vCodigo_provedor) {
+  if (!vFechaRaw || !vCodigo_base || !vTipo_documento_compra_origen || !vNum_documento_compra_origen || !vCodigo_provedor) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+
+  if (!vFecha) {
+    return res.status(400).json({ ok: false, message: 'FECHA_INVALIDA' });
   }
 
   if (!vDetalleRemitoCompra.length) {

@@ -10,7 +10,7 @@ const MANDATED_LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU3-002';
 const LOG_PREFIX_MANDATED = 'CU3-002';
-const PORT = 3013;
+const PORT = 3014;
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -170,7 +170,7 @@ app.get('/api/next-numero-documento', async (req, res) => {
   try {
     const [rows] = await runQuery(
       pool,
-      "SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = ?",
+      "SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?",
       [tipo]
     );
     res.json({ ok: true, next: rows?.[0]?.next || 1 });
@@ -200,25 +200,31 @@ app.post('/api/recibos-proveedor', async (req, res) => {
     await conn.beginTransaction();
 
     const insertSql = `
-      INSERT INTO mov_operaciones_contables (
-        tipodocumento,
-        numdocumento,
-        fecha,
-        monto,
+      INSERT INTO mov_contable_prov (
+        tipo_documento_compra,
+        num_documento_compra,
+        codigo_provedor,
         codigo_cuentabancaria,
-        codigo_cuentabancaria_destino,
-        descripcion
+        monto,
+        saldo,
+        fecha
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     await runQuery(conn, insertSql, [
       tipo_documento,
       numero_documento,
-      fecha,
-      monto,
+      codigo_provedor,
       codigo_cuentabancaria,
-      null,
-      descripcion || null
+      monto,
+      monto,
+      fecha
+    ]);
+
+    await runQuery(conn, 'CALL aplicar_recibo_a_facturas_prov(?, ?, ?)', [
+      codigo_provedor,
+      numero_documento,
+      monto
     ]);
 
     await runQuery(conn, 'CALL actualizarsaldosprovedores(?, ?, ?)', [codigo_provedor, tipo_documento, monto]);

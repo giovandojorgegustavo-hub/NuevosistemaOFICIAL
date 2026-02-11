@@ -81,7 +81,7 @@ Paso 1. Seleccion de paquete en standby.
 
 Muestra un Grid llamado "vPaquetesStandby" con los datos del SP: `get_paquetes_por_estado(p_estado="standby")`
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -90,6 +90,9 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
+vnombre_base visible no editable
+vcodigo_packing visible no editable
+vnombre_packing visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -106,6 +109,7 @@ Paso 2. Mostrar informacion de ese paquete que esta en standby (solo lectura).
 Mostrar como lectura:
 - vconcatenarpuntoentrega
 - vconcatenarnumrecibe
+- vnombre_packing
 
 Direccion y Mapa (solo lectura).
 Solo si vRegion_Entrega = "LIMA":
@@ -153,7 +157,7 @@ Paso 3. Confirmar y Guardar.
 
 El usuario define el nuevo estado del paquete:
 
-- `robado`, `devuelto`, `empacado` o `llegado`. dale para escoger solo entre estas opciones
+- `robado`, `empacado` o `llegado`. dale para escoger solo entre estas opciones
 
 Mostrar resumen del paquete seleccionado y el viaje asociado (incluyendo `link`).
 
@@ -169,10 +173,32 @@ Vordinal = regla sin ambiguedad:
 - `estado` = nuevo estado
 - `tipo_documento` = "FAC"
 
-2) Registrar en `detalleviaje` (solo si estado = robado, devuelto, empacado o llegado):
+2) Registrar en `detalleviaje` (solo si estado = robado, empacado o llegado):
 - `fecha_fin` = NOW()
 
 3) Ejecutar SP: `cambiar_estado_paquete(vcodigo_paquete, nuevo_estado)`.
+
+4) Si estado = robado: emitir Nota de Credito sin detalle por el monto total de la factura y actualizar saldo de cliente.
+- tipo_documento = "NTC".
+- numero_documento = `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'NTC'`.
+- Obtener factura usando el `vcodigo_paquete` (es el mismo `mov_contable.numero_documento`) y `tipo_documento = 'FAC'`.
+- Usar el `monto` total de la factura como valor de la nota de credito.
+- Consulta (bloquear factura): `SELECT codigo_pedido, codigo_cliente, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, monto, saldo FROM mov_contable WHERE tipo_documento = 'FAC' AND numero_documento = vcodigo_paquete FOR UPDATE`.
+- Insertar en `mov_contable` solo cabecera (sin detalle):
+  - codigo_pedido = factura.codigo_pedido
+  - fecha_emision = NOW()
+  - fecha_vencimiento = NOW()
+  - fecha_valor = NOW()
+  - codigo_cliente = factura.codigo_cliente
+  - monto = factura.monto
+  - saldo = factura.monto
+  - tipo_documento = "NTC"
+  - numero_documento = correlativo NTC
+  - costoenvio = factura.costoenvio
+- Aplicar NTC a la factura (si tiene saldo):
+  - `CALL aplicar_nota_credito_a_factura("NTC", correlativo, "FAC", vcodigo_paquete, factura.monto)`
+  - Si la factura ya está en saldo 0: no aplicar nada; la NTC queda con saldo completo.
+- Ejecutar SP: `actualizarsaldosclientes(factura.codigo_cliente, "NTC", factura.monto)` (sumar saldo cliente).
 
 
 

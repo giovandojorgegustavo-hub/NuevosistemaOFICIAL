@@ -70,9 +70,10 @@ Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario t
 
 # **Pasos del formulario-multipaso.
 
-1. Seleccionar cliente y factura (paquete en estado llegado).
-2. Editar detalle de factura para nota de credito parcial.
-3. Confirmar y emitir Nota de Credito.
+1. Seleccionar cliente, factura y tipo de nota de credito.
+2. (Producto) Editar detalle de factura para nota de credito parcial.
+3. (Dinero) Registrar monto de nota de credito.
+4. Confirmar y emitir Nota de Credito.
 
 # **Descripcion de los pasos del formulario de registro.
 
@@ -88,12 +89,19 @@ vCodigo_cliente no visible editable
 vNombreCliente visible editable
 
 vPaquetesLlegados = Llamada SP: `get_paquetes_por_estado(p_estado="llegado")` (devuelve campo_visible)
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vCodigo_paquete visible editable
 vFecha_actualizado visible no editable
 vCodigo_base visible no editable
-vRegion_entrega visible no editable
+vNombre_base visible no editable
+vCodigo_packing visible no editable
+vNombre_packing visible no editable
+vRegion_entrega visible no editable (solo fallback si no existe nombre_base)
+
+vTipo_nota = Seleccion en checklist/radio (Productos o Dinero).
+Variables:
+vTipo_nota visible editable
 
 Reglas:
 - Filtrar la lista de paquetes por `vCodigo_cliente` seleccionado (solo paquetes del cliente).
@@ -108,9 +116,13 @@ Validaciones:
 - vCodigo_cliente requerido.
 - vFecha_emision requerida.
 - vCodigo_paquete requerido.
+- vTipo_nota requerida.
 
+Reglas de flujo:
+- Si vTipo_nota = Productos, continuar al Paso 2 y omitir Paso 3.
+- Si vTipo_nota = Dinero, omitir Paso 2 e ir al Paso 3.
 
-## Paso 2  Editar detalle de factura para nota de credito parcial.
+## Paso 2  Editar detalle de factura para nota de credito parcial (solo Productos).
 
 vDetalleFactura = Llamada SP: `get_mov_contable_detalle(p_tipo_documento="FAC", p_numero_documento=vCodigo_paquete)` (devuelve campo_visible)
 Campos devueltos: `tipo_documento`, `numero_documento`, `ordinal`, `codigo_producto`, `nombre_producto`, `cantidad`, `saldo`, `precio_total`
@@ -135,13 +147,23 @@ Reglas:
 Validaciones:
 - Debe existir al menos una linea con vCantidad > 0.
 
-## Paso 3  Confirmar y emitir Nota de Credito.
+## Paso 3  Registrar monto de nota de credito (solo Dinero).
+
+vMonto_dinero visible editable (input numerico).
+
+Reglas:
+- vTotalNota = vMonto_dinero.
+- No se genera detalle.
+
+Validaciones:
+- vMonto_dinero > 0.
+
+## Paso 4  Confirmar y emitir Nota de Credito.
 
 - Mostrar resumen de cabecera y detalle.
 - Requerir confirmacion explicita.
 - Al confirmar, ejecutar el registro de la Nota de Credito.
 
-## Emitir Nota de Credito. Tomar los datos capturados en el paso 1:
 
 ### Guardar en la tabla "mov_contable".
 fecha_emision=vFecha_emision  
@@ -149,9 +171,10 @@ tipo_documento=vTipo_documento
 numero_documento=vNumero_documento  
 codigo_cliente=vCodigo_cliente  
 codigo_base=vCodigo_base  
+monto=vTotalNota  
 saldo=vTotalNota  
 
-### Guardar en la tabla "mov_contable_detalle".
+### Guardar en la tabla "mov_contable_detalle" (solo Productos).
 tipo_documento=vTipo_documento  
 numero_documento=vNumero_documento  
 ordinal=vOrdinalDetMovCont  
@@ -160,15 +183,20 @@ cantidad=vCantidad
 saldo=vSaldo  
 precio_total=vPrecio_total  
 
-### Actualizar stock por cada linea (entrada a inventario).
+### Actualizar stock por cada linea (entrada a inventario) (solo Productos).
 Por cada item del detalle ejecutar:
 `CALL upd_stock_bases(vCodigo_base, vCodigo_producto, vCantidad, vTipo_documento, vNumero_documento)`
+
+### Aplicar Nota de Credito a la factura (si tiene saldo).
+Ejecutar:
+`CALL aplicar_nota_credito_a_factura(vTipo_documento, vNumero_documento, "FAC", vCodigo_paquete, vTotalNota)`
+- Si la factura ya tiene saldo 0, no aplica nada y la NTC queda con saldo completo.
 
 ### Actualizar saldo de cliente.
 Ejecutar:
 `CALL actualizarsaldosclientes(vCodigo_cliente, vTipo_documento, vTotalNota)`
 
-### Revertir partidas de compras por nota de credito.
+### Revertir partidas de compras por nota de credito (solo Productos).
 Por cada item del detalle ejecutar:
 `CALL aplicar_devolucion_partidas("FAC", vCodigo_paquete, vTipo_documento, vNumero_documento, vCodigo_producto, vCantidad)`
 

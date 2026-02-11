@@ -53,20 +53,35 @@ vPrecio_total visible no editable
 class FormWizard {
   constructor() {
     this.currentStep = 1;
+    this.locale = navigator.language || 'es-PE';
     this.state = {
       vFecha_emision: '',
+      vTipo_nota: '',
+      vMonto_dinero: 0,
       vClientes: [],
       vPaquetesLlegados: [],
       vCodigo_cliente: '',
       vNombreCliente: '',
       vCodigo_paquete: '',
       vFecha_actualizado: '',
+      vFecha_emision_factura: '',
+      vLugar_entrega: '',
+      vLatitud: '',
+      vLongitud: '',
+      vRegion_mapa: '',
       vCodigo_base: '',
+      vCodigo_packing: '',
+      vNombre_packing: '',
       vRegion_entrega: '',
       vTipo_documento: 'NTC',
       vNumero_documento: '',
       vDetalleFactura: [],
-      vTotalNota: 0
+      vTotalNota: 0,
+      mapsConfig: {
+        apiKey: '',
+        defaultCenter: { lat: -12.0464, lng: -77.0428 },
+        defaultZoom: 12
+      }
     };
 
     this.elements = {
@@ -84,8 +99,18 @@ class FormWizard {
       paqueteMenu: document.getElementById('paqueteMenu'),
       paqueteDetalle: document.getElementById('paqueteDetalle'),
       fechaActualizado: document.getElementById('fecha_actualizado'),
+      fechaFactura: document.getElementById('fecha_factura'),
+      lugarEntrega: document.getElementById('lugar_entrega'),
+      mapSection: document.getElementById('mapSection'),
+      mapPlaceholder: document.getElementById('mapPlaceholder'),
+      mapCanvas: document.getElementById('map'),
+      mapBadge: document.getElementById('mapBadge'),
       codigoBase: document.getElementById('codigo_base'),
+      nombrePacking: document.getElementById('nombre_packing'),
       regionEntrega: document.getElementById('region_entrega'),
+      tipoProducto: document.getElementById('tipo_producto'),
+      tipoDinero: document.getElementById('tipo_dinero'),
+      montoDinero: document.getElementById('monto_dinero'),
       detalleGrid: document.getElementById('detalleGrid'),
       totalNota: document.getElementById('totalNota'),
       prevBtn: document.getElementById('prevBtn'),
@@ -97,7 +122,10 @@ class FormWizard {
       resCliente: document.getElementById('resCliente'),
       resFactura: document.getElementById('resFactura'),
       resFecha: document.getElementById('resFecha'),
+      resFechaFactura: document.getElementById('resFechaFactura'),
+      resLugar: document.getElementById('resLugar'),
       resBase: document.getElementById('resBase'),
+      resPacking: document.getElementById('resPacking'),
       resTotal: document.getElementById('resTotal'),
       resItems: document.getElementById('resItems'),
       resDetalle: document.getElementById('resDetalle'),
@@ -136,7 +164,19 @@ class FormWizard {
         labelCliente: 'Cliente',
         labelFactura: 'Factura / Paquete llegado',
         labelFechaActualizado: 'Fecha actualizado',
+        labelFechaFactura: 'Fecha factura',
+        labelLugarEntrega: 'Lugar entrega',
+        labelMapa: 'Direccion y mapa',
+        mapOnlyLima: 'Mapa solo disponible para region LIMA.',
+        mapNoConfig: 'Mapa no disponible: falta API key de Google Maps.',
         labelBase: 'Base',
+        labelPacking: 'Packing',
+        labelTipoNota: 'Tipo de nota de credito',
+        tipoProducto: 'Productos',
+        tipoDinero: 'Dinero',
+        tipoNotaHint: 'Selecciona productos para ajustar cantidades o dinero para registrar un monto directo.',
+        labelMontoDinero: 'Monto nota de credito',
+        montoDineroHint: 'Se registra como monto total y no genera detalle.',
         step2Note: 'Ajusta las cantidades para emitir una nota de credito parcial.',
         thProducto: 'Producto',
         thCantidad: 'Cantidad',
@@ -147,7 +187,10 @@ class FormWizard {
         summaryCliente: 'Cliente',
         summaryFactura: 'Factura',
         summaryFecha: 'Fecha',
+        summaryFechaFactura: 'Fecha factura',
+        summaryLugar: 'Lugar',
         summaryBase: 'Base',
+        summaryPacking: 'Packing',
         summaryTotals: 'Totales',
         summaryTotalNota: 'Total nota',
         summaryItems: 'Items',
@@ -171,7 +214,19 @@ class FormWizard {
         labelCliente: 'Client',
         labelFactura: 'Invoice / Arrived package',
         labelFechaActualizado: 'Updated date',
+        labelFechaFactura: 'Invoice date',
+        labelLugarEntrega: 'Delivery location',
+        labelMapa: 'Address and map',
+        mapOnlyLima: 'Map only available for LIMA region.',
+        mapNoConfig: 'Map unavailable: missing Google Maps API key.',
         labelBase: 'Base',
+        labelPacking: 'Packing',
+        labelTipoNota: 'Credit note type',
+        tipoProducto: 'Products',
+        tipoDinero: 'Money',
+        tipoNotaHint: 'Choose products to adjust quantities or money to register a direct amount.',
+        labelMontoDinero: 'Credit amount',
+        montoDineroHint: 'It is registered as the total amount and has no detail.',
         step2Note: 'Adjust quantities to issue a partial credit note.',
         thProducto: 'Product',
         thCantidad: 'Quantity',
@@ -182,7 +237,10 @@ class FormWizard {
         summaryCliente: 'Client',
         summaryFactura: 'Invoice',
         summaryFecha: 'Date',
+        summaryFechaFactura: 'Invoice date',
+        summaryLugar: 'Location',
         summaryBase: 'Base',
+        summaryPacking: 'Packing',
         summaryTotals: 'Totals',
         summaryTotalNota: 'Credit total',
         summaryItems: 'Items',
@@ -223,6 +281,50 @@ class FormWizard {
       this.state.vFecha_emision = event.target.value;
     });
 
+    const onTipoChange = (value) => {
+      this.state.vTipo_nota = value;
+      if (value === 'DINERO') {
+        this.state.vDetalleFactura = [];
+        this.renderDetalle();
+      }
+      if (value === 'PRODUCTO' && this.state.vCodigo_paquete) {
+        this.loadDetalleFactura();
+      }
+      this.updateTotals();
+      this.updateStepUI();
+    };
+
+    if (this.elements.tipoProducto) {
+      this.elements.tipoProducto.addEventListener('change', (event) => {
+        if (event.target.checked) onTipoChange('PRODUCTO');
+      });
+    }
+    if (this.elements.tipoDinero) {
+      this.elements.tipoDinero.addEventListener('change', (event) => {
+        if (event.target.checked) onTipoChange('DINERO');
+      });
+    }
+
+    if (this.elements.montoDinero) {
+      this.elements.montoDinero.addEventListener('input', (event) => {
+        const raw = event.target.value;
+        if (raw === '') {
+          event.target.classList.remove('is-invalid');
+          this.state.vMonto_dinero = 0;
+          this.updateTotals();
+          return;
+        }
+        if (!this.regex.number.test(raw)) {
+          event.target.classList.add('is-invalid');
+          return;
+        }
+        const monto = Math.max(0, Number(raw));
+        event.target.classList.remove('is-invalid');
+        this.state.vMonto_dinero = monto;
+        this.updateTotals();
+      });
+    }
+
     this.setupTypeahead(
       this.elements.nombreCliente,
       this.elements.clienteMenu,
@@ -242,18 +344,31 @@ class FormWizard {
       this.elements.codigoPaquete,
       this.elements.paqueteMenu,
       () => this.state.filteredPaquetes || [],
-      (item) => `${item.codigo_paquete} - ${item.nombre_cliente}`,
+      (item) => `${item.codigo_paquete} - ${item.nombre_cliente} - ${item.nombre_packing || item.codigo_packing || ''}`,
       (item) => {
         this.state.vCodigo_paquete = item.codigo_paquete;
         this.state.vFecha_actualizado = item.fecha_actualizado;
+        this.state.vFecha_emision_factura = '';
+        this.state.vLugar_entrega = item.concatenarpuntoentrega || '';
+        this.state.vLatitud = item.latitud || '';
+        this.state.vLongitud = item.longitud || '';
+        this.state.vRegion_mapa = item.region_entrega || '';
         this.state.vCodigo_base = item.codigo_base;
-        this.state.vRegion_entrega = item.region_entrega;
+        this.state.vCodigo_packing = item.codigo_packing || '';
+        this.state.vNombre_packing = item.nombre_packing || '';
+        const baseName = item.nombre_base || item.region_entrega;
+        this.state.vRegion_entrega = baseName;
         this.elements.codigoPaquete.value = item.codigo_paquete;
-        this.elements.paqueteDetalle.textContent = `${item.nombre_cliente} | ${item.concatenarpuntoentrega}`;
-        this.elements.fechaActualizado.value = item.fecha_actualizado || '';
-        this.elements.codigoBase.value = item.codigo_base || '';
-        this.elements.regionEntrega.textContent = item.region_entrega || '-';
+        this.elements.paqueteDetalle.textContent = `${item.nombre_cliente} | ${item.concatenarpuntoentrega} | ${item.nombre_packing || item.codigo_packing || '-'}`;
+        this.elements.fechaActualizado.value = this.formatDateTime(item.fecha_actualizado);
+        this.elements.fechaFactura.value = '';
+        this.elements.lugarEntrega.value = this.state.vLugar_entrega || '-';
+        this.elements.codigoBase.value = this.formatBase(item.codigo_base, baseName);
+        this.elements.nombrePacking.value = item.nombre_packing || item.codigo_packing || '';
+        this.elements.regionEntrega.textContent = baseName || '-';
+        this.loadFacturaCabecera();
         this.loadDetalleFactura();
+        this.updateMapForSelection();
       }
     );
 
@@ -268,21 +383,33 @@ class FormWizard {
     this.elements.codigoPaquete.addEventListener('input', () => {
       this.state.vCodigo_paquete = '';
       this.state.vFecha_actualizado = '';
+      this.state.vFecha_emision_factura = '';
+      this.state.vLugar_entrega = '';
+      this.state.vLatitud = '';
+      this.state.vLongitud = '';
+      this.state.vRegion_mapa = '';
+      this.state.vCodigo_packing = '';
+      this.state.vNombre_packing = '';
       this.elements.paqueteDetalle.textContent = '-';
       this.elements.fechaActualizado.value = '';
+      this.elements.fechaFactura.value = '';
+      this.elements.lugarEntrega.value = '';
+      this.elements.nombrePacking.value = '';
       this.state.vDetalleFactura = [];
       this.renderDetalle();
+      this.resetMapView();
     });
   }
 
   async loadInitialData() {
     try {
       this.setLoading(true);
-      const [health, clientes, paquetes, nextDoc] = await Promise.all([
+      const [health, clientes, paquetes, nextDoc, mapsConfig] = await Promise.all([
         fetch('/api/health'),
         fetch('/api/clientes'),
         fetch('/api/paquetes?estado=llegado'),
-        fetch('/api/next-numero-documento')
+        fetch('/api/next-numero-documento'),
+        fetch('/api/maps-config')
       ]);
       if (!health.ok) {
         throw new Error('health');
@@ -301,6 +428,16 @@ class FormWizard {
       this.state.vNumero_documento = String(nextData.next || '');
       this.elements.docNumberValue.textContent = this.state.vNumero_documento || '-';
 
+      if (mapsConfig.ok) {
+        const mapsData = await mapsConfig.json();
+        if (mapsData?.ok && mapsData.data) {
+          this.state.mapsConfig = {
+            ...this.state.mapsConfig,
+            ...mapsData.data
+          };
+        }
+      }
+
       this.showAlert('', 'd-none');
     } catch (error) {
       this.elements.connectionBadge.className = 'badge rounded-pill text-bg-danger';
@@ -318,14 +455,137 @@ class FormWizard {
     );
     this.state.vCodigo_paquete = '';
     this.state.vFecha_actualizado = '';
+    this.state.vFecha_emision_factura = '';
+    this.state.vLugar_entrega = '';
+    this.state.vLatitud = '';
+    this.state.vLongitud = '';
+    this.state.vRegion_mapa = '';
     this.elements.codigoPaquete.value = '';
     this.elements.paqueteDetalle.textContent = '-';
     this.elements.fechaActualizado.value = '';
+    this.elements.fechaFactura.value = '';
+    this.elements.lugarEntrega.value = '';
     this.state.vDetalleFactura = [];
     this.renderDetalle();
+    this.resetMapView();
+  }
+
+  async loadFacturaCabecera() {
+    if (!this.state.vCodigo_paquete) {
+      return;
+    }
+    try {
+      const response = await fetch(`/api/factura-cabecera?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
+      const data = await response.json();
+      if (!response.ok || !data.ok || !data.data) {
+        return;
+      }
+      const cabecera = data.data;
+      this.state.vFecha_emision_factura = cabecera.fecha_emision || '';
+      if (cabecera.lugar_entrega) {
+        this.state.vLugar_entrega = cabecera.lugar_entrega;
+      }
+      this.elements.fechaFactura.value = this.state.vFecha_emision_factura
+        ? this.formatDateOnly(this.state.vFecha_emision_factura)
+        : '-';
+      this.elements.lugarEntrega.value = this.state.vLugar_entrega || '-';
+    } catch (error) {
+      this.elements.fechaFactura.value = '-';
+      this.elements.lugarEntrega.value = this.state.vLugar_entrega || '-';
+    }
+  }
+
+  isRegionLima(regionValue) {
+    const value = String(regionValue || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+    return value.includes('LIMA');
+  }
+
+  resetMapView(message) {
+    if (!this.elements.mapSection || !this.elements.mapPlaceholder) {
+      return;
+    }
+    this.elements.mapSection.classList.add('d-none');
+    this.elements.mapPlaceholder.classList.remove('d-none');
+    this.elements.mapPlaceholder.textContent = message || this.t('mapOnlyLima', 'Mapa solo disponible para region LIMA.');
+  }
+
+  async loadGoogleMaps() {
+    if (window.google?.maps) {
+      return;
+    }
+    if (this.mapScriptPromise) {
+      return this.mapScriptPromise;
+    }
+    const apiKey = this.state.mapsConfig?.apiKey;
+    if (!apiKey) {
+      throw new Error('MAPS_API_KEY_MISSING');
+    }
+    this.mapScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+    return this.mapScriptPromise;
+  }
+
+  async updateMapForSelection() {
+    if (!this.state.vCodigo_paquete) {
+      this.resetMapView(this.t('mapOnlyLima', 'Mapa solo disponible para region LIMA.'));
+      return;
+    }
+    if (!this.isRegionLima(this.state.vRegion_mapa)) {
+      this.resetMapView(this.t('mapOnlyLima', 'Mapa solo disponible para region LIMA.'));
+      return;
+    }
+    if (!this.state.mapsConfig?.apiKey) {
+      this.resetMapView(this.t('mapNoConfig', 'Mapa no disponible: falta API key de Google Maps.'));
+      return;
+    }
+    try {
+      await this.loadGoogleMaps();
+      const defaultCenter = this.state.mapsConfig?.defaultCenter || { lat: -12.0464, lng: -77.0428 };
+      const center = {
+        lat: Number(this.state.vLatitud) || Number(defaultCenter.lat) || -12.0464,
+        lng: Number(this.state.vLongitud) || Number(defaultCenter.lng) || -77.0428
+      };
+
+      if (!this.mapInstance) {
+        this.mapInstance = new window.google.maps.Map(this.elements.mapCanvas, {
+          center,
+          zoom: Number(this.state.mapsConfig?.defaultZoom || 12),
+          disableDefaultUI: true,
+          zoomControl: true
+        });
+        this.mapMarker = new window.google.maps.Marker({
+          position: center,
+          map: this.mapInstance,
+          title: 'Entrega'
+        });
+      } else {
+        this.mapInstance.setCenter(center);
+        this.mapMarker.setPosition(center);
+      }
+
+      this.elements.mapBadge.textContent = 'LIMA';
+      this.elements.mapSection.classList.remove('d-none');
+      this.elements.mapPlaceholder.classList.add('d-none');
+    } catch (error) {
+      this.resetMapView(this.t('mapNoConfig', 'Mapa no disponible: falta API key de Google Maps.'));
+    }
   }
 
   async loadDetalleFactura() {
+    if (this.state.vTipo_nota === 'DINERO') {
+      this.state.vDetalleFactura = [];
+      this.renderDetalle();
+      return;
+    }
     if (!this.state.vCodigo_paquete) {
       return;
     }
@@ -419,7 +679,10 @@ class FormWizard {
   }
 
   updateTotals() {
-    const total = this.state.vDetalleFactura.reduce((sum, item) => sum + (Number(item.vPrecio_total) || 0), 0);
+    const total =
+      this.state.vTipo_nota === 'DINERO'
+        ? Number(this.state.vMonto_dinero || 0)
+        : this.state.vDetalleFactura.reduce((sum, item) => sum + (Number(item.vPrecio_total) || 0), 0);
     this.state.vTotalNota = total;
     this.elements.totalNota.textContent = this.formatCurrency(total);
   }
@@ -427,41 +690,69 @@ class FormWizard {
   refreshSummary() {
     this.elements.resCliente.textContent = this.state.vNombreCliente || '-';
     this.elements.resFactura.textContent = this.state.vCodigo_paquete || '-';
-    this.elements.resFecha.textContent = this.state.vFecha_emision || '-';
-    this.elements.resBase.textContent = this.state.vCodigo_base || '-';
+    this.elements.resFecha.textContent = this.formatDateOnly(this.state.vFecha_emision) || '-';
+    this.elements.resFechaFactura.textContent = this.state.vFecha_emision_factura
+      ? this.formatDateOnly(this.state.vFecha_emision_factura)
+      : '-';
+    this.elements.resLugar.textContent = this.state.vLugar_entrega || '-';
+    this.elements.resBase.textContent = this.formatBase(this.state.vCodigo_base, this.state.vRegion_entrega) || '-';
+    this.elements.resPacking.textContent = this.state.vNombre_packing || this.state.vCodigo_packing || '-';
     this.elements.resTotal.textContent = this.formatCurrency(this.state.vTotalNota);
     const items = this.state.vDetalleFactura.filter((item) => item.vCantidad > 0);
-    this.elements.resItems.textContent = String(items.length);
+    const itemsCount = this.state.vTipo_nota === 'DINERO' ? 0 : items.length;
+    this.elements.resItems.textContent = String(itemsCount);
     this.elements.resDetalle.innerHTML = '';
-    items.forEach((item) => {
+    if (this.state.vTipo_nota !== 'DINERO') {
+      items.forEach((item) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.vNombreProducto}</td>
+          <td class="text-center">${item.vCantidad}</td>
+          <td class="text-end">${this.formatCurrency(item.vPrecio_total)}</td>
+        `;
+        this.elements.resDetalle.appendChild(row);
+      });
+    } else {
       const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${item.vNombreProducto}</td>
-        <td class="text-center">${item.vCantidad}</td>
-        <td class="text-end">${this.formatCurrency(item.vPrecio_total)}</td>
-      `;
+      row.innerHTML = `<td colspan="3" class="text-center text-muted">Sin detalle</td>`;
       this.elements.resDetalle.appendChild(row);
-    });
+    }
+  }
+
+  getStepSequence() {
+    if (this.state.vTipo_nota === 'DINERO') {
+      return [1, 3, 4];
+    }
+    if (this.state.vTipo_nota === 'PRODUCTO') {
+      return [1, 2, 4];
+    }
+    return [1, 2, 3, 4];
   }
 
   nextStep() {
     if (!this.validateStep(this.currentStep)) {
       return;
     }
-    if (this.currentStep < 3) {
-      this.currentStep += 1;
-      if (this.currentStep === 3) {
-        this.refreshSummary();
-      }
-      this.updateStepUI();
+    const sequence = this.getStepSequence();
+    const index = sequence.indexOf(this.currentStep);
+    if (index === -1 || index >= sequence.length - 1) {
+      return;
     }
+    this.currentStep = sequence[index + 1];
+    if (this.currentStep === 4) {
+      this.refreshSummary();
+    }
+    this.updateStepUI();
   }
 
   prevStep() {
-    if (this.currentStep > 1) {
-      this.currentStep -= 1;
-      this.updateStepUI();
+    const sequence = this.getStepSequence();
+    const index = sequence.indexOf(this.currentStep);
+    if (index <= 0) {
+      return;
     }
+    this.currentStep = sequence[index - 1];
+    this.updateStepUI();
   }
 
   updateStepUI() {
@@ -472,17 +763,23 @@ class FormWizard {
       chip.classList.toggle('active', Number(chip.dataset.step) === this.currentStep);
     });
     this.elements.prevBtn.classList.toggle('d-none', this.currentStep === 1);
-    this.elements.nextBtn.classList.toggle('d-none', this.currentStep === 3);
-    this.elements.emitBtn.classList.toggle('d-none', this.currentStep !== 3);
-    this.elements.emitBtn.disabled = this.currentStep !== 3 || !this.elements.confirmCheck.checked;
+    this.elements.nextBtn.classList.toggle('d-none', this.currentStep === 4);
+    this.elements.emitBtn.classList.toggle('d-none', this.currentStep !== 4);
+    this.elements.emitBtn.disabled = this.currentStep !== 4 || !this.elements.confirmCheck.checked;
 
-    const progress = (this.currentStep / 3) * 100;
+    const sequence = this.getStepSequence();
+    const index = sequence.indexOf(this.currentStep);
+    const progress = index >= 0 ? ((index + 1) / sequence.length) * 100 : 0;
     this.elements.progress.style.width = `${progress}%`;
   }
 
   validateStep(step) {
     this.showAlert('', 'd-none');
     if (step === 1) {
+      if (!this.state.vTipo_nota) {
+        this.showAlert('Selecciona el tipo de nota de credito.', 'alert-warning');
+        return false;
+      }
       if (!this.state.vCodigo_cliente) {
         this.showAlert('Selecciona un cliente.', 'alert-warning');
         return false;
@@ -498,6 +795,9 @@ class FormWizard {
       return true;
     }
     if (step === 2) {
+      if (this.state.vTipo_nota !== 'PRODUCTO') {
+        return true;
+      }
       const validLines = this.state.vDetalleFactura.some((item) => item.vCantidad > 0);
       if (!validLines) {
         this.showAlert('Debe existir al menos una linea con cantidad mayor a cero.', 'alert-warning');
@@ -506,6 +806,16 @@ class FormWizard {
       return true;
     }
     if (step === 3) {
+      if (this.state.vTipo_nota !== 'DINERO') {
+        return true;
+      }
+      if (Number(this.state.vMonto_dinero) <= 0) {
+        this.showAlert('Ingresa un monto mayor a cero.', 'alert-warning');
+        return false;
+      }
+      return true;
+    }
+    if (step === 4) {
       if (!this.elements.confirmCheck.checked) {
         this.showAlert('Confirma la operacion para continuar.', 'alert-warning');
         return false;
@@ -516,13 +826,14 @@ class FormWizard {
   }
 
   async emitNota() {
-    if (!this.validateStep(3)) {
+    if (!this.validateStep(4)) {
       return;
     }
     try {
       this.setLoading(true);
       const payload = {
         vFecha_emision: this.state.vFecha_emision,
+        vTipo_nota: this.state.vTipo_nota,
         vTipo_documento: this.state.vTipo_documento,
         vNumero_documento: this.state.vNumero_documento,
         vCodigo_cliente: this.state.vCodigo_cliente,
@@ -560,25 +871,41 @@ class FormWizard {
 
   resetWizard() {
     this.currentStep = 1;
+    this.state.vTipo_nota = '';
+    this.state.vMonto_dinero = 0;
     this.state.vCodigo_cliente = '';
     this.state.vNombreCliente = '';
     this.state.vCodigo_paquete = '';
+    this.state.vFecha_emision_factura = '';
+    this.state.vLugar_entrega = '';
+    this.state.vLatitud = '';
+    this.state.vLongitud = '';
+    this.state.vRegion_mapa = '';
     this.state.vCodigo_base = '';
+    this.state.vCodigo_packing = '';
+    this.state.vNombre_packing = '';
     this.state.vRegion_entrega = '';
     this.state.vDetalleFactura = [];
     this.state.vTotalNota = 0;
+    if (this.elements.tipoProducto) this.elements.tipoProducto.checked = false;
+    if (this.elements.tipoDinero) this.elements.tipoDinero.checked = false;
+    if (this.elements.montoDinero) this.elements.montoDinero.value = '';
     this.elements.codigoCliente.value = '';
     this.elements.nombreCliente.value = '';
     this.elements.clienteNombre.textContent = '-';
     this.elements.codigoPaquete.value = '';
     this.elements.paqueteDetalle.textContent = '-';
     this.elements.fechaActualizado.value = '';
+    this.elements.fechaFactura.value = '';
+    this.elements.lugarEntrega.value = '';
     this.elements.codigoBase.value = '';
+    this.elements.nombrePacking.value = '';
     this.elements.regionEntrega.textContent = '-';
     this.elements.confirmCheck.checked = false;
     this.elements.emitBtn.disabled = true;
     this.renderDetalle();
     this.setToday();
+    this.resetMapView();
     this.updateStepUI();
     this.loadInitialData();
   }
@@ -652,6 +979,43 @@ class FormWizard {
 
   formatCurrency(value) {
     return Number(value || 0).toFixed(2);
+  }
+
+  formatBase(codigoBase, regionEntrega) {
+    const code = String(codigoBase || '').trim();
+    const region = String(regionEntrega || '').trim();
+    if (code && region) {
+      return `${code} - ${region}`;
+    }
+    return code || region || '';
+  }
+
+  formatDateOnly(value) {
+    if (!value) return '';
+    if (this.regex.date.test(value)) {
+      const [year, month, day] = value.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+    return parsed.toLocaleDateString(this.locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+
+  formatDateTime(value) {
+    if (!value) return '';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return this.formatDateOnly(value);
+    }
+    return parsed.toLocaleString(this.locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
   t(key, fallback) {

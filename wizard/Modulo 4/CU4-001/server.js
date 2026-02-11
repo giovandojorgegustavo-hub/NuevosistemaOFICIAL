@@ -8,7 +8,7 @@ const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU4-001';
-const PORT = 3016;
+const PORT = 3017;
 
 function pad(value) {
   return String(value).padStart(2, '0');

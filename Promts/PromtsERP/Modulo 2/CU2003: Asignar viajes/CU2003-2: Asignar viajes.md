@@ -103,7 +103,7 @@ Paso 2. Asignar Paquetes (seleccion de paquetes) + Ubicacion (si aplica).
 
 Muestra un Grid llamado "vPaquetesEmpacados" con los datos del SP: `get_paquetes_por_estado(p_estado="empacado")` y FILTRAR por `codigo_base = vcodigo_base` (el seleccionado en el Paso 1).
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -112,6 +112,9 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base no visible no editable
+vnombre_base visible no editable
+vcodigo_packing visible no editable
+vnombre_packing visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -122,7 +125,7 @@ vconcatenarnumrecibe visible no editable
 El usuario podra seleccionar multiples paquetes para asignarlos al viaje. Los seleccionados se guardan en memoria para el Paso 3.
 
 Interaccion por paquete:
-- Al hacer click en un paquete del Grid, mostrar su informacion basica (vconcatenarpuntoentrega, vconcatenarnumrecibe).
+- Al hacer click en un paquete del Grid, mostrar su informacion basica (vconcatenarpuntoentrega, vconcatenarnumrecibe, vnombre_packing).
 - Direccion y Mapa (solo lectura) para el paquete seleccionado:
   - Solo si vRegion_Entrega = "LIMA":
     - Cargar Google Maps usando erp.yml (`google_maps.api_key`, `google_maps.default_center`, `google_maps.default_zoom`).

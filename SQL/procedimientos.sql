@@ -36,6 +36,34 @@ END//
 
 DELIMITER ;
 
+-- -----------------------------------------------------------------------------
+-- ULTIMO COSTO POR PRODUCTO (detalle_mov_contable_prov)
+-- -----------------------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS get_ultimo_costo_producto;
+DELIMITER //
+CREATE PROCEDURE `get_ultimo_costo_producto`(
+  IN p_codigo_producto numeric(12,0)
+)
+BEGIN
+  SELECT
+    (d.monto / NULLIF(d.cantidad, 0)) AS costo_unitario,
+    d.tipo_documento_compra,
+    d.num_documento_compra,
+    d.codigo_provedor,
+    d.ordinal,
+    m.fecha
+  FROM detalle_mov_contable_prov d
+  JOIN mov_contable_prov m
+    ON m.tipo_documento_compra = d.tipo_documento_compra
+   AND m.num_documento_compra = d.num_documento_compra
+   AND m.codigo_provedor = d.codigo_provedor
+  WHERE d.codigo_producto = p_codigo_producto
+  ORDER BY m.fecha DESC, d.num_documento_compra DESC, d.ordinal DESC
+  LIMIT 1;
+END//
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS validar_credenciales_usuario;
 DELIMITER //
 CREATE PROCEDURE validar_credenciales_usuario(IN p_usuario varchar(128), IN p_password varchar(255))
@@ -163,6 +191,8 @@ BEGIN
     mc.codigo_puntoentrega,
     mc.codigo_base,
     b.nombre AS nombre_base,
+    mc.codigo_packing,
+    pk.nombre AS nombre_packing,
     mc.ordinal_numrecibe,
     pe.concatenarpuntoentrega,
     pe.region_entrega,
@@ -177,6 +207,8 @@ BEGIN
     ON c.codigo_cliente = mc.codigo_cliente
   LEFT JOIN bases b
     ON b.codigo_base = mc.codigo_base
+  LEFT JOIN packing pk
+    ON pk.codigo_packing = mc.codigo_packing
   LEFT JOIN numrecibe nr
     ON nr.codigo_cliente_numrecibe = mc.codigo_cliente_numrecibe
     AND nr.ordinal_numrecibe = mc.ordinal_numrecibe
@@ -204,12 +236,12 @@ BEGIN
   SELECT
     c.codigo_cliente,
     c.nombre,
-    sc.saldo_final
+    ABS(sc.saldo_final) AS saldo_final
   FROM saldos_clientes sc
   INNER JOIN clientes c
     ON c.codigo_cliente = sc.codigo_cliente
-  WHERE sc.saldo_final > 0
-  ORDER BY sc.saldo_final DESC, c.nombre;
+  WHERE sc.saldo_final < 0
+  ORDER BY ABS(sc.saldo_final) DESC, c.nombre;
 END//
 DELIMITER ;
 
@@ -251,6 +283,26 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS get_packingporbase;
+DELIMITER $$
+
+CREATE PROCEDURE get_packingporbase(IN p_codigo_base DECIMAL(12,0))
+BEGIN
+  SELECT
+    p.codigo_packing,
+    p.nombre,
+    p.tipo,
+    p.descripcion
+  FROM basespacking bp
+  INNER JOIN packing p
+    ON p.codigo_packing = bp.codigo_packing
+  WHERE p_codigo_base IS NULL
+     OR bp.codigo_base = p_codigo_base
+  ORDER BY p.nombre, p.codigo_packing;
+END$$
+
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS `get_puntos_entrega`;
 DELIMITER //
 CREATE PROCEDURE `get_puntos_entrega`(IN p_codigo_cliente numeric(12,0))
@@ -273,6 +325,8 @@ BEGIN
     pe.`agencia`,
     pe.`observaciones`,
     pe.`concatenarpuntoentrega`,
+    pe.`latitud`,
+    pe.`longitud`,
     pe.`estado`
   FROM `puntos_entrega` pe
   INNER JOIN `ubigeo` u
@@ -454,13 +508,10 @@ BEGIN
     pd.codigo_producto,
     pr.nombre AS nombre_producto,
     pd.saldo,
-    COALESCE(
-      pd.precio_unitario,
-      CASE
-        WHEN pd.cantidad = 0 THEN 0
-        ELSE pd.precio_total / pd.cantidad
-      END
-    ) AS precio_unitario
+    CASE
+      WHEN pd.cantidad = 0 THEN 0
+      ELSE pd.precio_total / pd.cantidad
+    END AS precio_unitario
   FROM pedido_detalle pd
   JOIN productos pr
     ON pr.codigo_producto = pd.codigo_producto
@@ -468,6 +519,7 @@ BEGIN
   ORDER BY pd.ordinal;
 END//
 DELIMITER ;
+
 
  
 -- =====================================================================================
@@ -579,7 +631,7 @@ BEGIN
 
   IF p_tipodocumento IN ('FAC', 'FBI', 'TRS', 'AJS') THEN
     SET v_cantidad = v_cantidad * -1;
-  ELSEIF p_tipodocumento IN ('FBS', 'TRE', 'REM', 'NTC', 'AJE') THEN
+  ELSEIF p_tipodocumento IN ('FBS', 'FBF', 'TRE', 'REM', 'NTC', 'AJE') THEN
     SET v_cantidad = v_cantidad;
   ELSE
     SIGNAL SQLSTATE '45000'
@@ -760,6 +812,288 @@ BEGIN
   END LOOP;
   CLOSE cur;
 
+  UPDATE mov_contable
+    SET saldo = v_restante
+  WHERE tipo_documento = 'RCP'
+    AND numero_documento = p_num_recibo;
+
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `revertir_pagos_factura_cliente`;
+DELIMITER //
+CREATE PROCEDURE `revertir_pagos_factura_cliente`(
+  IN p_tipo_fac varchar(3),
+  IN p_num_fac numeric(12,0)
+)
+BEGIN
+  DECLARE done int DEFAULT 0;
+  DECLARE v_tipo_pago varchar(3);
+  DECLARE v_num_pago numeric(12,0);
+  DECLARE v_monto numeric(12,2);
+
+  DECLARE cur CURSOR FOR
+    SELECT
+      tipodocumento,
+      numdocumento,
+      SUM(monto_pagado) AS monto_pagado
+    FROM Facturas_Pagadas
+    WHERE tipo_documento_cli = p_tipo_fac
+      AND numero_documento_cli = p_num_fac
+    GROUP BY tipodocumento, numdocumento;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_pago, v_num_pago, v_monto;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+
+    UPDATE mov_contable
+      SET saldo = saldo + v_monto
+    WHERE tipo_documento = v_tipo_pago
+      AND numero_documento = v_num_pago;
+  END LOOP;
+  CLOSE cur;
+
+  DELETE FROM Facturas_Pagadas
+  WHERE tipo_documento_cli = p_tipo_fac
+    AND numero_documento_cli = p_num_fac;
+END//
+DELIMITER ;
+
+-- -----------------------------------------------------------------------------
+-- GRUPO: RECIBOS PROVEDOR -> FACTURAS_PAGADAS_PROV + saldo en mov_contable_prov
+-- -----------------------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS `aplicar_recibo_a_facturas_prov`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_recibo_a_facturas_prov`(
+  IN p_codigo_provedor numeric(12,0),
+  IN p_num_recibo numeric(12,0),
+  IN p_monto numeric(12,2)
+)
+BEGIN
+  DECLARE v_restante numeric(12,2);
+  DECLARE v_tipo_doc varchar(3);
+  DECLARE v_num_doc numeric(12,0);
+  DECLARE v_codigo_provedor_compra numeric(12,0);
+  DECLARE v_saldo numeric(12,2);
+  DECLARE v_usar numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT tipo_documento_compra, num_documento_compra, codigo_provedor, saldo
+    FROM mov_contable_prov
+    WHERE codigo_provedor = p_codigo_provedor
+      AND tipo_documento_compra = 'FCC'
+      AND saldo > 0
+    ORDER BY fecha DESC, num_documento_compra DESC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  SET v_restante = p_monto;
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_doc, v_num_doc, v_codigo_provedor_compra, v_saldo;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_saldo >= v_restante, v_restante, v_saldo);
+
+    UPDATE mov_contable_prov
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento_compra = v_tipo_doc
+      AND num_documento_compra = v_num_doc
+      AND codigo_provedor = p_codigo_provedor;
+
+    INSERT INTO Facturas_Pagadas_Prov
+      (
+        tipo_documento_pago,
+        num_documento_pago,
+        codigo_provedor_pago,
+        tipo_documento_compra,
+        num_documento_compra,
+        codigo_provedor_compra,
+        monto_pagado
+      )
+    VALUES
+      ('RCC', p_num_recibo, p_codigo_provedor, v_tipo_doc, v_num_doc, v_codigo_provedor_compra, v_usar);
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+
+  UPDATE mov_contable_prov
+    SET saldo = v_restante
+  WHERE tipo_documento_compra = 'RCC'
+    AND num_documento_compra = p_num_recibo
+    AND codigo_provedor = p_codigo_provedor;
+END//
+DELIMITER ;
+
+-- -----------------------------------------------------------------------------
+-- GRUPO: SALDO A FAVOR CLIENTE (NTC/RCP -> FACTURA)
+-- -----------------------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS `get_saldo_favor_cliente`;
+DELIMITER //
+CREATE PROCEDURE `get_saldo_favor_cliente`(
+  IN p_codigo_cliente numeric(12,0)
+)
+BEGIN
+  SELECT
+    tipo_documento,
+    numero_documento,
+    fecha_emision,
+    saldo
+  FROM mov_contable
+  WHERE codigo_cliente = p_codigo_cliente
+    AND tipo_documento IN ('NTC', 'RCP')
+    AND saldo > 0
+  ORDER BY CASE WHEN tipo_documento = 'NTC' THEN 0 ELSE 1 END,
+           fecha_emision ASC,
+           numero_documento ASC;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `aplicar_saldo_favor_a_factura`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_saldo_favor_a_factura`(
+  IN p_codigo_cliente numeric(12,0),
+  IN p_num_fac numeric(12,0),
+  IN p_monto numeric(12,2)
+)
+proc: BEGIN
+  DECLARE v_restante numeric(12,2);
+  DECLARE v_saldo_fac numeric(12,2);
+  DECLARE v_tipo_doc varchar(3);
+  DECLARE v_num_doc numeric(12,0);
+  DECLARE v_saldo_doc numeric(12,2);
+  DECLARE v_usar numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT tipo_documento, numero_documento, saldo
+    FROM mov_contable
+    WHERE codigo_cliente = p_codigo_cliente
+      AND tipo_documento IN ('NTC', 'RCP')
+      AND saldo > 0
+    ORDER BY CASE WHEN tipo_documento = 'NTC' THEN 0 ELSE 1 END,
+             fecha_emision ASC,
+             numero_documento ASC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  IF p_monto IS NULL OR p_monto <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SELECT saldo
+    INTO v_saldo_fac
+  FROM mov_contable
+  WHERE tipo_documento = 'FAC'
+    AND numero_documento = p_num_fac
+  FOR UPDATE;
+
+  IF v_saldo_fac IS NULL OR v_saldo_fac <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SET v_restante = IF(v_saldo_fac >= p_monto, p_monto, v_saldo_fac);
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_doc, v_num_doc, v_saldo_doc;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_saldo_doc >= v_restante, v_restante, v_saldo_doc);
+
+    UPDATE mov_contable
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento = v_tipo_doc
+      AND numero_documento = v_num_doc;
+
+    UPDATE mov_contable
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento = 'FAC'
+      AND numero_documento = p_num_fac;
+
+    INSERT INTO Facturas_Pagadas
+      (tipodocumento, numdocumento, tipo_documento_cli, numero_documento_cli, monto_pagado)
+    VALUES
+      (v_tipo_doc, v_num_doc, 'FAC', p_num_fac, v_usar)
+    ON DUPLICATE KEY UPDATE monto_pagado = monto_pagado + v_usar;
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+END//
+DELIMITER ;
+
+-- -----------------------------------------------------------------------------
+-- GRUPO: NOTA CREDITO -> FACTURAS_PAGADAS + saldo en mov_contable
+-- -----------------------------------------------------------------------------
+
+DROP PROCEDURE IF EXISTS `aplicar_nota_credito_a_factura`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_nota_credito_a_factura`(
+  IN p_tipo_ntc varchar(3),
+  IN p_num_ntc numeric(12,0),
+  IN p_tipo_fac varchar(3),
+  IN p_num_fac numeric(12,0),
+  IN p_monto numeric(12,2)
+)
+proc: BEGIN
+  DECLARE v_saldo_fac numeric(12,2);
+  DECLARE v_aplicar numeric(12,2);
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_saldo_fac = NULL;
+
+  IF p_monto IS NULL OR p_monto <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SELECT saldo
+    INTO v_saldo_fac
+  FROM mov_contable
+  WHERE tipo_documento = p_tipo_fac
+    AND numero_documento = p_num_fac
+  FOR UPDATE;
+
+  IF v_saldo_fac IS NULL OR v_saldo_fac <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SET v_aplicar = IF(v_saldo_fac >= p_monto, p_monto, v_saldo_fac);
+
+  UPDATE mov_contable
+    SET saldo = saldo - v_aplicar
+  WHERE tipo_documento = p_tipo_fac
+    AND numero_documento = p_num_fac;
+
+  INSERT INTO Facturas_Pagadas
+    (tipodocumento, numdocumento, tipo_documento_cli, numero_documento_cli, monto_pagado)
+  VALUES
+    (p_tipo_ntc, p_num_ntc, p_tipo_fac, p_num_fac, v_aplicar);
+
+  UPDATE mov_contable
+    SET saldo = saldo - v_aplicar
+  WHERE tipo_documento = p_tipo_ntc
+    AND numero_documento = p_num_ntc;
 END//
 DELIMITER ;
 
@@ -924,10 +1258,10 @@ BEGIN
 
     INSERT INTO detalle_movs_partidas
       (tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_producto,
-       tipo_documento_venta, numero_documento, cantidad, monto)
+       tipo_documento_venta, numero_documento, cantidad, costo_unitario, monto)
     VALUES
       (v_tipo_compra, v_num_compra, v_codigo_provedor, p_codigo_producto,
-       p_tipo_documento_venta, p_numero_documento, v_usar, v_monto_salida);
+       p_tipo_documento_venta, p_numero_documento, v_usar, v_costo_unitario, v_monto_salida);
 
     SET v_restante = v_restante - v_usar;
   END LOOP;
@@ -1009,10 +1343,10 @@ BEGIN
 
     INSERT INTO detalle_movs_partidas
       (tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_producto,
-       tipo_documento_venta, numero_documento, cantidad, monto)
+       tipo_documento_venta, numero_documento, cantidad, costo_unitario, monto)
     VALUES
       (v_tipo_compra, v_num_compra, v_codigo_provedor, p_codigo_producto,
-       p_tipo_documento_devolucion, p_numero_documento_devolucion, v_usar, v_monto_devol);
+       p_tipo_documento_devolucion, p_numero_documento_devolucion, v_usar, v_costo_unitario, v_monto_devol);
 
     SET v_restante = v_restante - v_usar;
   END LOOP;
@@ -1050,12 +1384,10 @@ BEGIN
 
   SELECT COALESCE(SUM(g.monto), 0)
     INTO v_total_gastos
-  FROM fabricaciongastos fg
-  JOIN mov_contable_gasto g
-    ON g.tipodocumento = fg.tipodocumentogasto
-   AND g.numdocumento = fg.numdocumentogasto
-  WHERE fg.tipodocumentostock = p_tipo_doc_prod
-    AND fg.numdocumentostock = p_num_doc_prod;
+  FROM mov_contable_gasto g
+  WHERE g.tipo_documento_compra = p_tipo_doc_prod
+    AND g.num_documento_compra = p_num_doc_prod
+    AND g.codigo_provedor = p_codigo_provedor;
 
   SET v_total = v_total_insumos + v_total_gastos;
 

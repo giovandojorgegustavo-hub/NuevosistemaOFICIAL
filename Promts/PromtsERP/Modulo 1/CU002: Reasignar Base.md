@@ -81,7 +81,7 @@ Paso 1  Seleccionar Paquete Pendiente.
 
 Muestra un Grid llamado "PaquetesPendientes" con los datos del SP: `get_paquetes_por_estado(p_estado="pendiente empacar")` 
 
-Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
+Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vcodigo_paquete visible no editable
 vfecha_actualizado visible no editable
@@ -90,6 +90,8 @@ vnombre_cliente visible no editable
 vnum_cliente visible no editable
 vcodigo_puntoentrega no visible no editable
 vcodigo_base visible no editable
+vcodigo_packing visible no editable
+vnombre_packing visible no editable
 vordinal_numrecibe no visible no editable
 vconcatenarpuntoentrega visible no editable
 vRegion_Entrega no visible no editable
@@ -106,6 +108,7 @@ Mostrar como lectura:
 - vconcatenarpuntoentrega
 - vconcatenarnumrecibe
 - vcodigo_base (base actual)
+- vnombre_packing
 
 Direccion y Mapa (solo lectura).
 Solo si vRegion_Entrega = "LIMA":

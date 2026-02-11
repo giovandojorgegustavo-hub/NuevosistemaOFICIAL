@@ -104,13 +104,9 @@ Al seleccionar un pedido del Grid, pasar al siguiente paso.
 
 ## Paso 2. Crear Factura.
 
+vFechaemision = Inicializar con la fecha del sistema (fecha de factura, no la del pedido seleccionado).
+vHoraemision = Inicializar con la hora del sistema (hora de factura).
 vFechaP = concatenar vFechaemision y vHoraemision de tal manera que fecha se guarde con datetime.
-
-vBaseNombre = Llamada SP: `get_bases()` (devuelve campo_visible)
-Campos devueltos: `codigo_base`, `nombre`
-Variables:
-vcodigo_base no visible editable
-vBaseNombre visible editable
 
 vTipo_documento = "FAC"
 vNumero_documento = regla sin ambiguedad:
@@ -127,12 +123,27 @@ vcantidad visible editable (inicia con saldo, acepta decimales hasta 2)
 vprecio_unitario no visible no editable
 vprecio_total visible no editable (vcantidad * vprecio_unitario, recalcular al cambiar cantidad)
 
-VfMonto = suma de vprecio_total del Grid vProdFactura
+Filtrar el Grid: mostrar solo items con `saldo > 0`. Si saldo = 0, no mostrar en el grid.
+
+VfMontoDetalleProductos = suma de vprecio_total del Grid vProdFactura
 VfCostoEnvio = vCostoEnvio, definida luego en el paso 3 por eso no es editable ni visible.
-VfTotal = VfMonto + VfCostoEnvio
-Vfsaldo = VfTotal (saldo inicial, incluye costo de envio).
+VfMonto = VfMontoDetalleProductos + VfCostoEnvio
+Vfsaldo = VfMonto (saldo inicial, incluye costo de envio).
 vOrdinalDetMovCont = regla sin ambiguedad:
 - Asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid (siempre factura nueva).
+
+### Saldo a favor (antes de pagos)
+vSaldoFavor = Llamada SP: `get_saldo_favor_cliente(vClienteCodigo)` (devuelve campo_visible)
+Campos devueltos: `tipo_documento`, `numero_documento`, `fecha_emision`, `saldo`
+Variables:
+vSaldoFavorTotal visible no editable (suma de saldos)
+vSaldoFavorNTC visible no editable (suma donde tipo_documento = "NTC")
+vSaldoFavorRCP visible no editable (suma donde tipo_documento = "RCP")
+vUsarSaldoFavor visible editable (checkbox)
+
+Reglas:
+- Si vUsarSaldoFavor = true, usar `vSaldoFavorUsar = MIN(vSaldoFavorTotal, VfMonto)`.
+- Si vUsarSaldoFavor = false, `vSaldoFavorUsar = 0`.
 
 Requerimientos:
 - No agregar filas; solo eliminar si hay mas de una.
@@ -151,7 +162,7 @@ Mostrar un checklist que tenga como opcion :nuevo, existe
 Existe: es el que esta como defecto. 
 
 vPuntoEntregaTexto = Select (Llamada SP: `get_puntos_entrega(vClienteCodigo)` devuelve `concatenarpuntoentrega`)
-Campos devueltos: `cod_dep`, `cod_prov`, `cod_dist`, `departamento`, `provincia`, `distrito`, `ubigeo`, `codigo_puntoentrega`, `codigo_cliente`, `region_entrega`, `direccion_linea`, `referencia`, `nombre`, `dni`, `agencia`, `observaciones`, `concatenarpuntoentrega`, `estado`
+Campos devueltos: `cod_dep`, `cod_prov`, `cod_dist`, `departamento`, `provincia`, `distrito`, `ubigeo`, `codigo_puntoentrega`, `codigo_cliente`, `region_entrega`, `direccion_linea`, `referencia`, `nombre`, `dni`, `agencia`, `observaciones`, `concatenarpuntoentrega`, `latitud`, `longitud`, `estado`
 Variables:
 vPuntoEntregaTexto = `concatenarpuntoentrega` (visible)
 vRegion_Entrega = `region_entrega` (no visible)
@@ -161,6 +172,8 @@ vNombre = `nombre` (visible si PROV)
 vDni = `dni` (visible si PROV)
 vAgencia = `agencia` (visible si PROV)
 vObservaciones = `observaciones` (visible si PROV)
+vLatitud = `latitud` (no visible)
+vLongitud = `longitud` (no visible)
 Si el cliente no tiene puntos de entrega, no mostrar esta opcion.
 Para mostrar el texto en la lista usar el campo `concatenarpuntoentrega` devuelto por el procedimiento.
 
@@ -176,8 +189,9 @@ Nuevo: formulario guiado + mapa
 - vProvincia = Select get_ubigeo_provincias(vCod_Dep)
 - vDistrito = Select get_ubigeo_distritos(vCod_Dep, vCod_Prov)
 - Vubigeo = concatenar vCod_Dep + vCod_Prov + vCod_Dist
-3) Codigo punto entrega:
-- Vcodigo_puntoentrega = `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteCodigo` (si no hay registros empieza en 1).
+3) Codigo punto entrega: recalcular si cambia el punto.
+- Si el punto es NUEVO: Vcodigo_puntoentrega = `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteCodigo` (si no hay registros empieza en 1).
+- Si el punto es EXISTENTE: Vcodigo_puntoentrega = valor seleccionado del registro existente (no recalcular).
 4) Region y campos visibles:
 - vRegion_Entrega se calcula: LIMA si vCod_Dep='15' y vCod_Prov='01', si no PROV. No mostrar selector.
 - Si LIMA: vDireccionLinea, vReferencia, vLatitud, vLongitud.
@@ -224,7 +238,9 @@ Vconcatenarnumrecibe = `numero | nombre` (omite campos vacios).
 vTipo_documento_pago = "RCP"
 
 vNumero_documento_pago = regla sin ambiguedad:
-- Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(numdocumento), 0) + 1 AS next FROM mov_operaciones_contables WHERE tipodocumento = 'RCP'` (si no hay registros empieza en 1).
+- Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP'` (si no hay registros empieza en 1).
+Numeracion para multiples pagos:
+- Al agregar pagos en vPagos, asignar numdocumento secuencial: primer pago usa vNumero_documento_pago, los siguientes usan vNumero_documento_pago + 1, +2, etc.
 
 vCuentaNombre = Select (Llamada SP: `get_cuentasbancarias()` devuelve `nombre`)
 Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
@@ -233,10 +249,11 @@ vCuentaNombre = `nombre` (visible)
 vCuentaBanco = `banco` (visible)
 
 
-vMontoPago = Inicializar con VfTotal. Debe ser editable para permitir pago parcial.
-vMontoPendiente = VfTotal.
+vMontoPago = Inicializar con VfMonto. Debe ser editable para permitir pago parcial.
+vMontoPendiente = VfMonto.
 Permitir no registrar pago (vMontoPago vacio o 0).
-Si vMontoPago > 0, validar: vMontoPago <= vMontoPendiente.
+Permitir registrar mas de un pago: cada pago se agrega a una lista `vPagos`.
+Al confirmar un pago, recalcular vMontoPendiente = vMontoPendiente - vMontoPago y prellenar el siguiente vMontoPago con ese nuevo vMontoPendiente.
 
 ## Paso 6. Asignar Base.
 
@@ -246,7 +263,7 @@ Variables:
 vcodigo_base no visible editable
 vBaseNombre visible editable
 
-En este paso, primero construir un JSON con el contenido del grid “vProdFactura” y usarlo junto con la fecha del pedido ya definida (vFechaP) para consultar las bases candidatas.
+En este paso, primero construir un JSON con el contenido del grid “vProdFactura” y usarlo junto con la fecha/hora de emision de la factura (vFechaP, no vFechaPedido) para consultar las bases candidatas.
 
 Llamada SP: `get_bases_candidatas(p_vProdFactura JSON, vFechaP DATETIME)`
 Campos devueltos: `codigo_base`, `latitud`, `longitud`
@@ -310,7 +327,7 @@ Emitir Factura. Al terminar el formulario multipasos, cuando el usuario da click
 ## registrarlos en la tabla puntos_entrega
 ubigeo=Vubigeo
 codigo_puntoentrega=Vcodigo_puntoentrega
-codigo_cliente=vClienteCodigo
+codigo_cliente_puntoentrega=vClienteCodigo
 direccion_linea=Vdireccion_linea
 referencia=Vreferencia
 nombre=Vnombre
@@ -319,6 +336,8 @@ agencia=Vagencia
 observaciones=Vobservaciones
 region_entrega=vRegion_Entrega
 concatenarpuntoentrega = Vconcatenarpuntoentrega
+latitud = vLatitud
+longitud = vLongitud
 
 ## Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 4:
 ## registrarlos en la tabla numrecibe
@@ -328,20 +347,21 @@ nombre=Vnombre
 codigo_cliente_numrecibe=vClienteCodigo
 concatenarnumrecibe = Vconcatenarnumrecibe
 
-## Grabar Factura. Tomar los datos capturados en el paso 2:
+## Grabar Factura. Tomar los datos capturados en el paso 2 (factura) y paso 6 (base):
 ## Guardar en la tabla "mov_contable". 
 codigo_pedido=vcodigo_pedido
 fecha_emision=vFechaP
 fecha_vencimiento=vFechaP
 fecha_valor=vFechaP
 codigo_cliente=vClienteCodigo
-monto=Vfsaldo
-saldo=Vfsaldo
+montodetalleproductos=VfMontoDetalleProductos
+monto=VfMonto
+saldo=VfMonto
 tipo_documento="FAC"
 numero_documento=vNumero_documento
 codigo_base=vcodigo_base
-codigo_cliente_numrecibe=vClienteCodigo
-ordinal_numrecibe=Vordinal_numrecibe
+codigo_cliente_numrecibe= (si vRegion_Entrega = "LIMA") vClienteCodigo, si no NULL
+ordinal_numrecibe= (si vRegion_Entrega = "LIMA") Vordinal_numrecibe, si no NULL
 codigo_cliente_puntoentrega=vClienteCodigo
 codigo_puntoentrega=Vcodigo_puntoentrega
 costoenvio=vCostoEnvio
@@ -369,23 +389,32 @@ estado= "pendiente empacar"
 Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteCodigo, vTipo_documento, mov_contable.saldo)`.
 
 ## Registrar Recibo (Pago)
-Si vMontoPago > 0:
-- Guardar en la tabla "mov_operaciones_contables" (actualiza bancos):
-  - tipodocumento="RCP"
-  - numdocumento=vNumero_documento_pago
-  - fecha=vFechaP
-  - monto=vMontoPago
-  - codigo_cuentabancaria=vCuentaBancaria
-  - codigo_cuentabancaria_destino=NULL
-  - descripcion="Recibo cliente" (opcional)
+Si existen pagos en `vPagos`:
+Por cada pago en `vPagos`, registrar el recibo con los valores de la lista.
+Guardar en la tabla "mov_contable":
+codigo_cliente=vClienteCodigo
+tipo_documento="RCP"
+numero_documento=secuencial segun la regla definida en Paso 5
+fecha_emision=vFechaP
+fecha_vencimiento=vFechaP
+fecha_valor=vFechaP
+codigo_cuentabancaria=vCuentaBancaria
+monto=monto_pago
+saldo=monto_pago
 
-- Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
-  - `CALL aplicar_recibo_a_facturas(vClienteCodigo, vNumero_documento_pago, vMontoPago)`
+Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteCodigo, vTipo_documento, mov_contable.saldo)`.
 
-- Actualizar saldo del cliente por el pago:
-  - `CALL actualizarsaldosclientes(vClienteCodigo, "RCP", vMontoPago)`
+Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
+`CALL aplicar_recibo_a_facturas(vClienteCodigo, vNumero_documento_pago, monto_pago)`
 
-- Actualizar el saldo de `pedido_detalle` restando las cantidades facturadas ejecutando el procedimiento `salidaspedidos(vTipo_documento, vNumero_documento)` (usa el codigo_pedido vinculado en mov_contable).
+Actualizar saldo del cliente por cada pago:
+`CALL actualizarsaldosclientes(vClienteCodigo, "RCP", monto_pago)`
+
+### Aplicar saldo a favor (NTC/RCP) a la factura
+Si `vSaldoFavorUsar > 0`, ejecutar:
+`CALL aplicar_saldo_favor_a_factura(vClienteCodigo, vNumero_documento, vSaldoFavorUsar)`
+
+Actualizar el saldo de `pedido_detalle` restando las cantidades facturadas ejecutando el procedimiento `salidaspedidos(vTipo_documento, vNumero_documento)` (usa el codigo_pedido vinculado en mov_contable).
 
 No utilizar datos mock
 

@@ -84,11 +84,11 @@ Previo al formulario de captura, se debe establecer conexion con la DB, los dato
 Mostrar un Grid llamado "vFacturasPendientes" que llama al siguiente SP: `get_facturascompras_pendientes()` (devuelve campo_visible)
 Campos devueltos: `tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `nombre_provedor`, `fecha`
 Variables:
-vtipo_documento_compra visible no editable
-vnum_documento_compra visible no editable
-vcodigo_provedor no visible no editable
-vnombre_provedor visible no editable
-vfecha visible no editable
+vTipo_documento_compra_origen = `tipo_documento_compra` (visible no editable)
+vNum_documento_compra_origen = `num_documento_compra` (visible no editable)
+vCodigo_provedor = `codigo_provedor` (no visible no editable)
+vNombre_provedor = `nombre_provedor` (visible no editable)
+vFecha = `fecha` (visible no editable)
 Solo deben aparecer facturas de compra tipo **FCC** que tengan al menos un item con `cantidad_entregada < cantidad`.
 
 
@@ -102,9 +102,9 @@ El usuario podra seleccionar del Grid cual es la factura de compra para pasar al
 
 vTipo_documento_compra_remito = "REM".
 
-vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito AND numdocumentostock = vNum_documento_compra_remito` (si no hay filas, usar 1).
 vNum_documento_compra_remito =
 `SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito` (si no hay filas, usar 1). No editable.
+vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito AND numdocumentostock = vNum_documento_compra_remito` (si no hay filas, usar 1).
 
 vBases = Llamada SP: `get_bases()` (devuelve campo_visible)
 Campos devueltos: `codigo_base`, `nombre`, `latitud`, `longitud`
@@ -115,6 +115,10 @@ vBaseNombre visible editable
 
 Presentar un Grid editable llamado "vDetalleRemitoCompra" que se inicialice automaticamente con el SP:
 `get_detalle_compra_por_documento(p_tipo_documento_compra, p_num_documento_compra, p_codigo_provedor)`
+Parametros:
+p_tipo_documento_compra = vTipo_documento_compra_origen
+p_num_documento_compra = vNum_documento_compra_origen
+p_codigo_provedor = vCodigo_provedor
 Campos devueltos: `ordinal`, `codigo_producto`, `nombre_producto`, `cantidad`, `cantidad_entregada`, `saldo`
 Variables:
 vOrdinalCompra no visible no editable
@@ -130,39 +134,31 @@ Regla:
 ## Paso 3. Confirmar y Registrar Remito.
 
 Mostrar resumen de Remito seleccionada, Base destino y lineas del remitodetalle.
-   
-Al dar click en “Registrar Remito”, ejecutar transaccion:
-
-1. registrar enla tabla `movimiento_stock`:
-   - tipodocumentostock = vTipo_documento_compra_remito
-   - numdocumentostock = vNum_documento_compra_remito
-   - fecha = vfecha
-   - codigo_base = vCodigo_base
-   - tipo_documento_compra = vTipo_documento_compra_origen
-   - num_documento_compra = vNum_documento_compra_origen
-   - codigo_provedor = vCodigo_provedor
-
-2. Insertar en `detalle_movimiento_stock`:
-   - tipodocumentostock = vTipo_documento_compra_remito
-   - numdocumentostock = vNum_documento_compra_remito
-   - ordinal = vOrdinal (del remito)
-   - codigo_producto=vcodigo_producto
-   - cantidad = vCantidadDisponible
-
-3. Actualizar entregas en la factura de compra (FCC) usando el SP:
-   - `CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinalCompra, vCantidadDisponible)`
-   - Ejecutar por cada linea del remito.
-
-4. Actualizar `saldo_stock` usando el SP unico `upd_stock_bases` por cada item del remito:
-   - `p_codigo_base = vCodigo_base`
-   - `p_codigo_producto = vcodigo_producto`
-   - `p_cantidad = vCantidadDisponible`
-   - `p_tipodoc = vTipo_documento_compra_remito` (REM, entrada positiva)
-   - `p_numdoc = vNum_documento_compra_remito`
-
+Requerir confirmacion explicita antes de registrar.
 
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
+
+## Tablas a registrar
+movimiento_stock:
+tipodocumentostock=vTipo_documento_compra_remito  
+numdocumentostock=vNum_documento_compra_remito  
+fecha=vFecha  
+codigo_base=vCodigo_base  
+tipo_documento_compra=vTipo_documento_compra_origen  
+num_documento_compra=vNum_documento_compra_origen  
+codigo_provedor=vCodigo_provedor  
+
+detalle_movimiento_stock (por item):
+tipodocumentostock=vTipo_documento_compra_remito  
+numdocumentostock=vNum_documento_compra_remito  
+ordinal=vOrdinal  
+codigo_producto=vcodigo_producto  
+cantidad=vCantidadDisponible  
+
+## Procedimientos que se llaman
+`CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinalCompra, vCantidadDisponible)` por item  
+`CALL upd_stock_bases(vCodigo_base, vcodigo_producto, vCantidadDisponible, vTipo_documento_compra_remito, vNum_documento_compra_remito)` por item  
 
 **
