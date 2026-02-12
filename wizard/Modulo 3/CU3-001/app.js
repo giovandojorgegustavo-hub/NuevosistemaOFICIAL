@@ -39,6 +39,11 @@ const i18n = {
     tipoDocumento: 'Document type',
     numeroDocumento: 'Document number',
     totalLabel: 'Purchase total',
+    saldoFavorTotalLabel: 'Credit balance total',
+    saldoFavorNCCLabel: 'Credit balance NCC',
+    saldoFavorRCCLabel: 'Credit balance RCC',
+    saldoFavorUsadoLabel: 'Credit balance to apply',
+    usarSaldoFavorLabel: 'Use available credit balance',
     addRow: 'Add row',
     colProducto: 'Product',
     colCantidad: 'Quantity',
@@ -85,6 +90,11 @@ const i18n = {
     tipoDocumento: 'Tipo documento',
     numeroDocumento: 'Numero documento',
     totalLabel: 'Total compra',
+    saldoFavorTotalLabel: 'Saldo favor total',
+    saldoFavorNCCLabel: 'Saldo favor NCC',
+    saldoFavorRCCLabel: 'Saldo favor RCC',
+    saldoFavorUsadoLabel: 'Saldo favor a usar',
+    usarSaldoFavorLabel: 'Usar saldo a favor disponible',
     addRow: 'Agregar fila',
     colProducto: 'Producto',
     colCantidad: 'Cantidad',
@@ -128,6 +138,14 @@ class FormWizard {
       numeroDocumento: '',
       detalle: [],
       total: 0,
+      saldoFavor: {
+        rows: [],
+        total: 0,
+        ncc: 0,
+        rcc: 0,
+        usar: false,
+        usado: 0
+      },
       loading: false
     };
 
@@ -178,6 +196,11 @@ class FormWizard {
       tipoDocumento: document.getElementById('tipoDocumento'),
       numeroDocumento: document.getElementById('numeroDocumento'),
       totalCompra: document.getElementById('totalCompra'),
+      saldoFavorTotal: document.getElementById('saldoFavorTotal'),
+      saldoFavorNCC: document.getElementById('saldoFavorNCC'),
+      saldoFavorRCC: document.getElementById('saldoFavorRCC'),
+      saldoFavorUsado: document.getElementById('saldoFavorUsado'),
+      usarSaldoFavorCheck: document.getElementById('usarSaldoFavorCheck'),
       addRowBtn: document.getElementById('addRowBtn'),
       detalleCount: document.getElementById('detalleCount'),
       detalleBody: document.querySelector('#detalleTable tbody'),
@@ -223,6 +246,10 @@ class FormWizard {
     });
 
     this.dom.addRowBtn.addEventListener('click', () => this.addDetalleRow());
+    this.dom.usarSaldoFavorCheck.addEventListener('change', (event) => {
+      this.state.saldoFavor.usar = event.target.checked;
+      this.recalculateSaldoFavor();
+    });
 
     this.dom.detalleBody.addEventListener('input', (event) => this.handleDetalleInput(event));
     this.dom.detalleBody.addEventListener('focusin', (event) => this.handleDetalleFocus(event));
@@ -259,6 +286,7 @@ class FormWizard {
       this.setLoading(false, this.t('statusReady'));
     }
 
+    this.recalculateSaldoFavor();
     this.updateProgress();
   }
 
@@ -307,6 +335,7 @@ class FormWizard {
       this.dom.proveedorExistentePanel.classList.add('d-none');
       this.dom.proveedorNuevoPanel.classList.remove('d-none');
       this.state.selectedProveedor = null;
+      this.resetSaldoFavor();
       this.dom.proveedorSearch.value = '';
       this.dom.proveedorList.classList.remove('show');
       this.dom.proveedorNombreNuevo.value = this.state.proveedorNuevoNombre;
@@ -318,12 +347,14 @@ class FormWizard {
       this.dom.proveedorNuevoPanel.classList.add('d-none');
       this.state.proveedorNuevoNombre = '';
       this.dom.proveedorNombreNuevo.value = '';
+      this.resetSaldoFavor();
     }
   }
 
   handleProveedorSearch() {
     const query = this.dom.proveedorSearch.value.toLowerCase();
     this.state.selectedProveedor = null;
+    this.resetSaldoFavor();
     const matches = this.state.proveedores.filter((item) => {
       const nombre = String(item.nombre || '').toLowerCase();
       const codigo = String(item.codigo_provedor || '').toLowerCase();
@@ -350,10 +381,67 @@ class FormWizard {
   selectProveedor(proveedor) {
     this.state.selectedProveedor = proveedor;
     this.dom.proveedorSearch.value = proveedor.nombre;
+    this.loadSaldoFavor(proveedor.codigo_provedor).catch(() => {
+      this.showAlert(this.t('fetchError'));
+    });
   }
 
   updateProveedoresCount() {
     this.dom.proveedoresCount.textContent = `${this.state.proveedores.length} ${this.t('providersCount')}`;
+  }
+
+  resetSaldoFavor() {
+    this.state.saldoFavor = {
+      rows: [],
+      total: 0,
+      ncc: 0,
+      rcc: 0,
+      usar: false,
+      usado: 0
+    };
+    this.dom.usarSaldoFavorCheck.checked = false;
+    this.recalculateSaldoFavor();
+  }
+
+  async loadSaldoFavor(codigoProvedor) {
+    const response = await fetch(`/api/saldo-favor-provedor?provedor=${encodeURIComponent(codigoProvedor)}`);
+    const data = await response.json();
+    if (!data.ok) {
+      throw new Error('SALDO_FAVOR_PROVEDOR_ERROR');
+    }
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    const total = rows.reduce((acc, row) => acc + (Number(row.saldo) || 0), 0);
+    const ncc = rows
+      .filter((row) => row.tipo_documento_compra === 'NCC')
+      .reduce((acc, row) => acc + (Number(row.saldo) || 0), 0);
+    const rcc = rows
+      .filter((row) => row.tipo_documento_compra === 'RCC')
+      .reduce((acc, row) => acc + (Number(row.saldo) || 0), 0);
+
+    this.state.saldoFavor.rows = rows;
+    this.state.saldoFavor.total = total;
+    this.state.saldoFavor.ncc = ncc;
+    this.state.saldoFavor.rcc = rcc;
+    if (total <= 0) {
+      this.state.saldoFavor.usar = false;
+      this.dom.usarSaldoFavorCheck.checked = false;
+    }
+    this.recalculateSaldoFavor();
+  }
+
+  recalculateSaldoFavor() {
+    const totalCompra = Number(this.state.total) || 0;
+    const totalFavor = Number(this.state.saldoFavor.total) || 0;
+    const usar = this.state.saldoFavor.usar && totalFavor > 0;
+    const usado = usar ? Math.min(totalFavor, totalCompra) : 0;
+    this.state.saldoFavor.usado = usado;
+
+    this.dom.saldoFavorTotal.value = totalFavor.toFixed(2);
+    this.dom.saldoFavorNCC.value = (Number(this.state.saldoFavor.ncc) || 0).toFixed(2);
+    this.dom.saldoFavorRCC.value = (Number(this.state.saldoFavor.rcc) || 0).toFixed(2);
+    this.dom.saldoFavorUsado.value = usado.toFixed(2);
+    this.dom.usarSaldoFavorCheck.disabled = totalFavor <= 0 || this.state.proveedorMode !== 'existente';
   }
 
   addDetalleRow() {
@@ -484,6 +572,7 @@ class FormWizard {
     }, 0);
     this.state.total = total;
     this.dom.totalCompra.value = total.toFixed(2);
+    this.recalculateSaldoFavor();
   }
 
   showAlert(message) {
@@ -656,7 +745,8 @@ class FormWizard {
         cantidad: Number(item.cantidad),
         monto: Number(item.monto)
       })),
-      vTotal_compra: this.state.total
+      vTotal_compra: this.state.total,
+      vSaldoFavorUsar: this.state.saldoFavor.usado
     };
 
     this.setLoading(true, this.t('loading'));
@@ -700,6 +790,7 @@ class FormWizard {
     this.dom.proveedorSearch.value = '';
     this.state.proveedorNuevoNombre = '';
     this.dom.proveedorNombreNuevo.value = '';
+    this.resetSaldoFavor();
 
     await Promise.all([this.loadNumeroDocumento(), this.loadNextProveedor(), this.loadProveedores()]);
 

@@ -160,7 +160,7 @@ Paso 3. Confirmar y Guardar.
 Si se seleccionaron varios paquetes, no mostrar Paso 2.
 
 El usuario define el nuevo estado del paquete:
-- `robado`, `standby` o `llegado`. dale para escoger solo entre estas opciones
+- `robado`, `standby`, `llegado` o `devuelto`. dale para escoger solo entre estas opciones
 
 
 
@@ -206,6 +206,27 @@ Por cada paquete seleccionado:
     - Si la factura ya está en saldo 0: no aplicar nada; la NTC queda con saldo completo.
   - Ejecutar SP: `actualizarsaldosclientes(factura.codigo_cliente, "NTC", factura.monto)` (sumar saldo cliente).
 - Ejecutar SP: `cambiar_estado_paquete(vcodigo_paquete, nuevo_estado)`.
+
+- Si estado = `devuelto`: ejecutar flujo de anulacion de factura (sin registrar documentos nuevos en `mov_contable` ni `mov_contable_detalle`):
+
+  Cambiar estado de la factura a anulado:
+  - `UPDATE mov_contable SET estado = 'anulado', saldo = 0 WHERE tipo_documento = 'FAC' AND numero_documento = vcodigo_paquete`
+
+  Revertir pagos aplicados a la factura anulada:
+  - `CALL revertir_pagos_factura_cliente('FAC', vcodigo_paquete)`
+  - El procedimiento debe buscar en `Facturas_Pagadas` todas las aplicaciones hechas a esa factura.
+  - Por cada aplicacion, debe aumentar el `saldo` del documento pagador (`RCP`/`NTC`) en `mov_contable`.
+  - Luego debe eliminar esas filas de `Facturas_Pagadas` para evitar doble reversa.
+
+  Devolver productos a inventario usando cantidad negativa:
+  - Por cada item del detalle ejecutar:
+  - `CALL upd_stock_bases(vCodigo_base, vCodigo_producto, -vCantidad, "FAC", vcodigo_paquete)`
+
+  Borrar partidas consumidas por esa factura:
+  - `DELETE FROM detalle_movs_partidas WHERE tipo_documento_venta = 'FAC' AND numero_documento = vcodigo_paquete`
+
+  Actualizar saldo del cliente:
+  - `CALL actualizarsaldosclientes(vCodigo_cliente, 'FAC', -vTotalFactura)`
 
 
 No utilizar datos mock.

@@ -5,7 +5,7 @@ CU3003: Nota Credito Provedor
 # **Prompt AI.
 Modulo: 3.
 Caso de uso: CU3003 - M3NotaCreditoProvedor.
-Puerto del wizard: 3014 (ver `Promts/Herramientas/puertos.json`).
+Puerto del wizard: 3015 (ver `Promts/Herramientas/puertos.json`).
 
 
 ## Campos devueltos por SPs de lectura (obligatorio)
@@ -40,8 +40,8 @@ Incluir manejo de errores y mejores practicas de UX."
 
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
-- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 2/CU2-XXX/logs/`.
-- El archivo debe nombrarse `CU2-XXX-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
+- Guardar los mismos logs en archivo por ejecucion dentro de `wizard/Modulo 3/CU3-003/logs/`.
+- El archivo debe nombrarse `CU3-003-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
 - Los logs deben incluir: inicio del servidor, endpoints invocados, errores, y sentencias SQL con parametros.
 
 **El look and feel
@@ -87,7 +87,7 @@ Variables:
 vCodigo_provedor no visible editable
 vNombreProvedor visible editable
 
-vTipo_documento_compra = "NCP".
+vTipo_documento_compra = "NCC".
 
 vNum_documento_compra = calcular con SQL:
 `SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = vTipo_documento_compra` (si no hay filas, usar 1). No editable.
@@ -96,15 +96,22 @@ Presentar un Grid editable llamado "vDetalleNotaCredito" que permita agregar, bo
 vProductos = Llamada SP: `get_productos()` (devuelve campo_visible)
 Campos devueltos: `codigo_producto`, `nombre`
 Variables:
-vcodigo_producto no visible editable
+vCodigo_producto no visible editable
 vNombreProducto visible editable
 
-El Grid debe tener las siguientes columnas: codigo_producto, cantidad, saldo, monto.
-Vcantidad = es editable. si es visible. Acepta decimales con hasta 2 digitos.
-Vsaldo=0 no es visible
-monto=es editable. si es visible
+vBases = Llamada SP: `get_bases()` (devuelve campo_visible)
+Campos devueltos: `codigo_base`, `nombre`
+Variables:
+vCodigo_base no visible editable
+vNombreBase visible editable
 
-vordinalmovstockdetalles= `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra AND numdocumentostock = vNum_documento_compra ` (si no hay filas, usar 1).
+El Grid debe tener las siguientes columnas: codigo_base, codigo_producto, cantidad, saldo, monto.
+vCantidad = es editable. si es visible. Acepta decimales con hasta 2 digitos.
+vSaldo = 0 no es visible
+vMonto = es editable. si es visible
+
+vOrdinal = regla sin ambiguedad:
+- Asignar ordinal secuencial por linea del grid (1,2,3...) para cada item de `vDetalleNotaCredito`.
 
 En la vista, cada campo debe usar el mismo nombre de variable definido arriba y registrar ese valor.
 
@@ -126,15 +133,41 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Regis
   - tipo_documento_compra = vTipo_documento_compra
   - num_documento_compra = vNum_documento_compra
   - codigo_provedor = vCodigo_provedor
-  - ordinal = vordinal
+  - ordinal = vDetalleNotaCredito.ordinal
   - codigo_producto = vDetalleNotaCredito.codigo_producto
   - cantidad = vDetalleNotaCredito.cantidad
+  - cantidad_entregada = 0
   - saldo = 0
   - monto = vDetalleNotaCredito.monto
+
+- Aplicar consumo de partidas de compra (proveedor), por cada item del grid:
+  - Ejecutar `CALL aplicar_nota_credito_partidas_prov(vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, vDetalleNotaCredito.codigo_producto, vDetalleNotaCredito.cantidad)`.
+  - Este procedimiento debe:
+    - Bajar `detalle_mov_contable_prov.saldo` de compras `FCC` (mismo proveedor y producto) en orden FIFO.
+    - Registrar cada aplicacion en `detalle_movs_partidas_prov` enlazando:
+      - Documento origen: `FCC` consumido.
+      - Documento destino: la `NCC` recien creada.
+
+- Actualizar stock por cada item del grid:
+  - Ejecutar `CALL upd_stock_bases(vDetalleNotaCredito.codigo_base, vDetalleNotaCredito.codigo_producto, vDetalleNotaCredito.cantidad, vTipo_documento_compra, vNum_documento_compra)`.
+  - Para `NCC`, el movimiento debe restar stock de la base seleccionada.
+
+- Aplicar nota de credito a facturas pendientes del proveedor:
+  - Ejecutar `CALL aplicar_nota_credito_a_facturas_prov(vCodigo_provedor, vNum_documento_compra, vTotal_nota)`.
+  - Debe consumir `mov_contable_prov.saldo` de documentos `FCC` y registrar lo aplicado en `Facturas_Pagadas_Prov` usando `tipo_documento_pago='NCC'`.
 
 - Actualizar el saldo del proveedor ejecutando el procedimiento:
   - `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vTotal_nota)`
   - vTotal_nota = SUM(vDetalleNotaCredito.cantidad * vDetalleNotaCredito.monto)
+
+Orden transaccional obligatorio:
+1. INSERT en `mov_contable_prov` (NCC).
+2. INSERT en `detalle_mov_contable_prov` (NCC).
+3. `CALL aplicar_nota_credito_partidas_prov(...)` por cada item.
+4. `CALL upd_stock_bases(...)` por cada item.
+5. `CALL aplicar_nota_credito_a_facturas_prov(...)`.
+6. `CALL actualizarsaldosprovedores(...)`.
+7. COMMIT. Si falla algo: ROLLBACK.
 
 
 

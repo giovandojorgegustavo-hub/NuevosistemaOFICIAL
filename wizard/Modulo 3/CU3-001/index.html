@@ -105,6 +105,33 @@
               </div>
             </div>
 
+            <div class="saldo-favor-panel mt-3">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label" data-i18n="saldoFavorTotalLabel">Saldo favor total</label>
+                  <input type="text" class="form-control" id="saldoFavorTotal" readonly />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" data-i18n="saldoFavorNCCLabel">Saldo favor NCC</label>
+                  <input type="text" class="form-control" id="saldoFavorNCC" readonly />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" data-i18n="saldoFavorRCCLabel">Saldo favor RCC</label>
+                  <input type="text" class="form-control" id="saldoFavorRCC" readonly />
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label" data-i18n="saldoFavorUsadoLabel">Saldo favor a usar</label>
+                  <input type="text" class="form-control" id="saldoFavorUsado" readonly />
+                </div>
+              </div>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="usarSaldoFavorCheck" />
+                <label class="form-check-label" for="usarSaldoFavorCheck" data-i18n="usarSaldoFavorLabel">
+                  Usar saldo a favor disponible
+                </label>
+              </div>
+            </div>
+
             <div class="table-actions mt-4">
               <button type="button" class="btn btn-outline-light" id="addRowBtn" data-i18n="addRow">Agregar fila</button>
               <div class="text-muted" id="detalleCount">0 items</div>

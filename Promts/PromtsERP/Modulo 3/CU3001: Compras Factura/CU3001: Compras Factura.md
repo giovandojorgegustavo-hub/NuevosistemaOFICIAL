@@ -118,6 +118,18 @@ monto=es editable. si es visible
 
 vTotal_compra=la suma de todos los monto que hay en vDetalleCompra
 
+### Saldo a favor del proveedor (antes de confirmar)
+vSaldoFavorProvedor = Llamada SP: `get_saldo_favor_provedor(vCodigo_provedor)` (devuelve campo_visible)
+Campos devueltos: `tipo_documento_compra`, `num_documento_compra`, `fecha`, `saldo`
+Variables:
+vSaldoFavorTotal visible no editable (suma de saldos con tipo_documento_compra IN ("NCC","RCC"))
+vSaldoFavorNCC visible no editable (suma donde tipo_documento_compra = "NCC")
+vSaldoFavorRCC visible no editable (suma donde tipo_documento_compra = "RCC")
+vUsarSaldoFavor visible editable (checkbox)
+
+Reglas:
+- Si vUsarSaldoFavor = true, usar `vSaldoFavorUsar = MIN(vSaldoFavorTotal, vTotal_compra)`.
+- Si vUsarSaldoFavor = false, `vSaldoFavorUsar = 0`.
 
 vordinalmovstockdetalles = regla sin ambiguedad:
 - Asignar ordinal secuencial por linea (1,2,3...) segun el indice del grid (documento nuevo).
@@ -155,6 +167,10 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Factu
 
 - Actualizar el saldo del proveedor ejecutando el procedimiento:
   - `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vTotal_compra)`
+
+- Si `vSaldoFavorUsar > 0`, aplicar saldo a favor del proveedor a la factura FCC:
+  - `CALL aplicar_saldo_favor_a_factura_prov(vCodigo_provedor, vNum_documento_compra, vSaldoFavorUsar)`
+  - Debe descontar saldo de documentos `NCC`/`RCC` y dejar trazabilidad en `Facturas_Pagadas_Prov`.
 
 
 

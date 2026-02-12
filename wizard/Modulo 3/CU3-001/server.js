@@ -165,6 +165,20 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
+app.get('/api/saldo-favor-provedor', async (req, res) => {
+  const provedor = Number(req.query.provedor || 0);
+  if (!provedor) {
+    return res.status(400).json({ ok: false, message: 'PROVEDOR_REQUIRED' });
+  }
+  try {
+    const [rows] = await runQuery(pool, 'CALL get_saldo_favor_provedor(?)', [provedor]);
+    res.json({ ok: true, rows: rows[0] || [] });
+  } catch (error) {
+    logError(error, 'Error en saldo favor provedor');
+    res.status(500).json({ ok: false, message: 'ERROR_SALDO_FAVOR_PROVEDOR' });
+  }
+});
+
 app.get('/api/next-proveedor', async (req, res) => {
   try {
     const [rows] = await runQuery(
@@ -202,9 +216,11 @@ app.post('/api/facturar-compra', async (req, res) => {
   const vNombreProvedor = payload.vNombreProvedor || '';
   const vDetalleCompra = Array.isArray(payload.vDetalleCompra) ? payload.vDetalleCompra : [];
   const vTotalCompra = payload.vTotal_compra;
+  const vSaldoFavorUsarRaw = Number(payload.vSaldoFavorUsar || 0);
   const proveedorNuevo = Boolean(payload.proveedorNuevo);
 
   const totalCompra = Number(vTotalCompra);
+  const saldoFavorUsar = Number.isFinite(vSaldoFavorUsarRaw) && vSaldoFavorUsarRaw > 0 ? Math.min(vSaldoFavorUsarRaw, totalCompra) : 0;
 
   if (!vFecha || !vTipoDocumento || !vNumDocumento || !vCodigoProvedor || !vDetalleCompra.length) {
     return res.status(400).json({ ok: false, message: 'DATOS_INCOMPLETOS' });
@@ -214,6 +230,9 @@ app.post('/api/facturar-compra', async (req, res) => {
   }
   if (!Number.isFinite(totalCompra) || totalCompra <= 0) {
     return res.status(400).json({ ok: false, message: 'TOTAL_INVALIDO' });
+  }
+  if (!Number.isFinite(vSaldoFavorUsarRaw) || vSaldoFavorUsarRaw < 0) {
+    return res.status(400).json({ ok: false, message: 'SALDO_FAVOR_INVALIDO' });
   }
 
   const detalleValidado = vDetalleCompra.map((item) => ({
@@ -269,6 +288,10 @@ app.post('/api/facturar-compra', async (req, res) => {
     }
 
     await runQuery(conn, 'CALL actualizarsaldosprovedores(?, ?, ?)', [vCodigoProvedor, vTipoDocumento, totalCompra]);
+
+    if (saldoFavorUsar > 0) {
+      await runQuery(conn, 'CALL aplicar_saldo_favor_a_factura_prov(?, ?, ?)', [vCodigoProvedor, vNumDocumento, saldoFavorUsar]);
+    }
 
     logSql('COMMIT');
     await conn.commit();

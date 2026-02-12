@@ -127,6 +127,104 @@ async function runQuery(conn, sql, params) {
   return conn.query(sql, params);
 }
 
+async function revertirPagosFacturaCliente(conn, tipoDocumento, numeroDocumento) {
+  try {
+    await runQuery(conn, 'CALL revertir_pagos_factura_cliente(?, ?)', [tipoDocumento, numeroDocumento]);
+    return;
+  } catch (error) {
+    if (!error || error.code !== 'ER_SP_DOES_NOT_EXIST') {
+      throw error;
+    }
+  }
+
+  logLine('SP revertir_pagos_factura_cliente no existe; usando fallback SQL.');
+
+  const [aplicaciones] = await runQuery(
+    conn,
+    `SELECT tipodocumento, numdocumento, SUM(monto_pagado) AS monto_pagado
+     FROM Facturas_Pagadas
+     WHERE tipo_documento_cli = ?
+       AND numero_documento_cli = ?
+     GROUP BY tipodocumento, numdocumento`,
+    [tipoDocumento, numeroDocumento]
+  );
+
+  for (const aplicacion of aplicaciones || []) {
+    const montoPagado = Number(aplicacion.monto_pagado) || 0;
+    if (montoPagado <= 0) {
+      continue;
+    }
+
+    await runQuery(
+      conn,
+      'UPDATE mov_contable SET saldo = saldo + ? WHERE tipo_documento = ? AND numero_documento = ?',
+      [montoPagado, aplicacion.tipodocumento, aplicacion.numdocumento]
+    );
+  }
+
+  await runQuery(conn, 'DELETE FROM Facturas_Pagadas WHERE tipo_documento_cli = ? AND numero_documento_cli = ?', [
+    tipoDocumento,
+    numeroDocumento
+  ]);
+}
+
+async function anularFacturaPorDevolucion(conn, codigoPaquete) {
+  const [facturaRows] = await runQuery(
+    conn,
+    "SELECT codigo_cliente, codigo_base, estado, monto FROM mov_contable WHERE tipo_documento = 'FAC' AND numero_documento = ? FOR UPDATE",
+    [codigoPaquete]
+  );
+  const factura = facturaRows && facturaRows[0] ? facturaRows[0] : null;
+  if (!factura) {
+    throw new Error(`Factura no encontrada para paquete ${codigoPaquete}`);
+  }
+  if (String(factura.estado || '').toLowerCase() === 'anulado') {
+    throw new Error(`Factura FAC-${codigoPaquete} ya se encuentra anulada`);
+  }
+  if (!factura.codigo_base) {
+    throw new Error(`Factura FAC-${codigoPaquete} sin codigo_base`);
+  }
+  if (!factura.codigo_cliente) {
+    throw new Error(`Factura FAC-${codigoPaquete} sin codigo_cliente`);
+  }
+
+  const [detalleRows] = await runQuery(conn, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigoPaquete]);
+  const detalleFactura = detalleRows[0] || [];
+  const totalDetalle = detalleFactura.reduce((sum, row) => sum + (Number(row.precio_total) || 0), 0);
+  const totalFactura = Number(factura.monto || 0) || totalDetalle;
+
+  await runQuery(
+    conn,
+    "UPDATE mov_contable SET estado = 'anulado', saldo = 0 WHERE tipo_documento = 'FAC' AND numero_documento = ?",
+    [codigoPaquete]
+  );
+
+  await revertirPagosFacturaCliente(conn, 'FAC', codigoPaquete);
+
+  for (const item of detalleFactura) {
+    const cantidad = Number(item.cantidad) || 0;
+    if (cantidad === 0) {
+      continue;
+    }
+
+    await runQuery(conn, 'CALL upd_stock_bases(?, ?, ?, ?, ?)', [
+      factura.codigo_base,
+      item.codigo_producto,
+      -cantidad,
+      'FAC',
+      codigoPaquete
+    ]);
+  }
+
+  await runQuery(
+    conn,
+    "DELETE FROM detalle_movs_partidas WHERE tipo_documento_venta = 'FAC' AND numero_documento = ?",
+    [codigoPaquete]
+  );
+
+  await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [factura.codigo_cliente, 'FAC', -totalFactura]);
+}
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(ROOT_DIR));
@@ -193,6 +291,44 @@ app.get('/api/detalle/:codigo', async (req, res) => {
   }
 });
 
+app.get('/api/factura-resumen/:codigo', async (req, res) => {
+  const codigo = String(req.params.codigo || '').trim();
+  if (!codigo) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_REQUERIDO' });
+  }
+
+  try {
+    const { pool } = app.locals.db;
+    const conn = await pool.getConnection();
+    try {
+      const [cabeceraRows] = await runQuery(
+        conn,
+        `SELECT
+           numero_documento,
+           codigo_cliente,
+           codigo_base,
+           codigo_packing,
+           fecha_emision,
+           monto,
+           saldo,
+           estado
+         FROM mov_contable
+         WHERE tipo_documento = 'FAC' AND numero_documento = ?
+         LIMIT 1`,
+        [codigo]
+      );
+      const cabecera = cabeceraRows && cabeceraRows[0] ? cabeceraRows[0] : null;
+      const [detalleRows] = await runQuery(conn, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
+      return res.json({ ok: true, cabecera, detalle: detalleRows[0] || [] });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'FACTURA_RESUMEN_ERROR');
+    return res.status(500).json({ ok: false, message: 'FACTURA_RESUMEN_ERROR' });
+  }
+});
+
 app.get('/api/logs', async (req, res) => {
   try {
     if (!global.logFilePath || !fs.existsSync(global.logFilePath)) {
@@ -212,7 +348,7 @@ app.post('/api/confirmar', async (req, res) => {
   if (!paquetes.length) {
     return res.status(400).json({ ok: false, message: 'PAQUETES_REQUERIDOS' });
   }
-  if (!['robado', 'standby', 'llegado'].includes(estado)) {
+  if (!['robado', 'standby', 'llegado', 'devuelto'].includes(estado)) {
     return res.status(400).json({ ok: false, message: 'ESTADO_INVALIDO' });
   }
 
@@ -296,6 +432,10 @@ app.post('/api/confirmar', async (req, res) => {
           'NTC',
           totalNota
         ]);
+      }
+
+      if (estado === 'devuelto') {
+        await anularFacturaPorDevolucion(conn, codigo);
       }
 
       await runQuery(conn, 'CALL cambiar_estado_paquete(?, ?)', [codigo, estado]);

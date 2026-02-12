@@ -84,10 +84,12 @@ const i18n = {
     step2Title: 'Package detail',
     step2Products: 'Products in invoice',
     step3Title: 'Confirm and save',
+    step3TitleDevuelto: 'Confirm and cancel invoice',
     refresh: 'Refresh',
     next: 'Next',
     prev: 'Back',
     confirm: 'Confirm and save',
+    confirmDevuelto: 'Confirm and cancel',
     confirmTitle: 'Confirm operation',
     confirmBody: 'Do you want to save the new status for the selected packages?',
     cancel: 'Cancel',
@@ -119,13 +121,18 @@ const i18n = {
     labelMapa: 'Address and map',
     noMap: 'Map only available for Lima deliveries.',
     labelEstado: 'New status',
-    estadoHint: 'Only authorized status values are accepted.',
+    estadoHint: 'Only authorized status values are accepted: robado, standby, llegado, devuelto.',
     loading: 'Processing...',
     errorSelection: 'Select at least one package to continue.',
     confirmRequired: 'You must confirm that the data is correct.',
-    errorEstado: 'State must be: robado, standby, or llegado.',
+    errorEstado: 'State must be: robado, standby, llegado, or devuelto.',
     saveOk: 'Status updated successfully.',
-    saveFail: 'We could not save changes. Try again.'
+    saveOkDevuelto: 'Return processed and invoice canceled successfully.',
+    saveFail: 'We could not save changes. Try again.',
+    devueltoWarning:
+      'When status is devuelto, the invoice is canceled (no new mov_contable/mov_contable_detalle records are created).',
+    devueltoLoading: 'Loading invoice summary for cancellation...',
+    devueltoError: 'We could not load the invoice summary for cancellation.'
   },
   es: {
     title: 'Paquetes en camino',
@@ -137,10 +144,12 @@ const i18n = {
     step2Title: 'Detalle del paquete',
     step2Products: 'Productos en factura',
     step3Title: 'Confirmar y guardar',
+    step3TitleDevuelto: 'Confirmar y anular factura',
     refresh: 'Actualizar',
     next: 'Siguiente',
     prev: 'Anterior',
     confirm: 'Confirmar y guardar',
+    confirmDevuelto: 'Confirmar y anular',
     confirmTitle: 'Confirmar operacion',
     confirmBody: '¿Deseas guardar el nuevo estado para los paquetes seleccionados?',
     cancel: 'Cancelar',
@@ -172,13 +181,18 @@ const i18n = {
     labelMapa: 'Direccion y mapa',
     noMap: 'Mapa solo disponible para entregas en Lima.',
     labelEstado: 'Nuevo estado',
-    estadoHint: 'Solo se aceptan los estados autorizados.',
+    estadoHint: 'Solo se aceptan estados autorizados: robado, standby, llegado, devuelto.',
     loading: 'Procesando...',
     errorSelection: 'Selecciona al menos un paquete para continuar.',
     confirmRequired: 'Debes confirmar que los datos son correctos.',
-    errorEstado: 'El estado debe ser: robado, standby o llegado.',
+    errorEstado: 'El estado debe ser: robado, standby, llegado o devuelto.',
     saveOk: 'Estado actualizado correctamente.',
-    saveFail: 'No pudimos guardar los cambios. Intenta de nuevo.'
+    saveOkDevuelto: 'Devolucion procesada y factura anulada correctamente.',
+    saveFail: 'No pudimos guardar los cambios. Intenta de nuevo.',
+    devueltoWarning:
+      'Si el estado es devuelto, se anula la factura (sin crear registros nuevos en mov_contable/mov_contable_detalle).',
+    devueltoLoading: 'Cargando resumen de factura para anulacion...',
+    devueltoError: 'No se pudo cargar el resumen de factura para anulacion.'
   }
 };
 
@@ -194,7 +208,12 @@ const state = {
   viaje: null,
   detalle: [],
   config: null,
-  mapLoaded: false
+  mapLoaded: false,
+  devueltoPreview: {
+    loading: false,
+    error: '',
+    byCode: {}
+  }
 };
 
 const elements = {
@@ -216,6 +235,8 @@ const elements = {
   confirmBtn: document.getElementById('confirmBtn'),
   confirmCheck: document.getElementById('confirmCheck'),
   estadoInput: document.getElementById('estadoInput'),
+  step3Title: document.getElementById('step3Title'),
+  devueltoNotice: document.getElementById('devueltoNotice'),
   summaryGrid: document.getElementById('summaryGrid'),
   detalleEntrega: document.getElementById('detalleEntrega'),
   detalleRecibe: document.getElementById('detalleRecibe'),
@@ -320,6 +341,21 @@ function formatDateTime(value) {
     minute: '2-digit',
     second: '2-digit'
   }).format(date);
+}
+
+function formatAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) {
+    return '-';
+  }
+  return new Intl.NumberFormat(state.lang === 'es' ? 'es-PE' : 'en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+}
+
+function getEstadoInputValue() {
+  return String(elements.estadoInput.value || '').trim().toLowerCase();
 }
 
 function mapPaqueteRow(row) {
@@ -563,6 +599,69 @@ function renderSummary() {
   if (!state.selected.length) {
     return;
   }
+
+  const selectedEstado = getEstadoInputValue();
+  if (selectedEstado === 'devuelto') {
+    if (state.devueltoPreview.loading) {
+      const loading = document.createElement('div');
+      loading.className = 'muted';
+      loading.textContent = t('devueltoLoading');
+      elements.summaryGrid.appendChild(loading);
+      return;
+    }
+
+    if (state.devueltoPreview.error) {
+      const error = document.createElement('div');
+      error.className = 'text-danger';
+      error.textContent = state.devueltoPreview.error;
+      elements.summaryGrid.appendChild(error);
+      return;
+    }
+
+    state.selected.forEach((pkg) => {
+      const preview = state.devueltoPreview.byCode[String(pkg.vcodigo_paquete)] || {};
+      const cabecera = preview.cabecera || {};
+      const detalle = Array.isArray(preview.detalle) ? preview.detalle : [];
+      const fallbackTotal = detalle.reduce((sum, row) => sum + (Number(row.precio_total) || 0), 0);
+      const totalFactura = Number(cabecera.monto || 0) || fallbackTotal;
+
+      const card = document.createElement('div');
+      card.className = 'summary-card';
+      card.innerHTML = `
+        <div><strong>FAC-${pkg.vcodigo_paquete}</strong></div>
+        <div class="muted">Cliente: ${cabecera.codigo_cliente ?? pkg.vcodigo_cliente ?? '-'}</div>
+        <div class="muted">Base: ${cabecera.codigo_base ?? pkg.vcodigo_base ?? '-'}</div>
+        <div class="muted">Fecha emision: ${formatDateTime(cabecera.fecha_emision)}</div>
+        <div class="muted">Monto: ${formatAmount(totalFactura)}</div>
+        <div class="muted">Estado factura: ${cabecera.estado ?? '-'}</div>
+      `;
+
+      const detailTitle = document.createElement('div');
+      detailTitle.className = 'mt-2';
+      detailTitle.innerHTML = '<strong>Detalle:</strong>';
+      card.appendChild(detailTitle);
+
+      if (!detalle.length) {
+        const empty = document.createElement('div');
+        empty.className = 'muted';
+        empty.textContent = '-';
+        card.appendChild(empty);
+      } else {
+        const list = document.createElement('ul');
+        list.className = 'mb-0 ps-3';
+        detalle.forEach((item) => {
+          const li = document.createElement('li');
+          li.textContent = `${item.nombre_producto || item.codigo_producto || '-'} x ${item.cantidad || 0}`;
+          list.appendChild(li);
+        });
+        card.appendChild(list);
+      }
+
+      elements.summaryGrid.appendChild(card);
+    });
+    return;
+  }
+
   state.selected.forEach((pkg) => {
     const card = document.createElement('div');
     card.className = 'summary-card';
@@ -576,6 +675,56 @@ function renderSummary() {
   });
 }
 
+async function loadDevueltoPreview() {
+  if (!state.selected.length) {
+    return;
+  }
+
+  state.devueltoPreview.loading = true;
+  state.devueltoPreview.error = '';
+  renderSummary();
+
+  try {
+    const data = await Promise.all(
+      state.selected.map(async (pkg) => {
+        const codigo = String(pkg.vcodigo_paquete);
+        const response = await apiFetch(`/api/factura-resumen/${encodeURIComponent(codigo)}`);
+        return [
+          codigo,
+          {
+            cabecera: response.cabecera || null,
+            detalle: Array.isArray(response.detalle) ? response.detalle : []
+          }
+        ];
+      })
+    );
+    state.devueltoPreview.byCode = Object.fromEntries(data);
+  } catch (error) {
+    console.error(error);
+    state.devueltoPreview.byCode = {};
+    state.devueltoPreview.error = t('devueltoError');
+  } finally {
+    state.devueltoPreview.loading = false;
+    renderSummary();
+  }
+}
+
+function updateStep3Mode() {
+  const isDevuelto = getEstadoInputValue() === 'devuelto';
+  elements.step3Title.textContent = isDevuelto ? t('step3TitleDevuelto') : t('step3Title');
+  elements.confirmBtn.textContent = isDevuelto ? t('confirmDevuelto') : t('confirm');
+  elements.devueltoNotice.classList.toggle('d-none', !isDevuelto);
+
+  if (isDevuelto) {
+    loadDevueltoPreview();
+  } else {
+    state.devueltoPreview.loading = false;
+    state.devueltoPreview.error = '';
+    state.devueltoPreview.byCode = {};
+    renderSummary();
+  }
+}
+
 async function handleNextFromStep1() {
   clearError();
   if (!state.selected.length) {
@@ -583,12 +732,12 @@ async function handleNextFromStep1() {
     return;
   }
   if (state.selected.length > 1) {
-    renderSummary();
     wizard.showStep(3);
+    renderSummary();
+    updateStep3Mode();
     return;
   }
   await loadDetalleForSelection();
-  renderSummary();
   wizard.showStep(2);
 }
 
@@ -598,8 +747,9 @@ function handleBulkAction() {
     setError(t('errorSelection'));
     return;
   }
-  renderSummary();
   wizard.showStep(3);
+  renderSummary();
+  updateStep3Mode();
 }
 
 function handleBack() {
@@ -615,8 +765,8 @@ function handleBackFromStep3() {
 }
 
 function validateEstado() {
-  const value = elements.estadoInput.value.trim().toLowerCase();
-  const regex = /^(robado|standby|llegado)$/i;
+  const value = getEstadoInputValue();
+  const regex = /^(robado|standby|llegado|devuelto)$/i;
   if (!regex.test(value)) {
     return null;
   }
@@ -645,7 +795,7 @@ async function confirmSave() {
         paquetes: state.selected.map((pkg) => pkg.vcodigo_paquete)
       })
     });
-    setSuccess(t('saveOk'));
+    setSuccess(estado === 'devuelto' ? t('saveOkDevuelto') : t('saveOk'));
     resetWizard();
   } catch (error) {
     console.error(error);
@@ -662,6 +812,8 @@ function resetWizard() {
   state.selected = [];
   state.viaje = null;
   state.detalle = [];
+  state.devueltoPreview = { loading: false, error: '', byCode: {} };
+  updateStep3Mode();
   wizard.reset();
   loadPaquetes();
 }
@@ -683,13 +835,16 @@ function bindEvents() {
   elements.bulkBtn.addEventListener('click', handleBulkAction);
   elements.prevBtn.addEventListener('click', handleBack);
   elements.nextBtn2.addEventListener('click', () => {
-    renderSummary();
     wizard.showStep(3);
+    renderSummary();
+    updateStep3Mode();
   });
   elements.prevBtn2.addEventListener('click', handleBackFromStep3);
   elements.confirmCheck.addEventListener('change', () => {
     elements.confirmBtn.disabled = !elements.confirmCheck.checked;
   });
+  elements.estadoInput.addEventListener('input', updateStep3Mode);
+  elements.estadoInput.addEventListener('change', updateStep3Mode);
   elements.confirmBtn.addEventListener('click', confirmSave);
   elements.logsBtn.addEventListener('click', openLogs);
 }
@@ -699,6 +854,7 @@ async function init() {
   applyTranslations();
   wizard.showStep(1);
   bindEvents();
+  updateStep3Mode();
   await loadPaquetes();
 }
 

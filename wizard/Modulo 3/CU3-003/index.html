@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CU3003 - Nota Credito Provedor</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">NX</div>
+        <div>
+          <div class="brand-title" data-i18n="title">Nota Credito Provedor</div>
+          <div class="brand-subtitle" data-i18n="subtitle">Global IaaS &amp; PaaS Finance Platform</div>
+        </div>
+      </div>
+      <div class="status-pill" id="statusPill" data-i18n="statusReady">Ready</div>
+    </header>
+
+    <main class="app-main">
+      <section class="wizard-card">
+        <div class="wizard-header">
+          <div>
+            <h1 data-i18n="wizardTitle">CU3003 - Nota Credito Provedor</h1>
+            <p class="text-muted" data-i18n="wizardHint">Flujo multi-paso con transaccion total y trazabilidad SQL.</p>
+          </div>
+          <div class="step-indicator" id="stepIndicator">1 / 2</div>
+        </div>
+
+        <div class="progress wizard-progress" role="progressbar" aria-label="progress">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="formAlert"></div>
+        <div class="alert alert-success d-none" id="formSuccess"></div>
+
+        <form id="wizardForm" novalidate>
+          <section class="step-panel active" data-step="1">
+            <div class="step-header">
+              <h2 data-i18n="step1Title">1. Crear Nota Credito Provedor</h2>
+              <p data-i18n="step1Hint">Completa la cabecera y el detalle de la nota de credito.</p>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label" for="vFecha" data-i18n="fecha">vFecha</label>
+                <input type="date" class="form-control" id="vFecha" name="vFecha" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="vTipo_documento_compra" data-i18n="tipoDocumento">vTipo_documento_compra</label>
+                <input type="text" class="form-control" id="vTipo_documento_compra" name="vTipo_documento_compra" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="vNum_documento_compra" data-i18n="numeroDocumento">vNum_documento_compra</label>
+                <input type="text" class="form-control" id="vNum_documento_compra" name="vNum_documento_compra" readonly />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label" for="vTotal_nota" data-i18n="totalNota">vTotal_nota</label>
+                <input type="text" class="form-control" id="vTotal_nota" name="vTotal_nota" readonly />
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+              <div class="col-lg-8">
+                <label class="form-label" for="vNombreProvedor" data-i18n="proveedor">vNombreProvedor</label>
+                <div class="typeahead" id="providerTypeahead">
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="vNombreProvedor"
+                    name="vNombreProvedor"
+                    data-i18n-placeholder="buscarProveedor"
+                    placeholder="Buscar proveedor"
+                    autocomplete="off"
+                  />
+                  <div class="typeahead-list list-group" id="providerList"></div>
+                </div>
+                <input type="hidden" id="vCodigo_provedor" name="vCodigo_provedor" />
+                <small class="text-muted" id="proveedoresCount">0</small>
+              </div>
+              <div class="col-lg-4 d-flex align-items-end justify-content-lg-end">
+                <button type="button" class="btn btn-outline-light" id="addRowBtn" data-i18n="addRow">Agregar linea</button>
+              </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+              <table class="table table-hover align-middle" id="vDetalleNotaCredito">
+                <thead>
+                  <tr>
+                    <th data-i18n="colOrdinal">vOrdinal</th>
+                    <th data-i18n="colBase">codigo_base</th>
+                    <th data-i18n="colProducto">codigo_producto</th>
+                    <th data-i18n="colCantidad">cantidad</th>
+                    <th class="d-none" data-i18n="colSaldo">saldo</th>
+                    <th data-i18n="colMonto">monto</th>
+                    <th data-i18n="colAccion">Accion</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="text-muted mt-2" id="detalleCount">0 lineas</div>
+          </section>
+
+          <section class="step-panel" data-step="2">
+            <div class="step-header">
+              <h2 data-i18n="step2Title">2. Confirmar y registrar Nota Credito</h2>
+              <p data-i18n="step2Hint">Valida el resumen y confirma la operacion.</p>
+            </div>
+
+            <div class="summary-grid">
+              <div>
+                <div class="summary-label" data-i18n="resumenProveedor">Proveedor</div>
+                <div class="summary-value" id="summaryProveedor">-</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="resumenFecha">Fecha</div>
+                <div class="summary-value" id="summaryFecha">-</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="resumenDocumento">Documento</div>
+                <div class="summary-value" id="summaryDocumento">-</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="resumenTotal">Total nota</div>
+                <div class="summary-value" id="summaryTotal">-</div>
+              </div>
+              <div>
+                <div class="summary-label" data-i18n="resumenItems">Items</div>
+                <div class="summary-value" id="summaryItems">-</div>
+              </div>
+            </div>
+
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="confirmOperacion" />
+              <label class="form-check-label" for="confirmOperacion" data-i18n="confirmLabel">
+                Confirmo la operacion y autorizo registrar la nota de credito.
+              </label>
+            </div>
+          </section>
+
+          <div class="wizard-actions">
+            <button type="button" class="btn btn-outline-light" id="prevBtn" data-i18n="prev">Anterior</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary" id="nextBtn" data-i18n="next">Siguiente</button>
+              <button type="button" class="btn btn-accent d-none" id="submitBtn" data-i18n="submit">Registrar Nota Credito</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div class="loading-overlay d-none" id="loadingOverlay">
+    <div class="spinner-border text-info" role="status"></div>
+    <div class="loading-text" data-i18n="loading">Procesando...</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

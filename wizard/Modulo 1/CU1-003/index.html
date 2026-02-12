@@ -179,22 +179,26 @@
           <section class="wizard-step" data-step="3">
             <div class="card glass-card">
               <div class="card-body">
-                <h2 data-i18n="step3Title">Confirmar y guardar</h2>
+                <h2 id="step3Title" data-i18n="step3Title">Confirmar y guardar</h2>
                 <div class="summary-grid" id="summaryGrid"></div>
                 <div class="divider"></div>
                 <div class="row g-3 align-items-end">
                   <div class="col-md-6">
                     <label class="form-label" for="estadoInput" data-i18n="labelEstado">Nuevo estado</label>
-                    <input class="form-control" id="estadoInput" list="estadoOptions" placeholder="robado | standby | llegado" autocomplete="off" />
+                    <input class="form-control" id="estadoInput" list="estadoOptions" placeholder="robado | standby | llegado | devuelto" autocomplete="off" />
                     <datalist id="estadoOptions">
                       <option value="robado"></option>
                       <option value="standby"></option>
                       <option value="llegado"></option>
+                      <option value="devuelto"></option>
                     </datalist>
                   </div>
                   <div class="col-md-6">
                     <div class="hint" data-i18n="estadoHint">Solo se aceptan los estados autorizados.</div>
                   </div>
+                </div>
+                <div class="alert alert-warning mt-3 d-none" id="devueltoNotice" data-i18n="devueltoWarning">
+                  Si el estado es devuelto, se anula la factura sin generar nuevos documentos.
                 </div>
                 <div class="d-flex justify-content-between align-items-center mt-3">
                   <div class="form-check">

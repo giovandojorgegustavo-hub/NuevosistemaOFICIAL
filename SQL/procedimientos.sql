@@ -629,7 +629,7 @@ BEGIN
 
   SET v_cantidad = p_cantidad;
 
-  IF p_tipodocumento IN ('FAC', 'FBI', 'TRS', 'AJS') THEN
+  IF p_tipodocumento IN ('FAC', 'FBI', 'TRS', 'AJS', 'NCC') THEN
     SET v_cantidad = v_cantidad * -1;
   ELSEIF p_tipodocumento IN ('FBS', 'FBF', 'TRE', 'REM', 'NTC', 'AJE') THEN
     SET v_cantidad = v_cantidad;
@@ -940,6 +940,78 @@ BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `aplicar_nota_credito_a_facturas_prov`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_nota_credito_a_facturas_prov`(
+  IN p_codigo_provedor numeric(12,0),
+  IN p_num_nota_credito numeric(12,0),
+  IN p_monto numeric(12,2)
+)
+BEGIN
+  DECLARE v_restante numeric(12,2);
+  DECLARE v_tipo_doc varchar(3);
+  DECLARE v_num_doc numeric(12,0);
+  DECLARE v_codigo_provedor_compra numeric(12,0);
+  DECLARE v_saldo numeric(12,2);
+  DECLARE v_usar numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT tipo_documento_compra, num_documento_compra, codigo_provedor, saldo
+    FROM mov_contable_prov
+    WHERE codigo_provedor = p_codigo_provedor
+      AND tipo_documento_compra = 'FCC'
+      AND saldo > 0
+    ORDER BY fecha DESC, num_documento_compra DESC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  SET v_restante = p_monto;
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_doc, v_num_doc, v_codigo_provedor_compra, v_saldo;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_saldo >= v_restante, v_restante, v_saldo);
+
+    UPDATE mov_contable_prov
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento_compra = v_tipo_doc
+      AND num_documento_compra = v_num_doc
+      AND codigo_provedor = p_codigo_provedor;
+
+    INSERT INTO Facturas_Pagadas_Prov
+      (
+        tipo_documento_pago,
+        num_documento_pago,
+        codigo_provedor_pago,
+        tipo_documento_compra,
+        num_documento_compra,
+        codigo_provedor_compra,
+        monto_pagado
+      )
+    VALUES
+      ('NCC', p_num_nota_credito, p_codigo_provedor, v_tipo_doc, v_num_doc, v_codigo_provedor_compra, v_usar);
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+
+  UPDATE mov_contable_prov
+    SET saldo = v_restante
+  WHERE tipo_documento_compra = 'NCC'
+    AND num_documento_compra = p_num_nota_credito
+    AND codigo_provedor = p_codigo_provedor;
+END//
+DELIMITER ;
+
 -- -----------------------------------------------------------------------------
 -- GRUPO: SALDO A FAVOR CLIENTE (NTC/RCP -> FACTURA)
 -- -----------------------------------------------------------------------------
@@ -1044,6 +1116,109 @@ proc: BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `get_saldo_favor_provedor`;
+DELIMITER //
+CREATE PROCEDURE `get_saldo_favor_provedor`(
+  IN p_codigo_provedor numeric(12,0)
+)
+BEGIN
+  SELECT
+    tipo_documento_compra,
+    num_documento_compra,
+    fecha,
+    saldo
+  FROM mov_contable_prov
+  WHERE codigo_provedor = p_codigo_provedor
+    AND tipo_documento_compra IN ('NCC', 'RCC')
+    AND saldo > 0
+  ORDER BY CASE WHEN tipo_documento_compra = 'NCC' THEN 0 ELSE 1 END,
+           fecha ASC,
+           num_documento_compra ASC;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `aplicar_saldo_favor_a_factura_prov`;
+DELIMITER //
+CREATE PROCEDURE `aplicar_saldo_favor_a_factura_prov`(
+  IN p_codigo_provedor numeric(12,0),
+  IN p_num_fac numeric(12,0),
+  IN p_monto numeric(12,2)
+)
+proc: BEGIN
+  DECLARE v_restante numeric(12,2);
+  DECLARE v_saldo_fac numeric(12,2);
+  DECLARE v_tipo_doc varchar(3);
+  DECLARE v_num_doc numeric(12,0);
+  DECLARE v_saldo_doc numeric(12,2);
+  DECLARE v_usar numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT tipo_documento_compra, num_documento_compra, saldo
+    FROM mov_contable_prov
+    WHERE codigo_provedor = p_codigo_provedor
+      AND tipo_documento_compra IN ('NCC', 'RCC')
+      AND saldo > 0
+    ORDER BY CASE WHEN tipo_documento_compra = 'NCC' THEN 0 ELSE 1 END,
+             fecha ASC,
+             num_documento_compra ASC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  IF p_monto IS NULL OR p_monto <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SELECT saldo
+    INTO v_saldo_fac
+  FROM mov_contable_prov
+  WHERE tipo_documento_compra = 'FCC'
+    AND num_documento_compra = p_num_fac
+    AND codigo_provedor = p_codigo_provedor
+  FOR UPDATE;
+
+  IF v_saldo_fac IS NULL OR v_saldo_fac <= 0 THEN
+    LEAVE proc;
+  END IF;
+
+  SET v_restante = IF(v_saldo_fac >= p_monto, p_monto, v_saldo_fac);
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_doc, v_num_doc, v_saldo_doc;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_saldo_doc >= v_restante, v_restante, v_saldo_doc);
+
+    UPDATE mov_contable_prov
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento_compra = v_tipo_doc
+      AND num_documento_compra = v_num_doc
+      AND codigo_provedor = p_codigo_provedor;
+
+    UPDATE mov_contable_prov
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento_compra = 'FCC'
+      AND num_documento_compra = p_num_fac
+      AND codigo_provedor = p_codigo_provedor;
+
+    INSERT INTO Facturas_Pagadas_Prov
+      (tipo_documento_pago, num_documento_pago, codigo_provedor_pago, tipo_documento_compra, num_documento_compra, codigo_provedor_compra, monto_pagado)
+    VALUES
+      (v_tipo_doc, v_num_doc, p_codigo_provedor, 'FCC', p_num_fac, p_codigo_provedor, v_usar)
+    ON DUPLICATE KEY UPDATE monto_pagado = monto_pagado + v_usar;
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+END//
+DELIMITER ;
+
 -- -----------------------------------------------------------------------------
 -- GRUPO: NOTA CREDITO -> FACTURAS_PAGADAS + saldo en mov_contable
 -- -----------------------------------------------------------------------------
@@ -1115,8 +1290,7 @@ BEGIN
     WHEN p_tipo_documento_compra = 'FCC' THEN p_monto
     WHEN p_tipo_documento_compra = 'RCP' THEN -p_monto
     WHEN p_tipo_documento_compra = 'RCC' THEN -p_monto
-    WHEN p_tipo_documento_compra = 'NDC' THEN -p_monto
-    WHEN p_tipo_documento_compra = 'NCC' THEN p_monto
+    WHEN p_tipo_documento_compra = 'NCC' THEN -p_monto
     ELSE p_monto
   END;
 
@@ -1355,6 +1529,105 @@ BEGIN
   IF v_restante > 0 THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Cantidad excede partidas usadas en el documento origen.';
+  END IF;
+END//
+DELIMITER ;
+
+
+DROP PROCEDURE IF EXISTS aplicar_nota_credito_partidas_prov;
+DELIMITER //
+CREATE PROCEDURE aplicar_nota_credito_partidas_prov(
+  IN p_tipo_documento_compra_destino varchar(3),
+  IN p_num_documento_compra_destino numeric(12,0),
+  IN p_codigo_provedor_destino numeric(12,0),
+  IN p_codigo_producto numeric(12,0),
+  IN p_cantidad numeric(12,3)
+)
+BEGIN
+  DECLARE v_restante numeric(12,3);
+  DECLARE v_tipo_compra_origen varchar(3);
+  DECLARE v_num_compra_origen numeric(12,0);
+  DECLARE v_codigo_provedor_origen numeric(12,0);
+  DECLARE v_ordinal_origen numeric(12,0);
+  DECLARE v_saldo_origen numeric(12,3);
+  DECLARE v_cantidad_origen numeric(12,3);
+  DECLARE v_monto_origen numeric(12,2);
+  DECLARE v_usar numeric(12,3);
+  DECLARE v_costo_unitario numeric(12,6);
+  DECLARE v_monto_aplicado numeric(12,2);
+  DECLARE done int DEFAULT 0;
+
+  DECLARE cur CURSOR FOR
+    SELECT d.tipo_documento_compra,
+           d.num_documento_compra,
+           d.codigo_provedor,
+           d.ordinal,
+           d.saldo,
+           d.cantidad,
+           d.monto
+    FROM detalle_mov_contable_prov d
+    JOIN mov_contable_prov m
+      ON m.tipo_documento_compra = d.tipo_documento_compra
+     AND m.num_documento_compra = d.num_documento_compra
+     AND m.codigo_provedor = d.codigo_provedor
+    WHERE d.codigo_provedor = p_codigo_provedor_destino
+      AND d.codigo_producto = p_codigo_producto
+      AND d.tipo_documento_compra = 'FCC'
+      AND d.saldo > 0
+    ORDER BY m.fecha ASC,
+             d.num_documento_compra ASC,
+             d.ordinal ASC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  IF p_cantidad <= 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'La cantidad de aplicacion debe ser mayor a 0.';
+  END IF;
+
+  SET v_restante = p_cantidad;
+
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_tipo_compra_origen, v_num_compra_origen, v_codigo_provedor_origen, v_ordinal_origen, v_saldo_origen, v_cantidad_origen, v_monto_origen;
+    IF done = 1 THEN
+      LEAVE read_loop;
+    END IF;
+
+    IF v_restante <= 0 THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_usar = IF(v_saldo_origen >= v_restante, v_restante, v_saldo_origen);
+    SET v_costo_unitario = IF(v_cantidad_origen = 0, 0, v_monto_origen / v_cantidad_origen);
+    SET v_monto_aplicado = v_usar * v_costo_unitario;
+
+    UPDATE detalle_mov_contable_prov
+      SET saldo = saldo - v_usar
+    WHERE tipo_documento_compra = v_tipo_compra_origen
+      AND num_documento_compra = v_num_compra_origen
+      AND codigo_provedor = v_codigo_provedor_origen
+      AND ordinal = v_ordinal_origen;
+
+    INSERT INTO detalle_movs_partidas_prov
+      (tipo_documento_compra_origen, num_documento_compra_origen, codigo_provedor_origen,
+       codigo_producto, tipo_documento_compra_destino, num_documento_compra_destino, codigo_provedor_destino,
+       cantidad, costo_unitario, monto)
+    VALUES
+      (v_tipo_compra_origen, v_num_compra_origen, v_codigo_provedor_origen,
+       p_codigo_producto, p_tipo_documento_compra_destino, p_num_documento_compra_destino, p_codigo_provedor_destino,
+       v_usar, v_costo_unitario, v_monto_aplicado)
+    ON DUPLICATE KEY UPDATE
+      cantidad = cantidad + VALUES(cantidad),
+      monto = monto + VALUES(monto);
+
+    SET v_restante = v_restante - v_usar;
+  END LOOP;
+  CLOSE cur;
+
+  IF v_restante > 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Saldo insuficiente en compras FCC para aplicar la nota de credito.';
   END IF;
 END//
 DELIMITER ;
