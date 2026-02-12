@@ -8,9 +8,6 @@ Caso de uso: CU2002 - M2Empacar.
 Puerto del wizard: 3010 (ver `Promts/Herramientas/puertos.json`).
 
 
-## Campos devueltos por SPs de lectura (obligatorio)
-Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
-
 Reglas:
 Toda variable/campo empieza con `v` y se lista sin `-`.
 Cada variable debe indicar si es visible / no visible y si es editable / no editable.

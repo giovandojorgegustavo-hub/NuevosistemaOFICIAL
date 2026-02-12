@@ -2,9 +2,6 @@ CL01: Launcher ERP
 
 # **Prompt AI.
 
-## Campos devueltos por SPs de lectura (obligatorio)
-Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
-
 ## Caso de Uso: Narrativa.
 Como desarrollador de aplicaciones web, ayúdame a crear un aplicativo web que actúe como Launcher de web apps y páginas web, con look and feel de una empresa tecnológica que ofrece sistemas ERP en modalidad SaaS a nivel global.
 
@@ -40,6 +37,12 @@ Se requiere que la interfaz gráfica de usuario (GUI) se muestra en el idioma pr
 **User Experience (UX)**
 Incluir manejo de errores y mejores prácticas de UX.
 
+## Consistencia visual (Launcher)
+- Si existe `wizard/_design-system/`, usarlo como guia de diseno y copiar sus tokens a los estilos del Launcher (sin depender en runtime del design system).
+- Si no existe `wizard/_design-system/`, crear la carpeta y definir un baseline visual con `design.json` y `tokens.css`.
+- Mantener el resultado del Launcher en una carpeta aparte: `wizard/CL01/`.
+- No mezclar archivos del resultado dentro de `wizard/_design-system/`; esa carpeta se usa solo como referencia compartida.
+
 ## Logging obligatorio (backend Node.js)
 - Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
 - Guardar los mismos logs en archivo por ejecución dentro de `wizard/CL01/logs/`.
@@ -59,4 +62,3 @@ Incluir manejo de errores y mejores prácticas de UX.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en `erp.yml`.
-

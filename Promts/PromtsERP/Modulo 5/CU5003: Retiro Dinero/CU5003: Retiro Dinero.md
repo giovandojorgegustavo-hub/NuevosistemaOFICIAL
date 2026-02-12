@@ -8,9 +8,6 @@ Caso de uso: CU5003 - M5RetiroDinero.
 Puerto del wizard: 3022 (ver `Promts/Herramientas/puertos.json`).
 
 
-## Campos devueltos por SPs de lectura (obligatorio)
-Usar los nombres exactos de columnas segun `Promts/PromtsERP/_procedimientos_campos.md`.
-
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de registro multi-paso (3 pasos). Con un look and feel de una empresa de tecnologia que ofrece servicios globales de IaaS y PaaS.
 
