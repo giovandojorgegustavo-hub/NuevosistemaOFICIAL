@@ -136,6 +136,35 @@ function createAppError(message, status = 400) {
   return error;
 }
 
+const PAQUETE_ESTADOS_VALIDOS = new Set(['pendiente empacar', 'empacado', 'llegado']);
+const PAQUETE_ESTADOS_DEFAULT = ['pendiente empacar', 'empacado', 'llegado'];
+
+function parseEstadosPaquete(query) {
+  const rawEstados = [];
+
+  if (query && query.estados !== undefined && query.estados !== null) {
+    rawEstados.push(...String(query.estados).split(','));
+  }
+  if (query && query.estado !== undefined && query.estado !== null) {
+    rawEstados.push(String(query.estado));
+  }
+
+  const normalizados = rawEstados.map((value) => String(value || '').trim().toLowerCase()).filter(Boolean);
+  const seleccionados = normalizados.length ? normalizados : PAQUETE_ESTADOS_DEFAULT;
+  const deduplicados = [];
+
+  for (const estado of seleccionados) {
+    if (!PAQUETE_ESTADOS_VALIDOS.has(estado)) {
+      throw createAppError('INVALID_ESTADO', 400);
+    }
+    if (!deduplicados.includes(estado)) {
+      deduplicados.push(estado);
+    }
+  }
+
+  return deduplicados;
+}
+
 async function revertirPagosFacturaCliente(conn, tipoDocumento, numeroDocumento) {
   try {
     await runQuery(conn, 'CALL revertir_pagos_factura_cliente(?, ?)', [tipoDocumento, numeroDocumento]);
@@ -177,9 +206,117 @@ async function revertirPagosFacturaCliente(conn, tipoDocumento, numeroDocumento)
   ]);
 }
 
+// OTP_GATE_ENABLED_START
+function extractFirstInteger(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return Number(value.trim());
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = extractFirstInteger(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const parsed = extractFirstInteger(value[key]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function extractAuthParams(source) {
+  const codigoUsuarioRaw = source?.vUsuario ?? source?.Codigo_usuario ?? source?.codigo_usuario;
+  const otpRaw = source?.vOTP ?? source?.OTP ?? source?.otp;
+  const codigoUsuario = String(codigoUsuarioRaw ?? '').trim();
+  const otp = String(otpRaw ?? '').trim();
+  return { codigoUsuario, otp };
+}
+
+function hasValidAuthFormat(codigoUsuario, otp) {
+  if (!codigoUsuario || !otp) {
+    return false;
+  }
+  if (codigoUsuario.length > 36 || otp.length > 6) {
+    return false;
+  }
+  return true;
+}
+
+function unauthorizedHtml() {
+  const text = 'Warning ACCESO NO AUTORIZADO !!!';
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Acceso no autorizado</title></head><body><script>alert(' +
+    JSON.stringify(text) +
+    ');try{window.open("","_self");window.close();}catch(e){}setTimeout(function(){location.replace("about:blank");},120);</script></body></html>';
+}
+
+function resolvePoolReference() {
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
+  if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
+  if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
+  if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
+  return null;
+}
+
+async function validarOtp(poolRef, codigoUsuario, otp) {
+  const conn = await poolRef.getConnection();
+  try {
+    if (typeof runQuery === 'function') {
+      await runQuery(conn, 'CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+      const [rows] = await runQuery(conn, 'SELECT @p_resultado AS resultado');
+      return extractFirstInteger(rows);
+    }
+
+    if (typeof execQuery === 'function') {
+      await execQuery('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp], conn);
+      const rows = await execQuery('SELECT @p_resultado AS resultado', [], conn);
+      return extractFirstInteger(rows);
+    }
+
+    await conn.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+    const [rows] = await conn.query('SELECT @p_resultado AS resultado');
+    return extractFirstInteger(rows);
+  } finally {
+    conn.release();
+  }
+}
+async function authorizeAndServeIndex(req, res) {
+  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    res.status(503).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  } catch (error) {
+    logError(error, 'INDEX OTP VALIDATION ERROR');
+    res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+  }
+}
+// OTP_GATE_ENABLED_END
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(ROOT_DIR));
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.originalUrl}`);
@@ -225,12 +362,47 @@ app.get('/api/clientes', async (req, res) => {
 
 app.get('/api/paquetes', async (req, res) => {
   const pool = app.locals.db;
-  const vEstado = req.query.estado || 'llegado';
+  let estados;
+
+  try {
+    estados = parseEstadosPaquete(req.query || {});
+  } catch (error) {
+    if (error && error.isAppError) {
+      return res.status(error.status).json({ ok: false, message: error.message });
+    }
+    return res.status(400).json({ ok: false, message: 'INVALID_ESTADO' });
+  }
+
   try {
     const conn = await pool.getConnection();
     try {
-      const [rows] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', [vEstado]);
-      return res.json({ ok: true, data: rows[0] || [] });
+      const merged = [];
+      const seen = new Set();
+
+      for (const estado of estados) {
+        const [rows] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', [estado]);
+        const data = rows[0] || [];
+
+        for (const row of data) {
+          const key = `${row.codigo_paquete}`;
+          if (seen.has(key)) {
+            continue;
+          }
+          seen.add(key);
+          merged.push(row);
+        }
+      }
+
+      merged.sort((a, b) => {
+        const aTime = new Date(a.fecha_actualizado || 0).getTime();
+        const bTime = new Date(b.fecha_actualizado || 0).getTime();
+        if (bTime !== aTime) {
+          return bTime - aTime;
+        }
+        return Number(b.codigo_paquete || 0) - Number(a.codigo_paquete || 0);
+      });
+
+      return res.json({ ok: true, data: merged });
     } finally {
       conn.release();
     }
@@ -347,11 +519,7 @@ app.post('/api/anular-factura', async (req, res) => {
       const vDetalleFactura = detalleRows[0] || [];
       const vTotalFactura = vDetalleFactura.reduce((sum, row) => sum + (Number(row.precio_total) || 0), 0);
 
-      await runQuery(
-        conn,
-        "UPDATE mov_contable SET estado = 'anulado', saldo = 0 WHERE tipo_documento = 'FAC' AND numero_documento = ?",
-        [vCodigo_paquete]
-      );
+      await runQuery(conn, 'CALL anular_documento_cliente(?, ?)', ['FAC', vCodigo_paquete]);
 
       await revertirPagosFacturaCliente(conn, 'FAC', vCodigo_paquete);
 
@@ -370,11 +538,8 @@ app.post('/api/anular-factura', async (req, res) => {
         ]);
       }
 
-      await runQuery(
-        conn,
-        "DELETE FROM detalle_movs_partidas WHERE tipo_documento_venta = 'FAC' AND numero_documento = ?",
-        [vCodigo_paquete]
-      );
+      await runQuery(conn, 'CALL revertir_salida_partidas_documento(?, ?)', ['FAC', vCodigo_paquete]);
+      await runQuery(conn, 'CALL revertir_salidaspedidos(?, ?)', ['FAC', vCodigo_paquete]);
 
       await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [factura.codigo_cliente, 'FAC', -vTotalFactura]);
 

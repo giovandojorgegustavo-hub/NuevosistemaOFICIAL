@@ -434,7 +434,7 @@ function renderResumen() {
 async function loadStandby() {
   elements.loadingStandby.classList.remove('d-none');
   try {
-    const data = await fetchJson('/api/paquetes-standby');
+    const data = await fetchJson('./api/paquetes-standby');
     state.paquetes = (data.rows || []).map(mapPaqueteRow);
     renderStandbyTable();
   } catch (error) {
@@ -516,9 +516,9 @@ async function loadDetalle() {
   try {
     const codigo = state.selected.codigo_paquete;
     const [viajeRes, detalleRes, mapsRes] = await Promise.all([
-      fetchJson(`/api/viaje/${codigo}`),
-      fetchJson(`/api/detalle/${codigo}`),
-      fetchJson('/api/maps-config')
+      fetchJson(`./api/viaje/${codigo}`),
+      fetchJson(`./api/detalle/${codigo}`),
+      fetchJson('./api/maps-config')
     ]);
     state.viaje = viajeRes.viaje || null;
     state.detalles = detalleRes.rows || [];
@@ -576,7 +576,7 @@ async function guardarEstado() {
   const nuevoEstado = String(elements.estadoInput.value || '').trim().toLowerCase();
   elements.loadingGuardar.classList.remove('d-none');
   try {
-    await fetchJson('/api/confirmar', {
+    await fetchJson('./api/confirmar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ codigo_paquete: codigo, nuevo_estado: nuevoEstado })
@@ -611,7 +611,7 @@ function resetWizard() {
 
 async function loadLogs() {
   try {
-    const data = await fetchJson('/api/logs');
+    const data = await fetchJson('./api/logs');
     elements.logsContent.textContent = data.content || '';
   } catch (error) {
     elements.logsContent.textContent = t('errorServer');

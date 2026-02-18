@@ -10,7 +10,7 @@ Variables
 vCodigo_cliente no visible editable
 vNombreCliente visible editable
 
-vPaquetesLlegados = Llamada SP: get_paquetes_por_estado(p_estado="llegado") (devuelve campo_visible)
+vPaquetesLlegados = Llamada SP: get_paquetes_por_estado(p_estado in "pendiente empacar","empacado","llegado") (devuelve campo_visible)
 Campos devueltos
 vCodigo_paquete = codigo_paquete
 vFecha_actualizado = fecha_actualizado
@@ -368,10 +368,10 @@ class FormWizard {
     try {
       this.setLoading(true);
       const [healthRes, clientesRes, paquetesRes, mapsConfigRes] = await Promise.all([
-        fetch('/api/health'),
-        fetch('/api/clientes'),
-        fetch('/api/paquetes?estado=llegado'),
-        fetch('/api/maps-config')
+        fetch('./api/health'),
+        fetch('./api/clientes'),
+        fetch('./api/paquetes?estados=pendiente%20empacar,empacado,llegado'),
+        fetch('./api/maps-config')
       ]);
 
       if (!healthRes.ok) {
@@ -507,7 +507,7 @@ class FormWizard {
     }
     try {
       this.setLoading(true);
-      const res = await fetch(`/api/detalle-factura?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
+      const res = await fetch(`./api/detalle-factura?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
       const data = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.message || 'DETALLE_FACTURA_ERROR');
@@ -544,7 +544,7 @@ class FormWizard {
       return;
     }
     try {
-      const res = await fetch(`/api/factura-cabecera?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
+      const res = await fetch(`./api/factura-cabecera?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
       const data = await res.json();
       if (!res.ok || !data.ok || !data.data) {
         return;
@@ -827,7 +827,7 @@ class FormWizard {
         vTotalFactura: this.state.vTotalFactura
       };
 
-      const res = await fetch('/api/anular-factura', {
+      const res = await fetch('./api/anular-factura', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

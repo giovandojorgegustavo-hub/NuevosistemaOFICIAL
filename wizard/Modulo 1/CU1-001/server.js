@@ -147,9 +147,117 @@ function pickResultset(result, predicate) {
   return rows[0] || [];
 }
 
+// OTP_GATE_ENABLED_START
+function extractFirstInteger(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return Number(value.trim());
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = extractFirstInteger(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const parsed = extractFirstInteger(value[key]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function extractAuthParams(source) {
+  const codigoUsuarioRaw = source?.vUsuario ?? source?.Codigo_usuario ?? source?.codigo_usuario;
+  const otpRaw = source?.vOTP ?? source?.OTP ?? source?.otp;
+  const codigoUsuario = String(codigoUsuarioRaw ?? '').trim();
+  const otp = String(otpRaw ?? '').trim();
+  return { codigoUsuario, otp };
+}
+
+function hasValidAuthFormat(codigoUsuario, otp) {
+  if (!codigoUsuario || !otp) {
+    return false;
+  }
+  if (codigoUsuario.length > 36 || otp.length > 6) {
+    return false;
+  }
+  return true;
+}
+
+function unauthorizedHtml() {
+  const text = 'Warning ACCESO NO AUTORIZADO !!!';
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Acceso no autorizado</title></head><body><script>alert(' +
+    JSON.stringify(text) +
+    ');try{window.open("","_self");window.close();}catch(e){}setTimeout(function(){location.replace("about:blank");},120);</script></body></html>';
+}
+
+function resolvePoolReference() {
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
+  if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
+  if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
+  if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
+  return null;
+}
+
+async function validarOtp(poolRef, codigoUsuario, otp) {
+  const conn = await poolRef.getConnection();
+  try {
+    if (typeof runQuery === 'function') {
+      await runQuery(conn, 'CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+      const [rows] = await runQuery(conn, 'SELECT @p_resultado AS resultado');
+      return extractFirstInteger(rows);
+    }
+
+    if (typeof execQuery === 'function') {
+      await execQuery('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp], conn);
+      const rows = await execQuery('SELECT @p_resultado AS resultado', [], conn);
+      return extractFirstInteger(rows);
+    }
+
+    await conn.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+    const [rows] = await conn.query('SELECT @p_resultado AS resultado');
+    return extractFirstInteger(rows);
+  } finally {
+    conn.release();
+  }
+}
+async function authorizeAndServeIndex(req, res) {
+  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    res.status(503).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  } catch (error) {
+    logError(error, 'INDEX OTP VALIDATION ERROR');
+    res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+  }
+}
+// OTP_GATE_ENABLED_END
+
 const app = express();
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(ROOT_DIR));
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path}`);

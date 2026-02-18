@@ -223,7 +223,7 @@ class FormWizard {
   async loadFacturas() {
     this.toggleLoading(true);
     try {
-      const response = await fetch('/api/facturas-pendientes');
+      const response = await fetch('./api/facturas-pendientes');
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'FACTURAS_ERROR');
@@ -239,7 +239,7 @@ class FormWizard {
 
   async loadBases() {
     try {
-      const response = await fetch('/api/bases');
+      const response = await fetch('./api/bases');
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'BASES_ERROR');
@@ -319,8 +319,8 @@ class FormWizard {
     this.toggleLoading(true);
     try {
       const [remitoResponse, detalleResponse] = await Promise.all([
-        fetch('/api/remito-meta'),
-        fetch('/api/detalle-compra', {
+        fetch(`./api/remito-meta?vCodigo_provedor=${encodeURIComponent(this.state.selectedFactura.codigo_provedor)}`),
+        fetch('./api/detalle-compra', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -528,7 +528,7 @@ class FormWizard {
         }))
       };
 
-      const response = await fetch('/api/registrar-remito', {
+      const response = await fetch('./api/registrar-remito', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

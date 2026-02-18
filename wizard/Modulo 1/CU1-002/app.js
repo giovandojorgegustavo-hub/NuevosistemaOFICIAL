@@ -183,7 +183,7 @@ document.querySelectorAll('[data-i18n]').forEach((el) => {
 
 function getCodigoUsuarioFromQuery() {
   const params = new URLSearchParams(window.location.search);
-  const value = params.get('codigo_usuario') || params.get('codigoUsuario');
+  const value = params.get('vUsuario') || params.get('codigo_usuario') || params.get('codigoUsuario');
   if (!value) return null;
   const trimmed = value.trim();
   if (!userCodeRe.test(trimmed)) return null;
@@ -301,7 +301,7 @@ async function loadPaquetes() {
   step1Next.disabled = true;
   paquetesTableBody.innerHTML = `<tr><td colspan="8">${i18n[locale].loading}</td></tr>`;
   try {
-    const data = await fetchJson('/api/paquetes-pendientes');
+    const data = await fetchJson('./api/paquetes-pendientes');
     renderPaquetes(data.rows || []);
   } catch (err) {
     showAlert(err.message || 'Error');
@@ -332,8 +332,8 @@ async function loadStep2() {
   movTableBody.innerHTML = `<tr><td colspan="2">${i18n[locale].loading}</td></tr>`;
   try {
     const [movData, basesData] = await Promise.all([
-      fetchJson(`/api/mov-contable-detalle?tipo_documento=FAC&numero_documento=${encodeURIComponent(state.paquete.codigo_paquete)}`),
-      fetchJson('/api/bases')
+      fetchJson(`./api/mov-contable-detalle?tipo_documento=FAC&numero_documento=${encodeURIComponent(state.paquete.codigo_paquete)}`),
+      fetchJson('./api/bases')
     ]);
     state.movDetalles = movData.rows || [];
     state.bases = basesData.rows || [];
@@ -351,7 +351,7 @@ async function loadStep2() {
 
 async function loadConfig() {
   try {
-    state.config = await fetchJson('/api/config');
+    state.config = await fetchJson('./api/config');
   } catch (err) {
     showAlert(err.message || 'Error');
   }
@@ -503,7 +503,7 @@ submitBtn.addEventListener('click', async () => {
 
   try {
     const codigoUsuarioValue = state.codigoUsuario || codigoUsuario.value.trim();
-    await fetchJson('/api/reasignar-base', {
+    await fetchJson('./api/reasignar-base', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

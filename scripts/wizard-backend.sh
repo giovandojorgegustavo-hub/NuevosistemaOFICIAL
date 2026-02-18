@@ -14,7 +14,7 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-mapfile -d '' -t SERVERS < <(find "$ROOT_DIR/wizard" -name server.js -print0 | sort -z)
+mapfile -d '' -t SERVERS < <(find "$ROOT_DIR/wizard" -mindepth 2 -maxdepth 2 -name server.js -print0 | sort -z)
 
 if [[ ${#SERVERS[@]} -eq 0 ]]; then
   echo "No se encontraron servicios (server.js) bajo wizard/."

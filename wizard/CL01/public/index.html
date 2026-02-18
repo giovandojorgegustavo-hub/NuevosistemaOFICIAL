@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ERP Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-1"></div>
+    <div class="bg-shape bg-shape-2"></div>
+
+    <header class="container py-4">
+      <div class="launcher-nav d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <p class="brand-kicker mb-1" data-i18n="brand_kicker">Global SaaS ERP Platform</p>
+          <h1 class="brand-title mb-0">Launcher ERP</h1>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="userPill" class="badge text-bg-light border border-info-subtle d-none"></span>
+          <button id="logoutBtn" class="btn btn-sm btn-outline-light d-none" data-i18n="logout">
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container pb-5">
+      <div id="alertArea"></div>
+
+      <section id="loginSection" class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-5">
+          <div class="glass-card p-4 p-md-5">
+            <h2 class="section-title mb-2" data-i18n="login_title">Secure access</h2>
+            <p class="section-subtitle mb-4" data-i18n="login_subtitle">
+              Sign in to launch your ERP modules and web apps.
+            </p>
+            <form id="loginForm" novalidate>
+              <div class="mb-3">
+                <label for="vUsuario" class="form-label" data-i18n="user_label">User</label>
+                <input id="vUsuario" name="vUsuario" class="form-control" maxlength="128" required />
+              </div>
+              <div class="mb-3">
+                <label for="vPassword" class="form-label" data-i18n="password_label">Password</label>
+                <input id="vPassword" name="vPassword" type="password" class="form-control" maxlength="255" required />
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg" data-i18n="login_btn">Login</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboardSection" class="d-none">
+        <div class="row g-3 mb-3">
+          <div class="col-12">
+            <div class="glass-card p-3 p-md-4">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                  <h2 class="section-title mb-1" data-i18n="menu_title">Your ERP Workspace</h2>
+                  <p class="section-subtitle mb-0" data-i18n="menu_subtitle">
+                    Launch each use case with OTP-secured access.
+                  </p>
+                </div>
+                <span class="badge text-bg-info" id="moduleCountBadge">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="glass-card p-3 p-md-4">
+              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <h3 class="h5 mb-0" data-i18n="shortcuts_title">Quick Access</h3>
+                <span class="badge rounded-pill text-bg-secondary" id="shortcutCountBadge">0</span>
+              </div>
+              <div id="shortcutsArea" class="d-flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+        </div>
+        <div id="modulesRow" class="row g-3"></div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -145,6 +145,8 @@ class FormWizard {
     this.state = {
       step: 1,
       lang: 'es',
+      codigoUsuario: '',
+      priv: '',
       paquetes: [],
       detalles: [],
       packings: [],
@@ -184,9 +186,26 @@ class FormWizard {
 
   init() {
     this.setLanguage();
+    this.state.codigoUsuario = this.resolveCodigoUsuario();
     this.bindEvents();
     this.setStep(1);
+    if (!this.state.codigoUsuario) {
+      this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      this.elements.btnNext.disabled = true;
+      return;
+    }
     this.loadPaquetes();
+  }
+
+  resolveCodigoUsuario() {
+    const params = new URLSearchParams(window.location.search || '');
+    const value =
+      params.get('Codigo_usuario') ||
+      params.get('codigo_usuario') ||
+      params.get('vUsuario') ||
+      params.get('vCodigo_usuario') ||
+      '';
+    return String(value).trim();
   }
 
   setLanguage() {
@@ -230,10 +249,16 @@ class FormWizard {
 
   async fetchJson(url, options) {
     const response = await fetch(url, options);
-    if (!response.ok) {
-      throw new Error('HTTP_ERROR');
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.ok === false) {
+      throw new Error(body?.message || 'HTTP_ERROR');
     }
-    return response.json();
+    return body;
+  }
+
+  isAccessError(error) {
+    const code = String(error?.message || '').trim().toUpperCase();
+    return code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED';
   }
 
   setStep(step) {
@@ -291,11 +316,17 @@ class FormWizard {
     this.clearMessages();
     this.setLoading(this.elements.loadingPendientes, true);
     try {
-      const data = await this.fetchJson('/api/paquetes-pendientes');
+      const params = new URLSearchParams({ codigo_usuario: this.state.codigoUsuario });
+      const data = await this.fetchJson(`./api/paquetes-pendientes?${params.toString()}`);
+      this.state.priv = String(data?.vPriv || '').trim().toUpperCase();
       this.state.paquetes = data.rows || [];
       this.renderPaquetes();
     } catch (error) {
-      this.showAlert(this.t('errorServer'));
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      } else {
+        this.showAlert(this.t('errorServer'));
+      }
     } finally {
       this.setLoading(this.elements.loadingPendientes, false);
     }
@@ -361,12 +392,17 @@ class FormWizard {
 
     try {
       const codigo = this.state.selected.codigo_paquete;
-      const data = await this.fetchJson(`/api/detalle/${encodeURIComponent(codigo)}`);
+      const params = new URLSearchParams({ codigo_usuario: this.state.codigoUsuario });
+      const data = await this.fetchJson(`./api/detalle/${encodeURIComponent(codigo)}?${params.toString()}`);
       this.state.detalles = data.rows || [];
       this.renderDetalle();
       this.updateResumen();
     } catch (error) {
-      this.showAlert(this.t('errorServer'));
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      } else {
+        this.showAlert(this.t('errorServer'));
+      }
     } finally {
       this.setLoading(this.elements.loadingDetalle, false);
     }
@@ -432,7 +468,8 @@ class FormWizard {
       if (codigoCliente) {
         params.set('codigo_cliente', codigoCliente);
       }
-      const data = await this.fetchJson(`/api/packings?${params.toString()}`);
+      params.set('codigo_usuario', this.state.codigoUsuario);
+      const data = await this.fetchJson(`./api/packings?${params.toString()}`);
       const rows = data.rows || [];
       this.state.packings = rows;
       rows.forEach((row) => {
@@ -444,6 +481,9 @@ class FormWizard {
       this.elements.packingSelect.disabled = rows.length === 0;
     } catch (error) {
       this.elements.packingSelect.disabled = true;
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      }
     }
   }
 
@@ -486,7 +526,7 @@ class FormWizard {
 
     if (!this.state.mapsConfig) {
       try {
-        const data = await this.fetchJson('/api/maps-config');
+        const data = await this.fetchJson('./api/maps-config');
         this.state.mapsConfig = data;
       } catch (error) {
         this.elements.mapSection.classList.add('d-none');
@@ -604,8 +644,12 @@ class FormWizard {
     this.clearMessages();
     this.setLoading(this.elements.loadingGuardar, true);
     try {
-      const payload = { codigo_paquete: codigo, codigo_packing: codigoPacking };
-      await this.fetchJson('/api/empacar', {
+      const payload = {
+        codigo_usuario: this.state.codigoUsuario,
+        codigo_paquete: codigo,
+        codigo_packing: codigoPacking
+      };
+      await this.fetchJson('./api/empacar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -613,7 +657,11 @@ class FormWizard {
       this.showSuccess(this.t('successSaved'));
       this.resetWizard();
     } catch (error) {
-      this.showAlert(this.t('errorServer'));
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      } else {
+        this.showAlert(this.t('errorServer'));
+      }
     } finally {
       this.setLoading(this.elements.loadingGuardar, false);
     }

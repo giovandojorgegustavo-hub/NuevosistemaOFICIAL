@@ -216,6 +216,7 @@ BEGIN
     ON pe.codigo_puntoentrega = mc.codigo_puntoentrega
     AND pe.codigo_cliente_puntoentrega = mc.codigo_cliente_puntoentrega
   WHERE p.estado = p_estado
+    AND (mc.estado IS NULL OR mc.estado <> 'anulado')
   ORDER BY p.fecha_registro DESC, p.codigo_paquete DESC;
 END//
 DELIMITER ;
@@ -624,14 +625,29 @@ CREATE PROCEDURE `upd_stock_bases`(
   IN p_tipodocumento varchar(3),
   IN p_numdocumento numeric(12,0)
 )
-BEGIN
+proc: BEGIN
   DECLARE v_cantidad numeric(12,3);
+  DECLARE v_estado_paquete varchar(30);
 
   SET v_cantidad = p_cantidad;
 
+  IF p_tipodocumento = 'FAC' THEN
+    SET v_estado_paquete = (
+      SELECT LOWER(TRIM(p.estado))
+      FROM paquete p
+      WHERE p.codigo_paquete = p_numdocumento
+        AND p.tipo_documento = 'FAC'
+      LIMIT 1
+    );
+
+    IF v_estado_paquete = 'pendiente empacar' THEN
+      LEAVE proc;
+    END IF;
+  END IF;
+
   IF p_tipodocumento IN ('FAC', 'FBI', 'TRS', 'AJS', 'NCC') THEN
     SET v_cantidad = v_cantidad * -1;
-  ELSEIF p_tipodocumento IN ('FBS', 'FBF', 'TRE', 'REM', 'NTC', 'AJE') THEN
+  ELSEIF p_tipodocumento IN ('FBF', 'TRE', 'REM', 'NTC', 'AJE') THEN
     SET v_cantidad = v_cantidad;
   ELSE
     SIGNAL SQLSTATE '45000'
@@ -703,6 +719,123 @@ proc: BEGIN
 END//
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS `revertir_salidaspedidos`;
+DELIMITER //
+CREATE PROCEDURE `revertir_salidaspedidos`(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+proc: BEGIN
+  UPDATE pedido_detalle pd
+  JOIN (
+    SELECT
+      mc.codigo_pedido,
+      mcd.codigo_producto,
+      SUM(mcd.cantidad) AS cantidad
+    FROM mov_contable mc
+    JOIN mov_contable_detalle mcd
+      ON mcd.tipo_documento = mc.tipo_documento
+     AND mcd.numero_documento = mc.numero_documento
+    WHERE mc.tipo_documento = p_tipo_documento
+      AND mc.numero_documento = p_numero_documento
+      AND mc.codigo_pedido IS NOT NULL
+    GROUP BY mc.codigo_pedido, mcd.codigo_producto
+  ) t
+    ON t.codigo_pedido = pd.codigo_pedido
+   AND t.codigo_producto = pd.codigo_producto
+  SET
+    pd.saldo = LEAST(pd.cantidad, pd.saldo + t.cantidad);
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_historial_movimientos_rango`;
+DELIMITER //
+CREATE PROCEDURE `get_historial_movimientos_rango`(
+  IN p_fecha_desde date,
+  IN p_fecha_hasta date,
+  IN p_codigo_producto numeric(12,0),
+  IN p_codigo_base numeric(12,0)
+)
+SELECT
+  t.fecha,
+  t.tipo_documento,
+  t.numero_documento,
+  t.codigo_base,
+  b.nombre AS nombre_base,
+  t.codigo_producto,
+  p.nombre AS nombre_producto,
+  t.cantidad
+FROM (
+  SELECT
+    M.fecha_emision AS fecha,
+    M.tipo_documento AS tipo_documento,
+    M.numero_documento AS numero_documento,
+    M.codigo_base AS codigo_base,
+    D.codigo_producto AS codigo_producto,
+    CASE
+      WHEN M.tipo_documento = 'FAC' THEN D.cantidad * -1
+      WHEN M.tipo_documento = 'NTC' THEN D.cantidad
+      ELSE 0
+    END AS cantidad
+  FROM mov_contable M
+  JOIN mov_contable_detalle D
+    ON D.tipo_documento = M.tipo_documento
+   AND D.numero_documento = M.numero_documento
+  WHERE M.tipo_documento IN ('FAC', 'NTC')
+    AND M.estado <> 'anulado'
+
+  UNION ALL
+
+  SELECT
+    M.fecha AS fecha,
+    M.tipo_documento_compra AS tipo_documento,
+    M.num_documento_compra AS numero_documento,
+    D.codigo_base AS codigo_base,
+    D.codigo_producto AS codigo_producto,
+    CASE
+      WHEN M.tipo_documento_compra = 'NCC' THEN D.cantidad_entregada * -1
+      ELSE D.cantidad_entregada
+    END AS cantidad
+  FROM mov_contable_prov M
+  JOIN detalle_mov_contable_prov D
+    ON D.tipo_documento_compra = M.tipo_documento_compra
+   AND D.num_documento_compra = M.num_documento_compra
+   AND D.codigo_provedor = M.codigo_provedor
+  WHERE M.tipo_documento_compra IN ('FBF', 'AJE', 'NCC', 'REM')
+
+  UNION ALL
+
+  SELECT
+    M.fecha AS fecha,
+    M.tipodocumentostock AS tipo_documento,
+    M.numdocumentostock AS numero_documento,
+    M.codigo_base AS codigo_base,
+    D.codigo_producto AS codigo_producto,
+    CASE
+      WHEN M.tipodocumentostock IN ('AJS', 'FBI') THEN D.cantidad * -1
+      ELSE 0
+    END AS cantidad
+  FROM movimiento_stock M
+  JOIN detalle_movimiento_stock D
+    ON D.tipodocumentostock = M.tipodocumentostock
+   AND D.numdocumentostock = M.numdocumentostock
+  WHERE M.tipodocumentostock IN ('AJS', 'FBI')
+) t
+LEFT JOIN bases b
+  ON b.codigo_base = t.codigo_base
+LEFT JOIN productos p
+  ON p.codigo_producto = t.codigo_producto
+WHERE t.fecha >= p_fecha_desde
+  AND t.fecha < DATE_ADD(p_fecha_hasta, INTERVAL 1 DAY)
+  AND (p_codigo_producto IS NULL OR t.codigo_producto = p_codigo_producto)
+  AND (p_codigo_base IS NULL OR t.codigo_base = p_codigo_base)
+ORDER BY
+  t.fecha,
+  t.tipo_documento,
+  t.numero_documento,
+  t.codigo_producto//
+DELIMITER ;
+
 -- Ejemplo editable:
 -- CALL aplicar_salida_factura_a_saldo_stock('FAC', 123);
 -- CALL salidasinventario('FAC', 123);
@@ -751,6 +884,21 @@ BEGIN
       v_delta
     );
   END IF;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `anular_documento_cliente`;
+DELIMITER //
+CREATE PROCEDURE `anular_documento_cliente`(
+  IN p_tipo_documento varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+BEGIN
+  UPDATE mov_contable
+  SET estado = 'anulado',
+      saldo = 0
+  WHERE tipo_documento = p_tipo_documento
+    AND numero_documento = p_numero_documento;
 END//
 DELIMITER ;
 
@@ -1445,6 +1593,42 @@ BEGIN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Saldo insuficiente para cubrir cantidad solicitada.';
   END IF;
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS revertir_salida_partidas_documento;
+DELIMITER //
+CREATE PROCEDURE revertir_salida_partidas_documento(
+  IN p_tipo_documento_venta varchar(3),
+  IN p_numero_documento numeric(12,0)
+)
+BEGIN
+  UPDATE detalle_mov_contable_prov d
+  JOIN (
+    SELECT
+      tipo_documento_compra,
+      num_documento_compra,
+      codigo_provedor,
+      codigo_producto,
+      SUM(cantidad) AS cantidad
+    FROM detalle_movs_partidas
+    WHERE tipo_documento_venta = p_tipo_documento_venta
+      AND numero_documento = p_numero_documento
+    GROUP BY
+      tipo_documento_compra,
+      num_documento_compra,
+      codigo_provedor,
+      codigo_producto
+  ) t
+    ON t.tipo_documento_compra = d.tipo_documento_compra
+   AND t.num_documento_compra = d.num_documento_compra
+   AND t.codigo_provedor = d.codigo_provedor
+   AND t.codigo_producto = d.codigo_producto
+  SET d.saldo = d.saldo + t.cantidad;
+
+  DELETE FROM detalle_movs_partidas
+  WHERE tipo_documento_venta = p_tipo_documento_venta
+    AND numero_documento = p_numero_documento;
 END//
 DELIMITER ;
 

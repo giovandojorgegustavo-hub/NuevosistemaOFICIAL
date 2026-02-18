@@ -281,9 +281,9 @@ class FormWizard {
     this.setLoading(true, 'Cargando datos iniciales...');
     try {
       const [initResponse, basesResponse, productosResponse] = await Promise.all([
-        fetch('/api/init'),
-        fetch('/api/bases'),
-        fetch('/api/productos')
+        fetch('./api/init'),
+        fetch('./api/bases'),
+        fetch('./api/productos')
       ]);
       const initData = await initResponse.json();
       const basesData = await basesResponse.json();
@@ -348,7 +348,7 @@ class FormWizard {
         vDetalleTransferencia: this.getDetalleItems()
       };
 
-      const response = await fetch('/api/transferencias', {
+      const response = await fetch('./api/transferencias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -379,7 +379,7 @@ class FormWizard {
 
   async loadSqlLogs() {
     try {
-      const response = await fetch('/api/sql-logs');
+      const response = await fetch('./api/sql-logs');
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'No se pudieron cargar los logs');

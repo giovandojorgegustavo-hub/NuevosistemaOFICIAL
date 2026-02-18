@@ -1,5 +1,22 @@
-**
+## Precondicion de Acceso (Obligatoria)
+La pagina debe recibir dos parametros obligatorios y un tercer parametro opcional. Los parametros son:
 
+- `Codigo_usuario` varchar(36)
+- `OTP` varchar(6)
+- `vParámetros` JSON (opcional)
+
+Al iniciar la pagina se debe llamar el SP `validar_otp_usuario` pasandole como parametros `Codigo_usuario` y `OTP` para verificar si es un usuario valido.
+
+El SP `validar_otp_usuario` devuelve:
+- `1`: SI usuario y OTP son validos.
+- `-1`: OTP expirado.
+- `0`: NO EXISTE TOKEN.
+
+Si `validar_otp_usuario` devuelve un valor diferente de `1`:
+- Mostrar mensaje exacto: `Warning ACCESO NO AUTORIZADO !!!`
+- Cerrar la pagina y salir del programa.
+
+**
 CU3001: Compras Factura
 
 # **Prompt AI.
@@ -155,6 +172,7 @@ Al terminar el formulario multipasos, cuando el usuario da click al boton "Factu
   - tipo_documento_compra = vTipo_documento_compra
   - num_documento_compra = vNum_documento_compra
   - codigo_provedor = vCodigo_provedor
+  - codigo_base = NULL
   - ordinal = vordinal
   - codigo_producto = vDetalleCompra.codigo_producto
   - cantidad = vDetalleCompra.cantidad

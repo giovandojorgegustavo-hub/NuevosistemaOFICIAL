@@ -3,6 +3,10 @@ class FormWizard {
     this.currentStep = 1;
     this.totalSteps = 3;
     this.state = {
+      codigoUsuario: '',
+      priv: '',
+      baseEditable: true,
+      baseDisplayName: '',
       bases: [],
       paquetes: [],
       selected: new Map(),
@@ -37,6 +41,7 @@ class FormWizard {
     this.vBaseNombre = document.getElementById('vBaseNombre');
     this.vcodigo_base = document.getElementById('vcodigo_base');
     this.basesList = document.getElementById('basesList');
+    this.baseHelpText = document.getElementById('baseHelpText');
 
     this.vnombre_motorizado = document.getElementById('vnombre_motorizado');
     this.vlink = document.getElementById('vlink');
@@ -78,8 +83,14 @@ class FormWizard {
     this.nextBtn.addEventListener('click', () => this.nextStep());
     this.saveBtn.addEventListener('click', () => this.save());
 
-    this.vBaseNombre.addEventListener('input', (event) => this.filterBases(event.target.value));
-    this.vBaseNombre.addEventListener('blur', () => this.syncBaseSelection());
+    this.vBaseNombre.addEventListener('input', (event) => {
+      if (!this.state.baseEditable) return;
+      this.filterBases(event.target.value);
+    });
+    this.vBaseNombre.addEventListener('blur', () => {
+      if (!this.state.baseEditable) return;
+      this.syncBaseSelection();
+    });
     this.refreshPaquetes.addEventListener('click', () => {
       if (!this.state.codigoBase) {
         this.showAlert('Selecciona una base valida antes de actualizar paquetes.', 'warning');
@@ -94,9 +105,80 @@ class FormWizard {
 
   async init() {
     document.documentElement.lang = navigator.language || 'es-PE';
+    this.state.codigoUsuario = this.resolveCodigoUsuario();
     this.setDateTime();
 
+    if (!this.state.codigoUsuario) {
+      this.setBaseEditable(false);
+      this.showAlert('Warning ACCESO NO AUTORIZADO !!!', 'danger');
+      return;
+    }
+
     await Promise.all([this.loadBases(), this.loadNextViaje(), this.loadConfig()]);
+  }
+
+  resolveCodigoUsuario() {
+    const params = new URLSearchParams(window.location.search || '');
+    const value =
+      params.get('Codigo_usuario') ||
+      params.get('codigo_usuario') ||
+      params.get('vUsuario') ||
+      params.get('vCodigo_usuario') ||
+      '';
+    return String(value).trim();
+  }
+
+  setBaseEditable(isEditable) {
+    this.state.baseEditable = Boolean(isEditable);
+    this.vBaseNombre.readOnly = !this.state.baseEditable;
+
+    if (this.state.baseEditable) {
+      this.vBaseNombre.setAttribute('list', 'basesList');
+      if (this.baseHelpText) {
+        this.baseHelpText.textContent = 'Selecciona la base operativa registrada.';
+      }
+      return;
+    }
+
+    this.vBaseNombre.removeAttribute('list');
+    this.basesList.innerHTML = '';
+    if (this.baseHelpText) {
+      this.baseHelpText.textContent = 'Base asignada por permisos del usuario (solo lectura).';
+    }
+  }
+
+  applyBasePrivileges(data) {
+    const priv = String(data?.vPriv || '').trim().toUpperCase();
+    this.state.priv = priv;
+    const isAll = priv === 'ALL';
+    this.setBaseEditable(isAll);
+
+    if (isAll) {
+      return;
+    }
+
+    const fixedCode = String(data?.vBase || '').trim();
+    const fixedBase =
+      this.state.bases.find((base) => String(base.codigo_base) === fixedCode) ||
+      this.state.bases[0] ||
+      null;
+
+    const displayName = fixedBase?.nombre || String(data?.vBaseTexto || '').trim();
+    const baseCode = fixedBase?.codigo_base || fixedCode;
+    this.state.baseDisplayName = displayName;
+    this.vBaseNombre.value = displayName;
+    this.vcodigo_base.value = baseCode;
+    this.state.codigoBase = baseCode || null;
+    this.refreshPaquetes.disabled = !this.state.codigoBase;
+
+    if (this.state.codigoBase) {
+      this.loadPaquetes(this.state.codigoBase);
+    }
+  }
+
+  isAccessError(error) {
+    const code = String(error?.message || '').trim().toUpperCase();
+    return code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED';
   }
 
   setDateTime() {
@@ -107,7 +189,7 @@ class FormWizard {
 
   async loadConfig() {
     try {
-      const data = await this.fetchJSON('/api/config');
+      const data = await this.fetchJSON('./api/config');
       if (data?.ok) {
         this.state.google = data.google;
       }
@@ -119,11 +201,17 @@ class FormWizard {
   async loadBases() {
     try {
       this.setLoading(true);
-      const data = await this.fetchJSON('/api/bases');
+      const params = new URLSearchParams({ codigo_usuario: this.state.codigoUsuario });
+      const data = await this.fetchJSON(`./api/bases?${params.toString()}`);
       this.state.bases = data?.data || [];
       this.renderBasesList(this.state.bases);
+      this.applyBasePrivileges(data);
     } catch (error) {
-      this.showAlert('Error al cargar bases.', 'danger');
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!', 'danger');
+      } else {
+        this.showAlert('Error al cargar bases.', 'danger');
+      }
     } finally {
       this.setLoading(false);
     }
@@ -139,11 +227,19 @@ class FormWizard {
     }
     try {
       this.setLoading(true);
-      const data = await this.fetchJSON(`/api/paquetes-empacados?codigo_base=${encodeURIComponent(codigoBase)}`);
+      const params = new URLSearchParams({
+        codigo_usuario: this.state.codigoUsuario,
+        codigo_base: String(codigoBase || '')
+      });
+      const data = await this.fetchJSON(`./api/paquetes-empacados?${params.toString()}`);
       this.state.paquetes = data?.data || [];
       this.renderPaquetesTable(this.state.paquetes);
     } catch (error) {
-      this.showAlert('Error al cargar paquetes empacados.', 'danger');
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!', 'danger');
+      } else {
+        this.showAlert('Error al cargar paquetes empacados.', 'danger');
+      }
     } finally {
       this.setLoading(false);
     }
@@ -151,7 +247,7 @@ class FormWizard {
 
   async loadNextViaje() {
     try {
-      const data = await this.fetchJSON('/api/next-viaje');
+      const data = await this.fetchJSON('./api/next-viaje');
       this.vcodigoviaje.textContent = data?.vcodigoviaje ?? '-';
     } catch (error) {
       this.vcodigoviaje.textContent = '-';
@@ -169,6 +265,7 @@ class FormWizard {
   }
 
   filterBases(value) {
+    if (!this.state.baseEditable) return;
     const term = value.toLowerCase();
     const filtered = this.state.bases.filter((base) => base.nombre.toLowerCase().includes(term));
     this.renderBasesList(filtered);
@@ -176,6 +273,7 @@ class FormWizard {
   }
 
   syncBaseSelection() {
+    if (!this.state.baseEditable) return;
     const selected = this.state.bases.find((base) => base.nombre === this.vBaseNombre.value);
     const nextCodigo = selected ? selected.codigo_base : '';
     this.vcodigo_base.value = nextCodigo;
@@ -408,6 +506,7 @@ class FormWizard {
     try {
       this.setLoading(true);
       const payload = {
+        codigo_usuario: this.state.codigoUsuario,
         vcodigoviaje: this.vcodigoviaje.textContent,
         vcodigo_base: this.vcodigo_base.value,
         vBaseNombre: this.vBaseNombre.value,
@@ -427,7 +526,7 @@ class FormWizard {
         }))
       };
 
-      const data = await this.fetchJSON('/api/guardar-viaje', {
+      const data = await this.fetchJSON('./api/guardar-viaje', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -440,7 +539,11 @@ class FormWizard {
         this.showAlert(data?.message || 'No se pudo guardar el viaje.', 'danger');
       }
     } catch (error) {
-      this.showAlert('Error al guardar el viaje.', 'danger');
+      if (this.isAccessError(error)) {
+        this.showAlert('Warning ACCESO NO AUTORIZADO !!!', 'danger');
+      } else {
+        this.showAlert('Error al guardar el viaje.', 'danger');
+      }
     } finally {
       this.setLoading(false);
     }
@@ -455,11 +558,18 @@ class FormWizard {
       input.checked = false;
     });
 
-    this.vBaseNombre.value = '';
-    this.vcodigo_base.value = '';
-    this.state.codigoBase = null;
-    this.refreshPaquetes.disabled = true;
-    this.paquetesTableBody.innerHTML = '';
+    if (this.state.priv === 'ALL') {
+      this.vBaseNombre.value = '';
+      this.vcodigo_base.value = '';
+      this.state.codigoBase = null;
+      this.refreshPaquetes.disabled = true;
+      this.paquetesTableBody.innerHTML = '';
+    } else {
+      this.vBaseNombre.value = this.state.baseDisplayName || this.vBaseNombre.value;
+      this.vcodigo_base.value = this.state.codigoBase || this.vcodigo_base.value;
+      this.refreshPaquetes.disabled = !this.state.codigoBase;
+      this.loadPaquetes(this.state.codigoBase);
+    }
     this.vnombre_motorizado.value = '';
     this.vnumero_wsp.value = '';
     this.vnum_llamadas.value = '';
@@ -493,11 +603,11 @@ class FormWizard {
 
   async fetchJSON(url, options) {
     const response = await fetch(url, options);
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'Network error');
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.ok === false) {
+      throw new Error(body?.message || 'REQUEST_ERROR');
     }
-    return response.json();
+    return body;
   }
 
   formatDate(value) {

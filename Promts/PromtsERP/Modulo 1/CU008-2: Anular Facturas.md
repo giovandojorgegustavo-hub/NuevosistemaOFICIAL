@@ -1,5 +1,22 @@
-**  
+## Precondicion de Acceso (Obligatoria)
+La pagina debe recibir dos parametros obligatorios y un tercer parametro opcional. Los parametros son:
 
+- `Codigo_usuario` varchar(36)
+- `OTP` varchar(6)
+- `vParámetros` JSON (opcional)
+
+Al iniciar la pagina se debe llamar el SP `validar_otp_usuario` pasandole como parametros `Codigo_usuario` y `OTP` para verificar si es un usuario valido.
+
+El SP `validar_otp_usuario` devuelve:
+- `1`: SI usuario y OTP son validos.
+- `-1`: OTP expirado.
+- `0`: NO EXISTE TOKEN.
+
+Si `validar_otp_usuario` devuelve un valor diferente de `1`:
+- Mostrar mensaje exacto: `Warning ACCESO NO AUTORIZADO !!!`
+- Cerrar la pagina y salir del programa.
+
+**  
 CU008: Anular Facturas.
 
   
@@ -74,7 +91,7 @@ Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario t
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
-## Paso 1  Seleccionar cliente y factura (paquete llegado).
+## Paso 1  Seleccionar cliente y factura (paquete pendiente empacar, empacado o llegado).
 
 vFecha_emision = Inicializar con la fecha del sistema.
 vClientes = Llamada SP: `get_clientes()` (devuelve campo_visible)
@@ -83,7 +100,7 @@ Variables:
 vCodigo_cliente no visible editable
 vNombreCliente visible editable
 
-vPaquetesLlegados = Llamada SP: `get_paquetes_por_estado(p_estado="llegado")` (devuelve campo_visible)
+vPaquetesLlegados = Llamada SP: `get_paquetes_por_estado(p_estado)` (devuelve campo_visible)
 Campos devueltos: `codigo_paquete`, `fecha_actualizado`, `codigo_cliente`, `nombre_cliente`, `num_cliente`, `codigo_puntoentrega`, `codigo_base`, `nombre_base`, `codigo_packing`, `nombre_packing`, `ordinal_numrecibe`, `concatenarpuntoentrega`, `region_entrega`, `latitud`, `longitud`, `concatenarnumrecibe`
 Variables:
 vCodigo_paquete visible editable
@@ -95,9 +112,12 @@ vNombre_packing visible no editable
 vRegion_entrega visible no editable (solo fallback si no existe nombre_base)
 
 Reglas:
+- Cargar paquetes de estos estados: `pendiente empacar`, `empacado`, `llegado`.
+- Ejecutar `get_paquetes_por_estado` por cada estado y unir resultados sin duplicados.
 - Filtrar la lista de paquetes por `vCodigo_cliente` seleccionado (solo paquetes del cliente).
 - El `codigo_paquete` corresponde al numero de factura.
 - El `tipo_documento` de la factura seleccionada es siempre `FAC`.
+- No mostrar facturas anuladas (la logica de filtro debe quedar centralizada en el SP `get_paquetes_por_estado`).
 
 Validaciones:
 - vCodigo_cliente requerido.
@@ -131,8 +151,8 @@ Reglas:
 - Al confirmar, ejecutar el proceso de anulacion. **No se debe registrar ningun documento nuevo** (no insertar en `mov_contable` ni `mov_contable_detalle`).
 
 ### Cambiar estado de la factura a anulado.
-Ejecutar:
-`UPDATE mov_contable SET estado = 'anulado', saldo = 0 WHERE tipo_documento = 'FAC' AND numero_documento = vCodigo_paquete`
+Ejecutar el procedimiento:
+`CALL anular_documento_cliente('FAC', vCodigo_paquete)`
 
 ### Revertir pagos aplicados a la factura anulada.
 Ejecutar el procedimiento:
@@ -144,10 +164,18 @@ Ejecutar el procedimiento:
 ### Devolver productos a inventario usando cantidad negativa.
 Por cada item del detalle ejecutar:
 `CALL upd_stock_bases(vCodigo_base, vCodigo_producto, -vCantidad, "FAC", vCodigo_paquete)`
+- Si el paquete aun esta en `pendiente empacar`, `upd_stock_bases` no debe mover stock para `FAC`.
 
-### Borrar partidas consumidas por esa factura.
-Ejecutar:
-`DELETE FROM detalle_movs_partidas WHERE tipo_documento_venta = 'FAC' AND numero_documento = vCodigo_paquete`
+### Revertir partidas consumidas por esa factura.
+Ejecutar el procedimiento:
+`CALL revertir_salida_partidas_documento('FAC', vCodigo_paquete)`
+- Debe devolver saldo en `detalle_mov_contable_prov`.
+- Debe eliminar las filas aplicadas en `detalle_movs_partidas` para evitar doble reversa.
+
+### Revertir consumo del pedido asociado.
+Ejecutar el procedimiento:
+`CALL revertir_salidaspedidos('FAC', vCodigo_paquete)`
+- Debe reponer `pedido_detalle.saldo` sin exceder `pedido_detalle.cantidad`.
 
 ### Actualizar saldo del cliente.
 Ejecutar el procedimiento:

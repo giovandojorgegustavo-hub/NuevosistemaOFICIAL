@@ -28,6 +28,7 @@ const TRANSLATIONS = {
     baseLabel: 'Base',
     basePlaceholder: 'Escribe para filtrar por codigo o nombre',
     baseHelp: 'Select con typeahead: escribe y filtra entre miles de registros.',
+    baseHelpReadonly: 'Base asignada por permisos del usuario (solo lectura).',
     newNameLabel: 'Nombre packing',
     newTypeLabel: 'Tipo packing',
     newDescriptionLabel: 'Descripcion',
@@ -45,6 +46,8 @@ const TRANSLATIONS = {
     errConfirmRequired: 'Debes confirmar la operacion antes de guardar.',
     errServer: 'No fue posible completar la operacion. Revisa logs del backend.',
     errLoadBases: 'No fue posible cargar bases desde la base de datos.',
+    errUserRequired: 'No se encontro Codigo_usuario en la URL.',
+    errUnauthorized: 'Warning ACCESO NO AUTORIZADO !!!',
     okSaved: 'Packing registrado correctamente. Codigo generado: {codigo}'
   },
   en: {
@@ -58,6 +61,7 @@ const TRANSLATIONS = {
     baseLabel: 'Base',
     basePlaceholder: 'Type to filter by code or name',
     baseHelp: 'Typeahead select: type and filter large datasets.',
+    baseHelpReadonly: 'Base assigned by user privileges (read-only).',
     newNameLabel: 'Packing name',
     newTypeLabel: 'Packing type',
     newDescriptionLabel: 'Description',
@@ -75,6 +79,8 @@ const TRANSLATIONS = {
     errConfirmRequired: 'You must confirm the operation before saving.',
     errServer: 'Request failed. Check backend logs.',
     errLoadBases: 'Could not load bases from the database.',
+    errUserRequired: 'Codigo_usuario not found in URL.',
+    errUnauthorized: 'Warning ACCESO NO AUTORIZADO !!!',
     okSaved: 'Packing saved successfully. Generated code: {codigo}'
   }
 };
@@ -85,10 +91,13 @@ class FormWizard {
       vstep: 1,
       vtotal_steps: 2,
       vlang: 'es',
+      vcodigo_usuario: '',
+      vpriv: '',
       vbases: [],
       vbase_options: [],
       vselected_base: null,
-      vloading: false
+      vloading: false,
+      vbase_help_default: ''
     };
 
     this.regex = {
@@ -112,6 +121,7 @@ class FormWizard {
       vloading_bases: document.getElementById('loadingBases'),
       vloading_save: document.getElementById('loadingSave'),
       vnombre_base: document.getElementById('vnombre_base'),
+      vbase_help: document.getElementById('baseHelpText'),
       vbases_list: document.getElementById('basesList'),
       vcodigo_base: document.getElementById('vcodigo_base'),
       vnombre_packing_nuevo: document.getElementById('vnombre_packing_nuevo'),
@@ -135,22 +145,43 @@ class FormWizard {
     });
 
     this.el.vnombre_base.addEventListener('input', (event) => {
+      if (this.state.vpriv !== 'ALL') return;
       this.filterBases(event.target.value);
     });
 
     this.el.vnombre_base.addEventListener('change', () => {
+      if (this.state.vpriv !== 'ALL') return;
       this.syncSelectedBase();
     });
 
     this.el.vnombre_base.addEventListener('blur', () => {
+      if (this.state.vpriv !== 'ALL') return;
       this.syncSelectedBase();
     });
   }
 
   async init() {
+    this.state.vcodigo_usuario = this.resolveCodigoUsuarioFromUrl();
     this.applyLanguage();
+    this.state.vbase_help_default = this.t('baseHelp');
     this.setStep(1);
+    if (!this.state.vcodigo_usuario) {
+      this.showError(this.t('errUserRequired'));
+      this.setBaseEditable(false);
+      return;
+    }
     await this.loadBases();
+  }
+
+  resolveCodigoUsuarioFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const value =
+      params.get('Codigo_usuario') ||
+      params.get('codigo_usuario') ||
+      params.get('vUsuario') ||
+      params.get('vCodigo_usuario') ||
+      '';
+    return String(value).trim();
   }
 
   applyLanguage() {
@@ -225,18 +256,53 @@ class FormWizard {
     this.setLoading(true, 'bases');
 
     try {
-      const data = await this.fetchJson('/api/bases');
+      const query = new URLSearchParams({ codigo_usuario: this.state.vcodigo_usuario });
+      const data = await this.fetchJson(`./api/bases?${query.toString()}`);
       const rows = Array.isArray(data.rows) ? data.rows : [];
+      this.state.vpriv = String(data.vPriv || '').trim().toUpperCase();
       this.state.vbases = rows.map((row) => ({
         vcodigo_base: String(row.codigo_base),
         vnombre_base: String(row.nombre)
       }));
       this.state.vbase_options = [...this.state.vbases];
       this.renderBaseOptions();
+      this.applyBasePrivileges(data);
     } catch (error) {
-      this.showError(this.t('errLoadBases'));
+      if (String(error.message || '').toUpperCase() === 'UNAUTHORIZED') {
+        this.showError(this.t('errUnauthorized'));
+      } else {
+        this.showError(this.t('errLoadBases'));
+      }
     } finally {
       this.setLoading(false, 'bases');
+    }
+  }
+
+  applyBasePrivileges(data) {
+    const isAll = this.state.vpriv === 'ALL';
+    this.setBaseEditable(isAll);
+
+    if (isAll) {
+      this.el.vbase_help.textContent = this.state.vbase_help_default;
+      this.syncSelectedBase();
+      return;
+    }
+
+    const fixedBase = this.state.vbases.find((row) => String(row.vcodigo_base) === String(data.vBase)) || this.state.vbases[0] || null;
+    this.state.vselected_base = fixedBase;
+    this.el.vcodigo_base.value = fixedBase ? fixedBase.vcodigo_base : String(data.vBase || '');
+    this.el.vnombre_base.value =
+      fixedBase ? `${fixedBase.vcodigo_base} - ${fixedBase.vnombre_base}` : String(data.vBaseTexto || '').trim();
+    this.el.vbase_help.textContent = this.t('baseHelpReadonly');
+  }
+
+  setBaseEditable(isEditable) {
+    this.el.vnombre_base.readOnly = !isEditable;
+    if (isEditable) {
+      this.el.vnombre_base.setAttribute('list', 'basesList');
+    } else {
+      this.el.vnombre_base.removeAttribute('list');
+      this.el.vbases_list.innerHTML = '';
     }
   }
 
@@ -375,6 +441,7 @@ class FormWizard {
     }
 
     const payload = {
+      codigo_usuario: this.state.vcodigo_usuario,
       vcodigo_base: String(this.el.vcodigo_base.value || '').trim(),
       vnombre_packing_nuevo: String(this.el.vnombre_packing_nuevo.value || '').trim(),
       vtipo_packing_nuevo: String(this.el.vtipo_packing_nuevo.value || '').trim(),
@@ -384,7 +451,7 @@ class FormWizard {
     this.setLoading(true, 'save');
 
     try {
-      const data = await this.fetchJson('/api/guardar-packing', {
+      const data = await this.fetchJson('./api/guardar-packing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -396,23 +463,34 @@ class FormWizard {
       this.showSuccess(msg);
       this.resetWizard();
     } catch (error) {
-      this.showError(this.t('errServer'));
+      const code = String(error.message || '').toUpperCase();
+      if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN') {
+        this.showError(this.t('errUnauthorized'));
+      } else {
+        this.showError(this.t('errServer'));
+      }
     } finally {
       this.setLoading(false, 'save');
     }
   }
 
   resetWizard() {
-    this.el.vnombre_base.value = '';
-    this.el.vcodigo_base.value = '';
+    if (this.state.vpriv === 'ALL') {
+      this.el.vnombre_base.value = '';
+      this.el.vcodigo_base.value = '';
+      this.state.vselected_base = null;
+      this.state.vbase_options = [...this.state.vbases];
+      this.renderBaseOptions();
+    } else {
+      this.applyBasePrivileges({
+        vBase: this.el.vcodigo_base.value,
+        vBaseTexto: this.el.vnombre_base.value
+      });
+    }
     this.el.vnombre_packing_nuevo.value = '';
     this.el.vtipo_packing_nuevo.value = '';
     this.el.vdescripcion_packing_nuevo.value = '';
     this.el.vconfirmar_operacion.checked = false;
-
-    this.state.vselected_base = null;
-    this.state.vbase_options = [...this.state.vbases];
-    this.renderBaseOptions();
 
     this.setStep(1);
   }

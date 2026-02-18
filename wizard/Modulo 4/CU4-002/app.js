@@ -282,7 +282,7 @@ class FormWizard {
     }
     try {
       this.setLoading(true, 'Cargando productos...');
-      const response = await fetch(`/api/productos-stock?codigo_base=${encodeURIComponent(codigoBase)}`);
+      const response = await fetch(`./api/productos-stock?codigo_base=${encodeURIComponent(codigoBase)}`);
       const data = await response.json();
       if (requestId !== this.baseFetchId) {
         return;
@@ -366,7 +366,7 @@ class FormWizard {
     }
     try {
       const response = await fetch(
-        `/api/saldo-stock?codigo_base=${encodeURIComponent(codigoBase)}&codigo_producto=${encodeURIComponent(codigoProducto)}`
+        `./api/saldo-stock?codigo_base=${encodeURIComponent(codigoBase)}&codigo_producto=${encodeURIComponent(codigoProducto)}`
       );
       const data = await response.json();
       if (!data.ok) {
@@ -431,7 +431,7 @@ class FormWizard {
       return this.costoCache.get(codigoProducto);
     }
     try {
-      const response = await fetch(`/api/costo-ultimo?codigo_producto=${encodeURIComponent(codigoProducto)}`);
+      const response = await fetch(`./api/costo-ultimo?codigo_producto=${encodeURIComponent(codigoProducto)}`);
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'No se pudo obtener costo');
@@ -587,8 +587,8 @@ class FormWizard {
     try {
       this.setLoading(true, 'Cargando datos...');
       const [initRes, basesRes] = await Promise.all([
-        fetch('/api/init'),
-        fetch('/api/bases')
+        fetch('./api/init'),
+        fetch('./api/bases')
       ]);
 
       const initData = await initRes.json();
@@ -634,7 +634,7 @@ class FormWizard {
         vDetalleAjuste: this.getDetalleItems()
       };
 
-      const response = await fetch('/api/ajustes', {
+      const response = await fetch('./api/ajustes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -665,7 +665,7 @@ class FormWizard {
 
   async loadSqlLogs() {
     try {
-      const response = await fetch('/api/sql-logs');
+      const response = await fetch('./api/sql-logs');
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'No se pudieron cargar los logs');

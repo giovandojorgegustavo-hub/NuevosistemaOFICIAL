@@ -396,6 +396,7 @@ CREATE TABLE `detalle_mov_contable_prov` (
   `tipo_documento_compra` varchar(3) NOT NULL,
   `num_documento_compra` numeric(12,0) NOT NULL,
   `codigo_provedor` numeric(12,0) NOT NULL,
+  `codigo_base` numeric(12,0) DEFAULT NULL,
   `ordinal` numeric(12,0) NOT NULL,
   `codigo_producto` numeric(12,0) NOT NULL,
   `cantidad` numeric(12,3) NOT NULL,
@@ -403,6 +404,7 @@ CREATE TABLE `detalle_mov_contable_prov` (
   `saldo` numeric(12,3) NOT NULL DEFAULT '0.000',
   `monto` numeric(12,2) NOT NULL,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`, `ordinal`),
+  FOREIGN KEY (`codigo_base`) REFERENCES `bases` (`codigo_base`),
   FOREIGN KEY (`codigo_producto`) REFERENCES `productos` (`codigo_producto`),
   FOREIGN KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`) REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;
@@ -689,4 +691,21 @@ CREATE TABLE `Facturas_Pagadas_Prov` (
     `num_documento_compra`,
     `codigo_provedor_compra`
   )
+) ENGINE=InnoDB;
+
+-- Modulo 2 - Tableros
+DROP TABLE IF EXISTS `tableros`;
+CREATE TABLE `tableros` (
+  `id` varchar(36) NOT NULL,
+  `nombre` varchar(120) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS `tableros_detalle`;
+CREATE TABLE `tableros_detalle` (
+  `id` varchar(36) NOT NULL,
+  `ordinal` int NOT NULL,
+  `titulo` varchar(512) DEFAULT NULL,
+  PRIMARY KEY (`id`, `ordinal`)
 ) ENGINE=InnoDB;

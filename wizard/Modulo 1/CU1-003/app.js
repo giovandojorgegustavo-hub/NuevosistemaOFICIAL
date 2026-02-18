@@ -418,14 +418,14 @@ async function apiFetch(url, options) {
 }
 
 async function loadConfig() {
-  state.config = await apiFetch('/api/config');
+  state.config = await apiFetch('./api/config');
 }
 
 async function loadPaquetes() {
   clearError();
   setLoading(true);
   try {
-    const data = await apiFetch('/api/paquetes?estado=en%20camino');
+    const data = await apiFetch('./api/paquetes?estado=en%20camino');
     state.paquetes = data.rows.map(mapPaqueteRow);
     renderPaquetes();
   } catch (error) {
@@ -494,8 +494,8 @@ async function loadDetalleForSelection() {
   clearError();
   try {
     const [viajeData, detalleData] = await Promise.all([
-      apiFetch(`/api/viaje/${encodeURIComponent(pkg.vcodigo_paquete)}`),
-      apiFetch(`/api/detalle/${encodeURIComponent(pkg.vcodigo_paquete)}`)
+      apiFetch(`./api/viaje/${encodeURIComponent(pkg.vcodigo_paquete)}`),
+      apiFetch(`./api/detalle/${encodeURIComponent(pkg.vcodigo_paquete)}`)
     ]);
     state.viaje = mapViajeRow(viajeData.row);
     state.detalle = detalleData.rows.map(mapDetalleRow);
@@ -688,7 +688,7 @@ async function loadDevueltoPreview() {
     const data = await Promise.all(
       state.selected.map(async (pkg) => {
         const codigo = String(pkg.vcodigo_paquete);
-        const response = await apiFetch(`/api/factura-resumen/${encodeURIComponent(codigo)}`);
+        const response = await apiFetch(`./api/factura-resumen/${encodeURIComponent(codigo)}`);
         return [
           codigo,
           {
@@ -787,7 +787,7 @@ async function confirmSave() {
   }
   setLoading(true);
   try {
-    await apiFetch('/api/confirmar', {
+    await apiFetch('./api/confirmar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -820,7 +820,7 @@ function resetWizard() {
 
 async function openLogs() {
   try {
-    const data = await apiFetch('/api/logs');
+    const data = await apiFetch('./api/logs');
     elements.logsContent.textContent = data.content || '';
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('logsModal'));
     modal.show();

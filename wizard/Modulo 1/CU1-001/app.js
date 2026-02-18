@@ -904,10 +904,10 @@ async function enterStep(step) {
   if (step === 2) {
     updateFechaCompleta();
     if (state.cliente.tipo === 'nuevo' && !state.cliente.codigo) {
-      const nextCliente = await fetchJSON('/api/next/cliente');
+      const nextCliente = await fetchJSON('./api/next/cliente');
       state.cliente.codigo = nextCliente.next;
     }
-    const next = await fetchJSON('/api/next/pedido');
+    const next = await fetchJSON('./api/next/pedido');
     state.pedido.codigo = next.next;
     el.codigoPedido.value = state.pedido.codigo || '';
     if (!state.pedidoItems.length) {
@@ -917,7 +917,7 @@ async function enterStep(step) {
   }
   if (step === 3) {
     updateFechaCompleta();
-    const next = await fetchJSON('/api/next/factura');
+    const next = await fetchJSON('./api/next/factura');
     state.factura.numero = next.next;
     el.numeroFactura.value = state.factura.numero || '';
     buildFacturaItems();
@@ -935,7 +935,7 @@ async function enterStep(step) {
     return;
   }
   if (step === 6) {
-    const next = await fetchJSON('/api/next/recibo');
+    const next = await fetchJSON('./api/next/recibo');
     state.pago.numeroBase = Number(next.next || 0);
     el.numeroDocumentoPago.value = state.pago.numeroBase || '';
     recalcPendiente();
@@ -961,7 +961,7 @@ async function enterStep(step) {
 }
 
 async function loadConfig() {
-  const data = await fetchJSON('/api/config');
+  const data = await fetchJSON('./api/config');
   if (data.google_maps) {
     state.config.apiKey = data.google_maps.api_key || '';
     state.config.defaultCenter = data.google_maps.default_center || state.config.defaultCenter;
@@ -970,7 +970,7 @@ async function loadConfig() {
 }
 
 async function loadClientes() {
-  const data = await fetchJSON('/api/clientes');
+  const data = await fetchJSON('./api/clientes');
   state.data.clientes = (data.rows || []).map((row) => ({
     ...row,
     display: `${row.nombre} | ${row.numero}`
@@ -979,7 +979,7 @@ async function loadClientes() {
 }
 
 async function loadProductos() {
-  const data = await fetchJSON('/api/productos');
+  const data = await fetchJSON('./api/productos');
   state.data.productos = (data.rows || []).map((row) => ({
     ...row,
     display: row.nombre
@@ -999,7 +999,7 @@ async function loadSaldoFavor() {
   if (!state.cliente.codigo) {
     return;
   }
-  const data = await fetchJSON(`/api/saldo-favor?cliente=${state.cliente.codigo}`);
+  const data = await fetchJSON(`./api/saldo-favor?cliente=${state.cliente.codigo}`);
   const rows = data.rows || [];
   rows.forEach((row) => {
     const saldo = Number(row.saldo || 0);
@@ -1019,7 +1019,7 @@ async function loadPuntosEntrega() {
     el.puntosEntregaEmpty.classList.remove('d-none');
     return;
   }
-  const data = await fetchJSON(`/api/puntos-entrega?cliente=${state.cliente.codigo}`);
+  const data = await fetchJSON(`./api/puntos-entrega?cliente=${state.cliente.codigo}`);
   state.data.puntosEntrega = (data.rows || []).map((row) => ({
     ...row,
     display: row.concatenarpuntoentrega
@@ -1035,7 +1035,7 @@ async function loadPuntosEntrega() {
 }
 
 async function loadUbigeo() {
-  const depData = await fetchJSON('/api/ubigeo/departamentos');
+  const depData = await fetchJSON('./api/ubigeo/departamentos');
   state.data.departamentos = (depData.rows || []).map((row) => ({
     ...row,
     display: `${row.cod_dep} - ${row.departamento}`
@@ -1048,7 +1048,7 @@ async function loadUbigeo() {
 }
 
 async function loadProvincias(codDep) {
-  const provData = await fetchJSON(`/api/ubigeo/provincias?cod_dep=${codDep}`);
+  const provData = await fetchJSON(`./api/ubigeo/provincias?cod_dep=${codDep}`);
   state.data.provincias = (provData.rows || []).map((row) => ({
     ...row,
     display: `${row.cod_prov} - ${row.provincia}`
@@ -1061,7 +1061,7 @@ async function loadProvincias(codDep) {
 }
 
 async function loadDistritos(codDep, codProv) {
-  const distData = await fetchJSON(`/api/ubigeo/distritos?cod_dep=${codDep}&cod_prov=${codProv}`);
+  const distData = await fetchJSON(`./api/ubigeo/distritos?cod_dep=${codDep}&cod_prov=${codProv}`);
   state.data.distritos = (distData.rows || []).map((row) => ({
     ...row,
     display: `${row.cod_dist} - ${row.distrito}`
@@ -1074,7 +1074,7 @@ async function loadNumRecibe() {
     el.numRecibeEmpty.classList.remove('d-none');
     return;
   }
-  const data = await fetchJSON(`/api/numrecibe?cliente=${state.cliente.codigo}`);
+  const data = await fetchJSON(`./api/numrecibe?cliente=${state.cliente.codigo}`);
   state.data.numrecibe = (data.rows || []).map((row) => ({
     ...row,
     display: row.concatenarnumrecibe
@@ -1090,7 +1090,7 @@ async function loadNumRecibe() {
 }
 
 async function loadCuentas() {
-  const data = await fetchJSON('/api/cuentas');
+  const data = await fetchJSON('./api/cuentas');
   state.data.cuentas = (data.rows || []).map((row) => ({
     ...row,
     display: `${row.nombre} | ${row.banco}`
@@ -1102,7 +1102,7 @@ async function loadBases() {
   if (state.data.bases.length) {
     return;
   }
-  const data = await fetchJSON('/api/bases');
+  const data = await fetchJSON('./api/bases');
   state.data.bases = (data.rows || []).map((row) => ({
     ...row,
     display: `${row.codigo_base} | ${row.nombre}`
@@ -1118,7 +1118,7 @@ async function loadBasesCandidatas() {
     vFCantidadProducto: Number(item.cantidadFactura || 0),
     vFPrecioTotal: Number(item.precioTotal || 0)
   }));
-  const data = await fetchJSON('/api/bases-candidatas', {
+  const data = await fetchJSON('./api/bases-candidatas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ vProdFactura: payload, vFechaP: fechaFactura })
@@ -1300,7 +1300,7 @@ async function validateStep4() {
     }
   }
   if (!state.entrega.codigoPunto) {
-    const next = await fetchJSON(`/api/next/punto-entrega?cliente=${state.cliente.codigo}`);
+    const next = await fetchJSON(`./api/next/punto-entrega?cliente=${state.cliente.codigo}`);
     state.entrega.codigoPunto = next.next;
   }
   updateEntregaConcatenado();
@@ -1330,7 +1330,7 @@ async function validateStep5() {
     return false;
   }
   if (!state.recibe.ordinal) {
-    const next = await fetchJSON(`/api/next/numrecibe?cliente=${state.cliente.codigo}`);
+    const next = await fetchJSON(`./api/next/numrecibe?cliente=${state.cliente.codigo}`);
     state.recibe.ordinal = next.next;
   }
   updateRecibeConcatenado();
@@ -1466,7 +1466,7 @@ async function emitir() {
       }
     };
 
-    const res = await fetchJSON('/api/emitir', {
+    const res = await fetchJSON('./api/emitir', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1578,7 +1578,7 @@ async function calcularEtaBases() {
   }
 
   try {
-    const data = await fetchJSON('/api/distance-matrix', {
+    const data = await fetchJSON('./api/distance-matrix', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

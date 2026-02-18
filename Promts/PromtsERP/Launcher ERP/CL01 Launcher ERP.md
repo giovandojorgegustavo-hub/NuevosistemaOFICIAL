@@ -1,64 +1,101 @@
 CL01: Launcher ERP
 
-# **Prompt AI.
-
-## Caso de Uso: Narrativa.
+## Caso de Uso: Narrativa
 Como desarrollador de aplicaciones web, ayúdame a crear un aplicativo web que actúe como Launcher de web apps y páginas web, con look and feel de una empresa tecnológica que ofrece sistemas ERP en modalidad SaaS a nivel global.
 
-Los datos de conexión se deben tomar del archivo `erp.yml`; la variable `{dsn}` tiene los datos de conexión y se debe usar la DB especificada en la variable `{name}`.
+## Configuración obligatoria
+- Usar exclusivamente el `erp.yml` de la raíz del proyecto.
+- Tomar la conexión desde `connections[0]`, usando:
+- `{dsn}` para conectar a MySQL.
+- `{name}` como base de datos objetivo.
+- El backend del Launcher debe iniciar con `bk_launcher`; si no existe, usar `main_port`; último fallback `2026`.
+- No duplicar `erp.yml` dentro de `wizard/CL01/`.
+- Cada módulo usa un único puerto definido en `erp.yml`:
+- `bk_modulo1_port`
+- `bk_modulo2_port`
+- `bk_modulo3_port`
+- `bk_modulo4_port`
 
-El backend debe iniciar en el puerto configurado en el archivo `erp.yml`, variable `main_port`.
+## Stack técnico
+HTML5, JavaScript ES6+, Bootstrap 5.3, Node.js (Express), MySQL.
 
-El aplicativo deberá capturar Usuario y Password para poder acceder a las apps disponibles. Una vez cargados estos datos en las variables `vUsuario` y `vPassword`, el usuario podrá acceder al Launcher a través del botón "Login".
-
-Al dar click en "Login" el app debe validar las credenciales del usuario con el SP `validar_credenciales_usuario(vUsuario, vPassword)` de la DB. Devuelve 0 si es exitoso, 1 si usuario erróneo y 2 si password errónea.
-
-Si las credenciales son válidas:
-- Desplegar en el Launcher los módulos y casos de uso asociados al usuario que devuelve el SP `get_usecases_usuario(vUsuario)`.
-- Loguear sesión de usuario en la tabla `sesiones` de la DB.
-
-Si no son válidas:
-- Loguear intento fallido de login.
-- Mostrar mensaje de error en pantalla.
-
-El app debe tener una opción en el menú y/o un botón de "Logout" para que el usuario pueda cerrar formalmente su sesión de trabajo.
-
-Se requiere que la interfaz gráfica de usuario (GUI) se muestra en el idioma predeterminado del navegador del usuario.
-
-**Stack técnico:** HTML5, JavaScript ES6+, Bootstrap 5.3, MySQL, Node.js
-
-**Estructura del código:**
+## Estructura del código
 - Web form para captura y validación de credenciales de usuario y login.
 - Landing page con módulos y apps disponibles.
 - Componentes Bootstrap (alerts, badges, cards, etc.).
-- Responsive design para móviles.
-- Backend con endpoints JS corriendo sobre Node.js y persistencia en MySQL.
+- Responsive design para desktop y móviles.
+- Backend con endpoints JS en Node.js y persistencia en MySQL:
+- `POST /api/login`
+- `GET /api/menu`
+- `POST /api/otp`
+- `POST /api/logout`
 
-**User Experience (UX)**
-Incluir manejo de errores y mejores prácticas de UX.
+## User Experience (UX)
+- Incluir manejo de errores y mejores prácticas de UX.
+- Mostrar mensajes claros de login fallido según causa.
+- La GUI debe mostrarse en el idioma predeterminado del navegador del usuario.
 
-## Consistencia visual (Launcher)
-- Si existe `wizard/_design-system/`, usarlo como guia de diseno y copiar sus tokens a los estilos del Launcher (sin depender en runtime del design system).
-- Si no existe `wizard/_design-system/`, crear la carpeta y definir un baseline visual con `design.json` y `tokens.css`.
-- Mantener el resultado del Launcher en una carpeta aparte: `wizard/CL01/`.
-- No mezclar archivos del resultado dentro de `wizard/_design-system/`; esa carpeta se usa solo como referencia compartida.
+## Flujo funcional requerido
+1. Capturar `vUsuario` y `vPassword` y permitir login con botón "Login".
+2. Validar credenciales llamando al SP `validar_credenciales_usuario(vUsuario, vPassword)`.
+3. Interpretar resultado del SP:
+- `0`: login exitoso.
+- `1`: usuario erróneo.
+- `2`: password errónea.
+4. Si las credenciales son válidas:
+- Cargar menú con módulos y sus casos de uso usando `get_usecases_usuario(vUsuario)`.
+- Registrar sesión de usuario en tabla `sesiones`.
+5. Si las credenciales no son válidas:
+- Loguear intento fallido de login.
+- Mostrar mensaje de error en pantalla.
+6. Debe existir opción o botón `Logout` para cerrar formalmente la sesión:
+- Registrar traza de cierre (hora de logout) en la sesión.
+- Cerrar sesión activa del usuario/IP actual.
+
+## Contrato oficial de lanzamiento de use cases
+- Cada vez que el usuario invoca un caso de uso o web app:
+- Generar OTP con `generar_otp_usuario(vUsuario)`.
+- Abrir la URL de destino enviando exactamente:
+- `vUsuario=<id_usuario_logueado>`
+- `vOTP=<otp_generado>`
+- No usar aliases (`u`, `otp`, `codigo_usuario`, etc.).
+- La URL base del caso de uso debe construirse con el puerto del módulo correspondiente (no puertos por CU).
 
 ## Logging obligatorio (backend Node.js)
-- Imprimir en consola TODOS los errores y el SQL ejecutado (incluyendo stored procedures) con timestamp.
+- Imprimir en consola TODOS los errores y TODO el SQL ejecutado (incluyendo stored procedures) con timestamp.
 - Guardar los mismos logs en archivo por ejecución dentro de `wizard/CL01/logs/`.
-- El archivo debe nombrarse `CL01-YYYYMMDD-HHMMSS-001.log` (incrementar el sufijo si ya existe).
-- Los logs deben incluir: inicio del servidor, endpoints invocados, errores y sentencias SQL con parámetros.
+- Formato de nombre: `CL01-YYYYMMDD-HHMMSS-001.log`.
+- Incrementar sufijo si ya existe (`002`, `003`, etc.).
+- Incluir como mínimo:
+- Inicio del servidor.
+- Endpoints invocados.
+- Trazas de navegación.
+- Intentos fallidos de login.
+- Sesiones iniciadas y cerradas.
+- Mensajes de error.
+- Sentencias SQL con parámetros.
 
-# **Funcionalidades requeridas:**
-- Login. Captura y validación de credenciales de usuario.
-- Logout. Cierra la sesión del usuario, sale de la aplicación y guarda traza de la hora de cierre.
+## Unicidad del resultado
+- El resultado debe quedar únicamente en `wizard/CL01/`.
+- Debe existir un solo launcher activo para este prompt.
+- Si existe carpeta duplicada (por ejemplo `wizard/Laucher/`), eliminarla.
+- Para backends de módulos, mantener un único `server.js` por módulo en:
+- `wizard/Modulo 1/server.js`
+- `wizard/Modulo 2/server.js`
+- `wizard/Modulo 3/server.js`
+- `wizard/Modulo 4/server.js`
+
+## Funcionalidades requeridas
+- Login con captura y validación de credenciales.
+- Logout con cierre formal de sesión.
 - Logueo de trazas de navegación.
 - Logueo de intentos fallidos de login.
-- Logueo de mensajes de error.
+- Logueo de errores.
 - Logueo de sesiones.
-- Launch de web apps y páginas web asociadas a los use cases del usuario logueado.
-- Menú de módulos disponibles y casos de uso para el usuario logueado.
+- Launch de web apps y páginas web asociadas a use cases del usuario logueado.
+- Menú de módulos disponibles y casos de uso del usuario logueado.
 - Iconos de módulos en landing page y posibilidad de adicionar accesos directos.
 
-No utilizar datos mock.
-Solo utilizar datos reales de la base de datos especificada en `erp.yml`.
+## Restricciones
+- No utilizar datos mock.
+- Solo utilizar datos reales de la base definida en `erp.yml`.

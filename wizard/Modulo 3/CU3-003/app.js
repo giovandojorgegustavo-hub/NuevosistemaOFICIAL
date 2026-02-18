@@ -246,7 +246,7 @@ class FormWizard {
   }
 
   async loadBootstrap() {
-    const response = await fetch('/api/bootstrap');
+    const response = await fetch('./api/bootstrap');
     const data = await response.json();
 
     if (!response.ok || !data.ok) {
@@ -820,7 +820,7 @@ class FormWizard {
     this.setLoading(true);
 
     try {
-      const response = await fetch('/api/nota-credito-proveedor', {
+      const response = await fetch('./api/nota-credito-proveedor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(this.buildPayload())

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CU2005 - Stock por Base</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-orb orb-one"></div>
+    <div class="bg-orb orb-two"></div>
+
+    <main class="container py-4 py-lg-5">
+      <section class="wizard-shell mx-auto">
+        <header class="wizard-head mb-4">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+              <p class="eyebrow mb-2" data-i18n="eyebrow">GLOBAL IAAS + PAAS</p>
+              <h1 class="h3 h2-lg mb-2" data-i18n="title">Consulta de Stock por Base</h1>
+              <p class="text-muted mb-0" data-i18n="subtitle">
+                Consulta en un solo paso el saldo por producto en la base activa.
+              </p>
+            </div>
+            <div class="case-id">CU2-005</div>
+          </div>
+
+          <div class="mt-4">
+            <div class="progress" role="progressbar" aria-label="Wizard progress" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" id="vProgressBar" style="width: 100%"></div>
+            </div>
+            <div class="steps mt-3">
+              <span class="step-pill active" data-i18n="step1Pill">1. Stock por Base</span>
+            </div>
+          </div>
+        </header>
+
+        <div id="vAlertBox" class="alert alert-danger d-none" role="alert"></div>
+        <div id="vInfoBox" class="alert alert-info d-none" role="status"></div>
+
+        <section class="wizard-step" id="vStep1">
+          <div class="card card-surface">
+            <div class="card-body p-4 p-lg-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0" data-i18n="step1Title">Paso 1. Stock por Base</h2>
+                <div class="spinner-border spinner-border-sm text-primary d-none" id="vLoadingIndicator" role="status"></div>
+              </div>
+
+              <input type="hidden" id="vBase" />
+              <input type="hidden" id="vPriv" />
+              <input type="hidden" id="vBaseAux" />
+
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-lg-5">
+                  <label for="vBaseTexto" class="form-label" data-i18n="baseActiveLabel">Base activa</label>
+                  <input id="vBaseTexto" class="form-control" readonly />
+                </div>
+
+                <div class="col-12 col-lg-5 d-none" id="vBaseSelectorWrap">
+                  <label for="vBaseSelector" class="form-label" data-i18n="baseSelectorLabel">Cambiar base</label>
+                  <input
+                    id="vBaseSelector"
+                    class="form-control"
+                    list="vBasesList"
+                    autocomplete="off"
+                    data-i18n-placeholder="baseSelectorPlaceholder"
+                    placeholder="Escribe para filtrar por codigo o nombre"
+                  />
+                  <datalist id="vBasesList"></datalist>
+                  <div class="form-text" data-i18n="baseSelectorHelp">Typeahead habilitado para filtrar miles de registros.</div>
+                </div>
+
+                <div class="col-12 col-lg-2 d-grid">
+                  <button id="vBtnActualizarStock" type="button" class="btn btn-primary" data-i18n="refreshBtn">
+                    Actualizar Stock
+                  </button>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <label for="vFiltroRapido" class="form-label" data-i18n="quickFilterLabel">Filtro rapido</label>
+                  <input
+                    id="vFiltroRapido"
+                    class="form-control"
+                    autocomplete="off"
+                    data-i18n-placeholder="quickFilterPlaceholder"
+                    placeholder="Filtra por base, producto o codigo"
+                  />
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="small text-muted mt-2">
+                    <span data-i18n="rowsLabel">Registros:</span>
+                    <strong id="vRowsCount">0</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-responsive mt-4">
+                <table class="table table-hover align-middle" id="vStockTable">
+                  <thead>
+                    <tr>
+                      <th scope="col"><button type="button" class="sort-btn" data-sort="nombre_base" data-i18n="thBase">Base</button></th>
+                      <th scope="col"><button type="button" class="sort-btn" data-sort="codigo_producto" data-i18n="thCodigoProducto">Cod. Producto</button></th>
+                      <th scope="col"><button type="button" class="sort-btn" data-sort="nombre_producto" data-i18n="thProducto">Producto</button></th>
+                      <th scope="col"><button type="button" class="sort-btn" data-sort="fecha_saldoactual" data-i18n="thFecha">Fecha</button></th>
+                      <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_actual" data-i18n="thSaldoActual">Saldo Actual</button></th>
+                      <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="costo_unitario" data-i18n="thCostoUnitario">Costo Unitario</button></th>
+                      <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_reservado" data-i18n="thSaldoReservado">Saldo Reservado</button></th>
+                      <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_disponible" data-i18n="thSaldoDisponible">Saldo Disponible</button></th>
+                    </tr>
+                  </thead>
+                  <tbody id="vStockTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

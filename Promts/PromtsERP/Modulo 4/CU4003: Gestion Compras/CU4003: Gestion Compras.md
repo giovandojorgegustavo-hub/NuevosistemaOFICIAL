@@ -1,5 +1,22 @@
-**
+## Precondicion de Acceso (Obligatoria)
+La pagina debe recibir dos parametros obligatorios y un tercer parametro opcional. Los parametros son:
 
+- `Codigo_usuario` varchar(36)
+- `OTP` varchar(6)
+- `vParámetros` JSON (opcional)
+
+Al iniciar la pagina se debe llamar el SP `validar_otp_usuario` pasandole como parametros `Codigo_usuario` y `OTP` para verificar si es un usuario valido.
+
+El SP `validar_otp_usuario` devuelve:
+- `1`: SI usuario y OTP son validos.
+- `-1`: OTP expirado.
+- `0`: NO EXISTE TOKEN.
+
+Si `validar_otp_usuario` devuelve un valor diferente de `1`:
+- Mostrar mensaje exacto: `Warning ACCESO NO AUTORIZADO !!!`
+- Cerrar la pagina y salir del programa.
+
+**
 CU4003: Gestion Compras
 
 # **Prompt AI.
@@ -100,8 +117,8 @@ El usuario podra seleccionar del Grid cual es la factura de compra para pasar al
 vTipo_documento_compra_remito = "REM".
 
 vNum_documento_compra_remito =
-`SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito` (si no hay filas, usar 1). No editable.
-vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = vTipo_documento_compra_remito AND numdocumentostock = vNum_documento_compra_remito` (si no hay filas, usar 1).
+`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = vTipo_documento_compra_remito` (si no hay filas, usar 1). No editable.
+vOrdinal = `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_mov_contable_prov WHERE tipo_documento_compra = vTipo_documento_compra_remito AND num_documento_compra = vNum_documento_compra_remito AND codigo_provedor = vCodigo_provedor` (si no hay filas, usar 1).
 
 vBases = Llamada SP: `get_bases()` (devuelve campo_visible)
 Campos devueltos: `codigo_base`, `nombre`, `latitud`, `longitud`
@@ -138,21 +155,25 @@ No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.
 
 ## Tablas a registrar
-movimiento_stock:
-tipodocumentostock=vTipo_documento_compra_remito  
-numdocumentostock=vNum_documento_compra_remito  
-fecha=vFecha  
-codigo_base=vCodigo_base  
-tipo_documento_compra=vTipo_documento_compra_origen  
-num_documento_compra=vNum_documento_compra_origen  
+mov_contable_prov:
+tipo_documento_compra=vTipo_documento_compra_remito  
+num_documento_compra=vNum_documento_compra_remito  
 codigo_provedor=vCodigo_provedor  
+fecha=vFecha  
+monto=0  
+saldo=0  
 
-detalle_movimiento_stock (por item):
-tipodocumentostock=vTipo_documento_compra_remito  
-numdocumentostock=vNum_documento_compra_remito  
+detalle_mov_contable_prov (por item):
+tipo_documento_compra=vTipo_documento_compra_remito  
+num_documento_compra=vNum_documento_compra_remito  
+codigo_provedor=vCodigo_provedor  
+codigo_base=vCodigo_base  
 ordinal=vOrdinal  
 codigo_producto=vcodigo_producto  
 cantidad=vCantidadDisponible  
+cantidad_entregada=vCantidadDisponible  
+saldo=vCantidadDisponible  
+monto=0  
 
 ## Procedimientos que se llaman
 `CALL aplicar_entrega_compra(vTipo_documento_compra_origen, vNum_documento_compra_origen, vCodigo_provedor, vOrdinalCompra, vCantidadDisponible)` por item  

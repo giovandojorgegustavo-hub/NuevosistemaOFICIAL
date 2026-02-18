@@ -156,9 +156,117 @@ function extractRows(result) {
   return Array.isArray(result) ? result : [];
 }
 
+// OTP_GATE_ENABLED_START
+function extractFirstInteger(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return Number(value.trim());
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = extractFirstInteger(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const parsed = extractFirstInteger(value[key]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function extractAuthParams(source) {
+  const codigoUsuarioRaw = source?.vUsuario ?? source?.Codigo_usuario ?? source?.codigo_usuario;
+  const otpRaw = source?.vOTP ?? source?.OTP ?? source?.otp;
+  const codigoUsuario = String(codigoUsuarioRaw ?? '').trim();
+  const otp = String(otpRaw ?? '').trim();
+  return { codigoUsuario, otp };
+}
+
+function hasValidAuthFormat(codigoUsuario, otp) {
+  if (!codigoUsuario || !otp) {
+    return false;
+  }
+  if (codigoUsuario.length > 36 || otp.length > 6) {
+    return false;
+  }
+  return true;
+}
+
+function unauthorizedHtml() {
+  const text = 'Warning ACCESO NO AUTORIZADO !!!';
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Acceso no autorizado</title></head><body><script>alert(' +
+    JSON.stringify(text) +
+    ');try{window.open("","_self");window.close();}catch(e){}setTimeout(function(){location.replace("about:blank");},120);</script></body></html>';
+}
+
+function resolvePoolReference() {
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
+  if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
+  if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
+  if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
+  return null;
+}
+
+async function validarOtp(poolRef, codigoUsuario, otp) {
+  const conn = await poolRef.getConnection();
+  try {
+    if (typeof runQuery === 'function') {
+      await runQuery(conn, 'CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+      const [rows] = await runQuery(conn, 'SELECT @p_resultado AS resultado');
+      return extractFirstInteger(rows);
+    }
+
+    if (typeof execQuery === 'function') {
+      await execQuery('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp], conn);
+      const rows = await execQuery('SELECT @p_resultado AS resultado', [], conn);
+      return extractFirstInteger(rows);
+    }
+
+    await conn.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+    const [rows] = await conn.query('SELECT @p_resultado AS resultado');
+    return extractFirstInteger(rows);
+  } finally {
+    conn.release();
+  }
+}
+async function authorizeAndServeIndex(req, res) {
+  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    res.status(503).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  } catch (error) {
+    logError(error, 'INDEX OTP VALIDATION ERROR');
+    res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+  }
+}
+// OTP_GATE_ENABLED_END
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(ROOT_DIR));
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path}`);
@@ -220,16 +328,17 @@ app.get('/api/remito-meta', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const vTipo_documento_compra_remito = 'REM';
+    const vCodigo_provedor = Number(req.query.vCodigo_provedor || req.query.codigo_provedor || 0);
     const [[numRow]] = await runQuery(
       conn,
-      'SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ?',
+      'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
       [vTipo_documento_compra_remito]
     );
     const vNum_documento_compra_remito = numRow ? numRow.next : 1;
     const [[ordRow]] = await runQuery(
       conn,
-      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?',
-      [vTipo_documento_compra_remito, vNum_documento_compra_remito]
+      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_mov_contable_prov WHERE tipo_documento_compra = ? AND num_documento_compra = ? AND codigo_provedor = ?',
+      [vTipo_documento_compra_remito, vNum_documento_compra_remito, vCodigo_provedor]
     );
     const vOrdinal = ordRow ? ordRow.next : 1;
 
@@ -308,7 +417,7 @@ app.post('/api/registrar-remito', async (req, res) => {
     const vTipo_documento_compra_remito = 'REM';
     const [[numRow]] = await runQuery(
       conn,
-      'SELECT COALESCE(MAX(numdocumentostock), 0) + 1 AS next FROM movimiento_stock WHERE tipodocumentostock = ?',
+      'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
       [vTipo_documento_compra_remito]
     );
     const vNum_documento_compra_remito = numRow ? numRow.next : 1;
@@ -326,22 +435,19 @@ app.post('/api/registrar-remito', async (req, res) => {
 
     const [[ordRow]] = await runQuery(
       conn,
-      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_movimiento_stock WHERE tipodocumentostock = ? AND numdocumentostock = ?',
-      [vTipo_documento_compra_remito, vNum_documento_compra_remito]
+      'SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM detalle_mov_contable_prov WHERE tipo_documento_compra = ? AND num_documento_compra = ? AND codigo_provedor = ?',
+      [vTipo_documento_compra_remito, vNum_documento_compra_remito, vCodigo_provedor]
     );
     let nextOrdinal = ordRow ? ordRow.next : 1;
 
     await runQuery(
       conn,
-      'INSERT INTO movimiento_stock (tipodocumentostock, numdocumentostock, fecha, codigo_base, tipo_documento_compra, num_documento_compra, codigo_provedor) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto, saldo) VALUES (?, ?, ?, ?, 0, 0)',
       [
         vTipo_documento_compra_remito,
         vNum_documento_compra_remito,
-        vFecha,
-        vCodigo_base,
-        vTipo_documento_compra_origen,
-        vNum_documento_compra_origen,
-        vCodigo_provedor
+        vCodigo_provedor,
+        vFecha
       ]
     );
 
@@ -367,8 +473,18 @@ app.post('/api/registrar-remito', async (req, res) => {
 
       await runQuery(
         conn,
-        'INSERT INTO detalle_movimiento_stock (tipodocumentostock, numdocumentostock, ordinal, codigo_producto, cantidad) VALUES (?, ?, ?, ?, ?)',
-        [vTipo_documento_compra_remito, vNum_documento_compra_remito, nextOrdinal, codigoProducto, cantidad]
+        'INSERT INTO detalle_mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_base, ordinal, codigo_producto, cantidad, cantidad_entregada, saldo, monto) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)',
+        [
+          vTipo_documento_compra_remito,
+          vNum_documento_compra_remito,
+          vCodigo_provedor,
+          vCodigo_base,
+          nextOrdinal,
+          codigoProducto,
+          cantidad,
+          cantidad,
+          cantidad
+        ]
       );
       nextOrdinal += 1;
 

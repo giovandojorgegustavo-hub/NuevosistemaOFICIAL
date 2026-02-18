@@ -638,11 +638,11 @@ class FormWizard {
     this.setLoading(true);
     try {
       const [configData, basesData, productosData, cuentasData, etiquetasData] = await Promise.all([
-        this.fetchJson('/api/metadata'),
-        this.fetchJson('/api/bases'),
-        this.fetchJson('/api/productos'),
-        this.fetchJson('/api/cuentas'),
-        this.fetchJson('/api/etiquetas-gastos')
+        this.fetchJson('./api/metadata'),
+        this.fetchJson('./api/bases'),
+        this.fetchJson('./api/productos'),
+        this.fetchJson('./api/cuentas'),
+        this.fetchJson('./api/etiquetas-gastos')
       ]);
 
       this.state.config = configData.data || {};
@@ -662,7 +662,7 @@ class FormWizard {
 
   async reloadConfig() {
     try {
-      const configData = await this.fetchJson('/api/metadata');
+      const configData = await this.fetchJson('./api/metadata');
       this.state.config = configData.data || {};
       this.applyConfig();
     } catch (error) {
@@ -1043,7 +1043,7 @@ class FormWizard {
 
     this.setLoading(true);
     try {
-      await this.fetchJson('/api/fabricacion', {
+      await this.fetchJson('./api/fabricacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

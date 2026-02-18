@@ -136,9 +136,176 @@ function unwrapRows(result) {
   return Array.isArray(result) ? result : [];
 }
 
+function normalizeUserCode(value) {
+  return String(value ?? '').trim();
+}
+
+function hasValidUserCode(value) {
+  return /^[A-Za-z0-9-]{1,36}$/.test(String(value || '').trim());
+}
+
+function normalizeBaseCode(value) {
+  const text = String(value ?? '').trim();
+  return /^\d+$/.test(text) ? text : '';
+}
+
+function mapBaseRow(row) {
+  return {
+    codigo_base: normalizeBaseCode(row?.codigo_base),
+    nombre: String(row?.nombre ?? '').trim()
+  };
+}
+
+function mapPrivRow(row) {
+  const values = Object.values(row || {});
+  const base = row?.codigo_base ?? row?.base ?? values[0] ?? '';
+  const priv = row?.privilegio ?? row?.priv ?? values[1] ?? '';
+  const baseAux = row?.base_aux ?? row?.auxiliar ?? values[2] ?? '';
+
+  return {
+    vBase: normalizeBaseCode(base),
+    vPriv: String(priv ?? '').trim().toUpperCase(),
+    vBaseAux: baseAux === null || baseAux === undefined ? '' : String(baseAux).trim()
+  };
+}
+
+function resolveBaseText(privData, bases) {
+  const baseCode = normalizeBaseCode(privData?.vBase);
+  const foundBase = (bases || []).find((row) => String(row.codigo_base) === String(baseCode));
+  if (foundBase && foundBase.nombre) {
+    return `${foundBase.codigo_base} - ${foundBase.nombre}`;
+  }
+  if (privData?.vBaseAux) {
+    return `${baseCode} - ${privData.vBaseAux}`;
+  }
+  return baseCode;
+}
+
+function extractCodigoUsuario(source) {
+  const raw = source?.Codigo_usuario ?? source?.codigo_usuario ?? source?.vUsuario ?? source?.vCodigo_usuario;
+  return normalizeUserCode(raw);
+}
+
+async function loadPrivData(conn, codigoUsuario) {
+  const [result] = await runQuery(conn, 'CALL get_priv_usuario(?)', [codigoUsuario]);
+  const rows = unwrapRows(result);
+  if (!rows.length) {
+    return null;
+  }
+  return mapPrivRow(rows[0]);
+}
+
+// OTP_GATE_ENABLED_START
+function extractFirstInteger(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return Number(value.trim());
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = extractFirstInteger(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const parsed = extractFirstInteger(value[key]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function extractAuthParams(source) {
+  const codigoUsuarioRaw = source?.vUsuario ?? source?.Codigo_usuario ?? source?.codigo_usuario;
+  const otpRaw = source?.vOTP ?? source?.OTP ?? source?.otp;
+  const codigoUsuario = String(codigoUsuarioRaw ?? '').trim();
+  const otp = String(otpRaw ?? '').trim();
+  return { codigoUsuario, otp };
+}
+
+function hasValidAuthFormat(codigoUsuario, otp) {
+  if (!codigoUsuario || !otp) {
+    return false;
+  }
+  if (codigoUsuario.length > 36 || otp.length > 6) {
+    return false;
+  }
+  return true;
+}
+
+function unauthorizedHtml() {
+  const text = 'Warning ACCESO NO AUTORIZADO !!!';
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Acceso no autorizado</title></head><body><script>alert(' +
+    JSON.stringify(text) +
+    ');try{window.open("","_self");window.close();}catch(e){}setTimeout(function(){location.replace("about:blank");},120);</script></body></html>';
+}
+
+function resolvePoolReference() {
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
+  if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
+  if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
+  if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
+  return null;
+}
+
+async function validarOtp(poolRef, codigoUsuario, otp) {
+  const conn = await poolRef.getConnection();
+  try {
+    if (typeof runQuery === 'function') {
+      await runQuery(conn, 'CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+      const [rows] = await runQuery(conn, 'SELECT @p_resultado AS resultado');
+      return extractFirstInteger(rows);
+    }
+
+    if (typeof execQuery === 'function') {
+      await execQuery('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp], conn);
+      const rows = await execQuery('SELECT @p_resultado AS resultado', [], conn);
+      return extractFirstInteger(rows);
+    }
+
+    await conn.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+    const [rows] = await conn.query('SELECT @p_resultado AS resultado');
+    return extractFirstInteger(rows);
+  } finally {
+    conn.release();
+  }
+}
+async function authorizeAndServeIndex(req, res) {
+  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    res.status(503).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  } catch (error) {
+    logError(error, 'INDEX OTP VALIDATION ERROR');
+    res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+  }
+}
+// OTP_GATE_ENABLED_END
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(ROOT_DIR));
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path}`);
@@ -150,15 +317,43 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/bases', async (req, res) => {
+  const codigoUsuario = extractCodigoUsuario(req.query || {});
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
+
   try {
     const conn = await app.locals.pool.getConnection();
     try {
+      const privData = await loadPrivData(conn, codigoUsuario);
+      if (!privData || !privData.vBase) {
+        return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+      }
+
       const [result] = await runQuery(conn, 'CALL get_bases()');
-      const rows = unwrapRows(result).map((row) => ({
-        codigo_base: row.codigo_base,
-        nombre: row.nombre
-      }));
-      return res.json({ ok: true, rows });
+      const allBases = unwrapRows(result).map(mapBaseRow).filter((row) => row.codigo_base);
+
+      const rows =
+        privData.vPriv === 'ALL'
+          ? allBases
+          : allBases.filter((row) => String(row.codigo_base) === String(privData.vBase));
+
+      const fallbackRows = rows.length
+        ? rows
+        : [
+            {
+              codigo_base: privData.vBase,
+              nombre: privData.vBaseAux || privData.vBase
+            }
+          ];
+
+      return res.json({
+        ok: true,
+        rows: fallbackRows,
+        vPriv: privData.vPriv,
+        vBase: privData.vBase,
+        vBaseTexto: resolveBaseText(privData, allBases)
+      });
     } finally {
       conn.release();
     }
@@ -171,10 +366,15 @@ app.get('/api/bases', async (req, res) => {
 app.post('/api/guardar-packing', async (req, res) => {
   const payload = req.body || {};
 
+  const codigoUsuario = extractCodigoUsuario(payload);
   const vcodigo_base = String(payload.vcodigo_base || '').trim();
   const vnombre_packing_nuevo = String(payload.vnombre_packing_nuevo || '').trim();
   const vtipo_packing_nuevo = String(payload.vtipo_packing_nuevo || '').trim();
   const vdescripcion_packing_nuevo = String(payload.vdescripcion_packing_nuevo || '').trim();
+
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
 
   const numberRegex = /^\d+$/;
   if (!vcodigo_base || !numberRegex.test(vcodigo_base)) {
@@ -187,6 +387,22 @@ app.post('/api/guardar-packing', async (req, res) => {
   const conn = await app.locals.pool.getConnection();
 
   try {
+    const privData = await loadPrivData(conn, codigoUsuario);
+    if (!privData || !privData.vBase) {
+      return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+    }
+
+    if (privData.vPriv !== 'ALL' && String(vcodigo_base) !== String(privData.vBase)) {
+      return res.status(403).json({ ok: false, message: 'BASE_FORBIDDEN' });
+    }
+
+    const [basesResult] = await runQuery(conn, 'CALL get_bases()');
+    const allBases = unwrapRows(basesResult).map(mapBaseRow).filter((row) => row.codigo_base);
+    const baseExists = allBases.some((row) => String(row.codigo_base) === String(vcodigo_base));
+    if (!baseExists) {
+      return res.status(400).json({ ok: false, message: 'VALIDATION_CODIGO_BASE' });
+    }
+
     logSql('BEGIN');
     await conn.beginTransaction();
 

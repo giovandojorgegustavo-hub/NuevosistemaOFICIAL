@@ -1,5 +1,22 @@
-**
+## Precondicion de Acceso (Obligatoria)
+La pagina debe recibir dos parametros obligatorios y un tercer parametro opcional. Los parametros son:
 
+- `Codigo_usuario` varchar(36)
+- `OTP` varchar(6)
+- `vParámetros` JSON (opcional)
+
+Al iniciar la pagina se debe llamar el SP `validar_otp_usuario` pasandole como parametros `Codigo_usuario` y `OTP` para verificar si es un usuario valido.
+
+El SP `validar_otp_usuario` devuelve:
+- `1`: SI usuario y OTP son validos.
+- `-1`: OTP expirado.
+- `0`: NO EXISTE TOKEN.
+
+Si `validar_otp_usuario` devuelve un valor diferente de `1`:
+- Mostrar mensaje exacto: `Warning ACCESO NO AUTORIZADO !!!`
+- Cerrar la pagina y salir del programa.
+
+**
 CU003: Gestionar paquetes en camino
 
 # **Prompt AI.
@@ -202,12 +219,13 @@ Por cada paquete seleccionado:
     - `CALL aplicar_nota_credito_a_factura("NTC", correlativo, "FAC", vcodigo_paquete, factura.monto)`
     - Si la factura ya está en saldo 0: no aplicar nada; la NTC queda con saldo completo.
   - Ejecutar SP: `actualizarsaldosclientes(factura.codigo_cliente, "NTC", factura.monto)` (sumar saldo cliente).
+  - Ejecutar SP: `revertir_salidaspedidos("FAC", vcodigo_paquete)` para reponer `pedido_detalle.saldo` y dejar el pedido pendiente de nueva facturacion.
 - Ejecutar SP: `cambiar_estado_paquete(vcodigo_paquete, nuevo_estado)`.
 
 - Si estado = `devuelto`: ejecutar flujo de anulacion de factura (sin registrar documentos nuevos en `mov_contable` ni `mov_contable_detalle`):
 
   Cambiar estado de la factura a anulado:
-  - `UPDATE mov_contable SET estado = 'anulado', saldo = 0 WHERE tipo_documento = 'FAC' AND numero_documento = vcodigo_paquete`
+  - `CALL anular_documento_cliente('FAC', vcodigo_paquete)`
 
   Revertir pagos aplicados a la factura anulada:
   - `CALL revertir_pagos_factura_cliente('FAC', vcodigo_paquete)`
@@ -218,9 +236,15 @@ Por cada paquete seleccionado:
   Devolver productos a inventario usando cantidad negativa:
   - Por cada item del detalle ejecutar:
   - `CALL upd_stock_bases(vCodigo_base, vCodigo_producto, -vCantidad, "FAC", vcodigo_paquete)`
+  - Si el paquete aun esta en `pendiente empacar`, `upd_stock_bases` no debe mover stock para `FAC`.
 
-  Borrar partidas consumidas por esa factura:
-  - `DELETE FROM detalle_movs_partidas WHERE tipo_documento_venta = 'FAC' AND numero_documento = vcodigo_paquete`
+  Revertir partidas consumidas por esa factura:
+  - `CALL revertir_salida_partidas_documento('FAC', vcodigo_paquete)`
+  - Debe devolver saldo en `detalle_mov_contable_prov` y limpiar `detalle_movs_partidas`.
+
+  Revertir consumo del pedido asociado:
+  - `CALL revertir_salidaspedidos('FAC', vcodigo_paquete)`
+  - Debe reponer `pedido_detalle.saldo` sin exceder `pedido_detalle.cantidad`.
 
   Actualizar saldo del cliente:
   - `CALL actualizarsaldosclientes(vCodigo_cliente, 'FAC', -vTotalFactura)`

@@ -273,7 +273,7 @@ class FormWizard {
   async loadProveedores() {
     try {
       this.setLoading(true);
-      const response = await fetch('/api/proveedores-pendientes');
+      const response = await fetch('./api/proveedores-pendientes');
       const payload = await response.json();
       if (!payload.ok) {
         throw new Error('API');
@@ -345,7 +345,7 @@ class FormWizard {
   }
 
   async loadCuentas() {
-    const response = await fetch('/api/cuentas-bancarias');
+    const response = await fetch('./api/cuentas-bancarias');
     const payload = await response.json();
     if (!payload.ok) {
       throw new Error('API');
@@ -355,7 +355,7 @@ class FormWizard {
   }
 
   async loadNumeroDocumento() {
-    const response = await fetch('/api/next-numero-documento?tipo=RCC');
+    const response = await fetch('./api/next-numero-documento?tipo=RCC');
     const payload = await response.json();
     if (!payload.ok) {
       throw new Error('API');
@@ -452,7 +452,7 @@ class FormWizard {
 
     try {
       this.setLoading(true);
-      const response = await fetch('/api/recibos-proveedor', {
+      const response = await fetch('./api/recibos-proveedor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

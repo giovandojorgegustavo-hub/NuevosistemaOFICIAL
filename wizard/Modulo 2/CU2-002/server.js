@@ -133,13 +133,168 @@ function unwrapRows(result) {
   return result;
 }
 
+function normalizeUserCode(value) {
+  return String(value ?? '').trim();
+}
+
+function hasValidUserCode(value) {
+  return /^[A-Za-z0-9-]{1,36}$/.test(String(value || '').trim());
+}
+
+function normalizeBaseCode(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  return /^\d+$/.test(raw) ? raw : '';
+}
+
+function extractCodigoUsuario(source) {
+  const raw = source?.Codigo_usuario ?? source?.codigo_usuario ?? source?.vUsuario ?? source?.vCodigo_usuario;
+  return normalizeUserCode(raw);
+}
+
+function mapPrivRow(row) {
+  const values = Object.values(row || {});
+  const base = row?.codigo_base ?? row?.base ?? values[0] ?? '';
+  const priv = row?.privilegio ?? row?.priv ?? values[1] ?? '';
+  const baseAux = row?.base_aux ?? row?.auxiliar ?? values[2] ?? '';
+
+  return {
+    vBase: normalizeBaseCode(base),
+    vPriv: String(priv ?? '').trim().toUpperCase(),
+    vBaseAux: baseAux === null || baseAux === undefined ? '' : String(baseAux).trim()
+  };
+}
+
+async function loadPrivData(conn, codigoUsuario) {
+  const [result] = await runQuery(conn, 'CALL get_priv_usuario(?)', [codigoUsuario]);
+  const rows = unwrapRows(result);
+  if (!Array.isArray(rows) || !rows.length) {
+    return null;
+  }
+  return mapPrivRow(rows[0]);
+}
+
+function hasBaseAccess(privData, codigoBase) {
+  if (!privData) return false;
+  if (privData.vPriv === 'ALL') return true;
+  return String(codigoBase || '') === String(privData.vBase || '');
+}
+
 function getClientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '';
 }
 
+// OTP_GATE_ENABLED_START
+function extractFirstInteger(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return Number(value.trim());
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const parsed = extractFirstInteger(item);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const parsed = extractFirstInteger(value[key]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  }
+  return null;
+}
+
+function extractAuthParams(source) {
+  const codigoUsuarioRaw = source?.vUsuario ?? source?.Codigo_usuario ?? source?.codigo_usuario;
+  const otpRaw = source?.vOTP ?? source?.OTP ?? source?.otp;
+  const codigoUsuario = String(codigoUsuarioRaw ?? '').trim();
+  const otp = String(otpRaw ?? '').trim();
+  return { codigoUsuario, otp };
+}
+
+function hasValidAuthFormat(codigoUsuario, otp) {
+  if (!codigoUsuario || !otp) {
+    return false;
+  }
+  if (codigoUsuario.length > 36 || otp.length > 6) {
+    return false;
+  }
+  return true;
+}
+
+function unauthorizedHtml() {
+  const text = 'Warning ACCESO NO AUTORIZADO !!!';
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Acceso no autorizado</title></head><body><script>alert(' +
+    JSON.stringify(text) +
+    ');try{window.open("","_self");window.close();}catch(e){}setTimeout(function(){location.replace("about:blank");},120);</script></body></html>';
+}
+
+function resolvePoolReference() {
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
+  if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
+  if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
+  if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
+  return null;
+}
+
+async function validarOtp(poolRef, codigoUsuario, otp) {
+  const conn = await poolRef.getConnection();
+  try {
+    if (typeof runQuery === 'function') {
+      await runQuery(conn, 'CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+      const [rows] = await runQuery(conn, 'SELECT @p_resultado AS resultado');
+      return extractFirstInteger(rows);
+    }
+
+    if (typeof execQuery === 'function') {
+      await execQuery('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp], conn);
+      const rows = await execQuery('SELECT @p_resultado AS resultado', [], conn);
+      return extractFirstInteger(rows);
+    }
+
+    await conn.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+    const [rows] = await conn.query('SELECT @p_resultado AS resultado');
+    return extractFirstInteger(rows);
+  } finally {
+    conn.release();
+  }
+}
+async function authorizeAndServeIndex(req, res) {
+  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    res.status(503).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+    return;
+  }
+
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+      return;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  } catch (error) {
+    logError(error, 'INDEX OTP VALIDATION ERROR');
+    res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
+  }
+}
+// OTP_GATE_ENABLED_END
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
-app.use(express.static(ROOT_DIR));
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path} ip=${getClientIp(req)}`);
@@ -161,12 +316,31 @@ app.get('/api/maps-config', (req, res) => {
 });
 
 app.get('/api/paquetes-pendientes', async (req, res) => {
+  const codigoUsuario = extractCodigoUsuario(req.query || {});
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
+
   try {
     const conn = await dbState.pool.getConnection();
     try {
+      const privData = await loadPrivData(conn, codigoUsuario);
+      if (!privData || (privData.vPriv !== 'ALL' && !privData.vBase)) {
+        return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+      }
+
       const [result] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', ['pendiente empacar']);
-      const rows = unwrapRows(result);
-      res.json({ ok: true, rows });
+      const sourceRows = unwrapRows(result);
+      const rows = (Array.isArray(sourceRows) ? sourceRows : []).filter((row) =>
+        privData.vPriv === 'ALL' ? true : String(row.codigo_base || '') === String(privData.vBase)
+      );
+
+      res.json({
+        ok: true,
+        rows,
+        vPriv: privData.vPriv,
+        vBase: privData.vBase
+      });
     } finally {
       conn.release();
     }
@@ -187,6 +361,11 @@ app.get('/api/packings', async (req, res) => {
 
   const codigoBase = normalizeNumericId(req.query.codigo_base);
   const codigoCliente = normalizeNumericId(req.query.codigo_cliente);
+  const codigoUsuario = extractCodigoUsuario(req.query || {});
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
+
   const hasBase = Boolean(codigoBase);
   const hasCliente = Boolean(codigoCliente);
   if (!hasBase && !hasCliente) {
@@ -196,6 +375,15 @@ app.get('/api/packings', async (req, res) => {
   try {
     const conn = await dbState.pool.getConnection();
     try {
+      const privData = await loadPrivData(conn, codigoUsuario);
+      if (!privData || (privData.vPriv !== 'ALL' && !privData.vBase)) {
+        return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+      }
+
+      if (privData.vPriv !== 'ALL' && (!hasBase || !hasBaseAccess(privData, codigoBase))) {
+        return res.status(403).json({ ok: false, message: 'BASE_FORBIDDEN' });
+      }
+
       let sourceRows = [];
 
       if (hasBase) {
@@ -236,9 +424,31 @@ app.get('/api/packings', async (req, res) => {
 
 app.get('/api/detalle/:codigo', async (req, res) => {
   const codigo = String(req.params.codigo || '').trim();
+  const codigoUsuario = extractCodigoUsuario(req.query || {});
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
+
   try {
     const conn = await dbState.pool.getConnection();
     try {
+      const privData = await loadPrivData(conn, codigoUsuario);
+      if (!privData || (privData.vPriv !== 'ALL' && !privData.vBase)) {
+        return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+      }
+
+      if (privData.vPriv !== 'ALL') {
+        const [pendientesResult] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', ['pendiente empacar']);
+        const pendientes = unwrapRows(pendientesResult);
+        const paquete = (Array.isArray(pendientes) ? pendientes : []).find(
+          (row) => String(row.codigo_paquete || '').trim() === codigo
+        );
+
+        if (!paquete || !hasBaseAccess(privData, normalizeBaseCode(paquete.codigo_base))) {
+          return res.status(403).json({ ok: false, message: 'BASE_FORBIDDEN' });
+        }
+      }
+
       const [result] = await runQuery(conn, 'CALL get_mov_contable_detalle(?, ?)', ['FAC', codigo]);
       const rows = unwrapRows(result);
       res.json({ ok: true, rows });
@@ -269,7 +479,11 @@ app.get('/api/logs', async (req, res) => {
 app.post('/api/empacar', async (req, res) => {
   const codigo = String(req.body.codigo_paquete || '').trim();
   const codigoPacking = String(req.body.codigo_packing || '').trim();
+  const codigoUsuario = extractCodigoUsuario(req.body || {});
   const codigoRegex = /^\d+$/;
+  if (!hasValidUserCode(codigoUsuario)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_USUARIO_REQUIRED' });
+  }
   if (!codigo || !codigoRegex.test(codigo)) {
     return res.status(400).json({ ok: false, message: 'INVALID_INPUT' });
   }
@@ -278,8 +492,15 @@ app.post('/api/empacar', async (req, res) => {
   }
 
   const conn = await dbState.pool.getConnection();
+  let transactionStarted = false;
   try {
+    const privData = await loadPrivData(conn, codigoUsuario);
+    if (!privData || (privData.vPriv !== 'ALL' && !privData.vBase)) {
+      throw new Error('UNAUTHORIZED');
+    }
+
     await conn.beginTransaction();
+    transactionStarted = true;
     logSql('BEGIN');
 
     const [pendientesResult] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', ['pendiente empacar']);
@@ -289,7 +510,10 @@ app.post('/api/empacar', async (req, res) => {
       throw new Error('PAQUETE_NOT_FOUND');
     }
 
-    const codigoBase = paquete.codigo_base;
+    const codigoBase = normalizeBaseCode(paquete.codigo_base);
+    if (!hasBaseAccess(privData, codigoBase)) {
+      throw new Error('BASE_FORBIDDEN');
+    }
 
     const [packingsResult] = await runQuery(conn, 'CALL get_packingporbase(?)', [codigoBase]);
     const packings = unwrapRows(packingsResult);
@@ -334,9 +558,18 @@ app.post('/api/empacar', async (req, res) => {
 
     res.json({ ok: true, ordinal: nextOrdinal, rows: detalles.length });
   } catch (error) {
-    await conn.rollback();
-    logSql('ROLLBACK');
+    if (transactionStarted) {
+      await conn.rollback();
+      logSql('ROLLBACK');
+    }
     logError(error, 'Error al registrar empaque');
+    const code = String(error?.message || '').trim().toUpperCase();
+    if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN') {
+      return res.status(403).json({ ok: false, message: code });
+    }
+    if (code === 'PAQUETE_NOT_FOUND' || code === 'PACKING_NOT_FOUND') {
+      return res.status(400).json({ ok: false, message: code });
+    }
     res.status(500).json({ ok: false, message: 'ERROR' });
   } finally {
     conn.release();

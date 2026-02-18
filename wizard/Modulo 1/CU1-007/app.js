@@ -405,11 +405,11 @@ class FormWizard {
     try {
       this.setLoading(true);
       const [health, clientes, paquetes, nextDoc, mapsConfig] = await Promise.all([
-        fetch('/api/health'),
-        fetch('/api/clientes'),
-        fetch('/api/paquetes?estado=llegado'),
-        fetch('/api/next-numero-documento'),
-        fetch('/api/maps-config')
+        fetch('./api/health'),
+        fetch('./api/clientes'),
+        fetch('./api/paquetes?estado=llegado'),
+        fetch('./api/next-numero-documento'),
+        fetch('./api/maps-config')
       ]);
       if (!health.ok) {
         throw new Error('health');
@@ -475,7 +475,7 @@ class FormWizard {
       return;
     }
     try {
-      const response = await fetch(`/api/factura-cabecera?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
+      const response = await fetch(`./api/factura-cabecera?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
       const data = await response.json();
       if (!response.ok || !data.ok || !data.data) {
         return;
@@ -591,7 +591,7 @@ class FormWizard {
     }
     try {
       this.setLoading(true);
-      const response = await fetch(`/api/detalle-factura?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
+      const response = await fetch(`./api/detalle-factura?codigo_paquete=${encodeURIComponent(this.state.vCodigo_paquete)}`);
       const data = await response.json();
       if (!response.ok || !data.ok) {
         throw new Error(data.message || 'detalle');
@@ -851,7 +851,7 @@ class FormWizard {
           }))
       };
 
-      const response = await fetch('/api/emitir-nota-credito', {
+      const response = await fetch('./api/emitir-nota-credito', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

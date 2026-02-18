@@ -256,7 +256,7 @@ class FormWizard {
   async loadClients() {
     this.setLoading(true);
     try {
-      const payload = await this.fetchJson('/api/clientes-pendientes');
+      const payload = await this.fetchJson('./api/clientes-pendientes');
       this.state.clients = payload.data || [];
       this.filterClients('');
     } catch (error) {
@@ -316,7 +316,7 @@ class FormWizard {
     }
     this.setLoading(true);
     try {
-      const payload = await this.fetchJson('/api/cuentas-bancarias');
+      const payload = await this.fetchJson('./api/cuentas-bancarias');
       this.state.accounts = payload.data || [];
     } catch (error) {
       this.setAlert(this.t('fetchError'));
@@ -360,7 +360,7 @@ class FormWizard {
     }
     this.setLoading(true);
     try {
-      const payload = await this.fetchJson('/api/next-numero-documento?tipo=RCP');
+      const payload = await this.fetchJson('./api/next-numero-documento?tipo=RCP');
       this.elements.numeroDocumento.value = payload.next || '';
     } catch (error) {
       this.setAlert(this.t('fetchError'));
@@ -487,7 +487,7 @@ class FormWizard {
 
     this.setLoading(true);
     try {
-      await this.fetchJson('/api/recibos', {
+      await this.fetchJson('./api/recibos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

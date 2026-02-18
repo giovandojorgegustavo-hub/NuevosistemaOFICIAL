@@ -291,7 +291,7 @@ class FormWizard {
   }
 
   async loadProveedores() {
-    const response = await fetch('/api/proveedores');
+    const response = await fetch('./api/proveedores');
     const data = await response.json();
     if (!data.ok) {
       throw new Error('PROVEEDORES_ERROR');
@@ -301,7 +301,7 @@ class FormWizard {
   }
 
   async loadProductos() {
-    const response = await fetch('/api/productos');
+    const response = await fetch('./api/productos');
     const data = await response.json();
     if (!data.ok) {
       throw new Error('PRODUCTOS_ERROR');
@@ -310,7 +310,7 @@ class FormWizard {
   }
 
   async loadNextProveedor() {
-    const response = await fetch('/api/next-proveedor');
+    const response = await fetch('./api/next-proveedor');
     const data = await response.json();
     if (!data.ok) {
       throw new Error('NEXT_PROVEEDOR_ERROR');
@@ -320,7 +320,7 @@ class FormWizard {
   }
 
   async loadNumeroDocumento() {
-    const response = await fetch(`/api/next-documento?tipo=${encodeURIComponent(this.state.tipoDocumento)}`);
+    const response = await fetch(`./api/next-documento?tipo=${encodeURIComponent(this.state.tipoDocumento)}`);
     const data = await response.json();
     if (!data.ok) {
       throw new Error('NEXT_DOCUMENTO_ERROR');
@@ -404,7 +404,7 @@ class FormWizard {
   }
 
   async loadSaldoFavor(codigoProvedor) {
-    const response = await fetch(`/api/saldo-favor-provedor?provedor=${encodeURIComponent(codigoProvedor)}`);
+    const response = await fetch(`./api/saldo-favor-provedor?provedor=${encodeURIComponent(codigoProvedor)}`);
     const data = await response.json();
     if (!data.ok) {
       throw new Error('SALDO_FAVOR_PROVEDOR_ERROR');
@@ -751,7 +751,7 @@ class FormWizard {
 
     this.setLoading(true, this.t('loading'));
     try {
-      const response = await fetch('/api/facturar-compra', {
+      const response = await fetch('./api/facturar-compra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
