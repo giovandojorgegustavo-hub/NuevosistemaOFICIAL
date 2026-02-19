@@ -333,16 +333,6 @@ function formatDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function formatDateTimeForDb(date) {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  const hh = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-}
-
 function resolveCodes() {
   const userbase = window.userbase; // TODO: reemplazar cuando exista contexto real.
   const currentuser = window.currentuser; // TODO: reemplazar cuando exista contexto real.
@@ -549,21 +539,19 @@ async function abrirHorario() {
 
   setLoading(true);
   try {
-    const vFechaRegistro = formatDateTimeForDb(new Date());
     const response = await fetch('./api/abrir-horario', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         Codigo_usuario: state.Codigo_usuario,
         vFecha: state.vFecha,
-        vFecha_registro: vFechaRegistro,
         vCodigo_base: state.vCodigo_base,
         vCodigo_usuario: state.vCodigo_usuario
       })
     });
     const data = await response.json();
     if (!data.ok) throw new Error(data.message || 'ABRIR_HORARIO_ERROR');
-    state.vUltima_asistencia = data.ultima_asistencia || vFechaRegistro;
+    state.vUltima_asistencia = data.ultima_asistencia || null;
     updateUltimaAsistencia(state.vUltima_asistencia);
     setAsistenciaState(true);
     showAlert(i18n[getLang()].success, 'success');

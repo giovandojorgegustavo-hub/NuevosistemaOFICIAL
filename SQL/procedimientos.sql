@@ -1493,6 +1493,50 @@ END//
 
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS reservar_cupo_base_horario;
+DELIMITER //
+CREATE PROCEDURE reservar_cupo_base_horario(
+  IN p_codigo_base numeric(12,0),
+  IN p_fecha_pedido datetime
+)
+BEGIN
+  DECLARE v_hr_apertura datetime;
+  DECLARE v_dia int;
+
+  SET v_dia = WEEKDAY(p_fecha_pedido) + 1;
+  SET v_hr_apertura = get_hr_apertura(p_codigo_base, p_fecha_pedido);
+
+  UPDATE base_horarios
+  SET cantidad_pedidos = cantidad_pedidos + 1
+  WHERE codigo_base = p_codigo_base
+    AND dia = v_dia
+    AND TIME(hr_apertura) = TIME(v_hr_apertura)
+    AND estado = 'A';
+END//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS liberar_cupo_base_horario;
+DELIMITER //
+CREATE PROCEDURE liberar_cupo_base_horario(
+  IN p_codigo_base numeric(12,0),
+  IN p_fecha_pedido datetime
+)
+BEGIN
+  DECLARE v_hr_apertura datetime;
+  DECLARE v_dia int;
+
+  SET v_dia = WEEKDAY(p_fecha_pedido) + 1;
+  SET v_hr_apertura = get_hr_apertura(p_codigo_base, p_fecha_pedido);
+
+  UPDATE base_horarios
+  SET cantidad_pedidos = GREATEST(cantidad_pedidos - 1, 0)
+  WHERE codigo_base = p_codigo_base
+    AND dia = v_dia
+    AND TIME(hr_apertura) = TIME(v_hr_apertura)
+    AND cantidad_pedidos > 0;
+END//
+DELIMITER ;
+
 DROP PROCEDURE IF EXISTS get_actualizarbasespaquete;
 DELIMITER //
 CREATE PROCEDURE get_actualizarbasespaquete(
@@ -1501,6 +1545,26 @@ CREATE PROCEDURE get_actualizarbasespaquete(
   IN p_codigo_base_destino numeric(12,0)
 )
 BEGIN
+  DECLARE v_codigo_base_origen numeric(12,0);
+  DECLARE v_fecha_referencia datetime;
+
+  SELECT
+    codigo_base,
+    COALESCE(fecha_emision, fecha_valor, fecha_vencimiento)
+  INTO
+    v_codigo_base_origen,
+    v_fecha_referencia
+  FROM mov_contable
+  WHERE tipo_documento = p_tipo_documento
+    AND numero_documento = p_numero_documento
+  LIMIT 1
+  FOR UPDATE;
+
+  IF v_codigo_base_origen <> p_codigo_base_destino THEN
+    CALL liberar_cupo_base_horario(v_codigo_base_origen, v_fecha_referencia);
+    CALL reservar_cupo_base_horario(p_codigo_base_destino, v_fecha_referencia);
+  END IF;
+
   UPDATE mov_contable
   SET codigo_base = p_codigo_base_destino
   WHERE tipo_documento = p_tipo_documento

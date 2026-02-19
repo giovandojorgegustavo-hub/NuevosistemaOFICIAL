@@ -22,7 +22,6 @@ CU2001: Abrir Horario
 # **Prompt AI.
 Modulo: 2.
 Caso de uso: CU2001 - M2AbrirHorario.
-Puerto del wizard: 3009 (ver `Promts/Herramientas/puertos.json`).
 
 
 Reglas:
@@ -36,7 +35,6 @@ Como desarrollador de aplicaciones web, ayudame a crear un formulario de registr
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados.
 Regla de ruta obligatoria:
-Usar el modulo indicado en `Promts/Herramientas/puertos.json` (campo `module`).
 Si el caso no existe en el archivo, detenerse y pedir confirmacion del modulo.
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -92,7 +90,9 @@ Previo al formulario de captura, se debe establecer conexion con la DB, los dato
 
 Paso 1. Abrir Horario.
 
-vFecha = Inicializar con la fecha del sistema. No editable.
+vFecha = Inicializar con la fecha del sistema. No editable. Solo referencia visual.
+
+vFecha_registro = Generar al marcar "Abrir Horario" con fecha y hora actual del servidor (`YYYY-MM-DD HH:mm:ss`). No visible.
 
 vCodigo_base = userbase si existe; si no existe usar 1 (dejar comentario en el codigo porque luego se reemplazara). No visible no editable.
 
@@ -107,8 +107,8 @@ En la vista, cada campo debe usar el mismo nombre de variable definido arriba y 
 En el mismo paso, cuando el usuario da click al boton "Abrir Horario" el sistema debera realizar las siguientes transacciones sobre la DB:
 
 - Guardar en la tabla `bitacoraBase`:
-  codigo_bitacora = Consecutivo (MAX(codigo_bitacora) + 1) dentro de la transaccion
-  fecha=vFecha
+  codigo_bitacora = Consecutivo (MAX(codigo_bitacora) + 1) dentro de la transaccion. Si no existe ningun registro, usar 1.
+  fecha=vFecha_registro (debe guardar fecha y hora real de marcacion; no usar solo vFecha)
   codigo_base=vCodigo_base
   codigo_usuario=vCodigo_usuario
 

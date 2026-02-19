@@ -22,7 +22,6 @@ CU002: Reasignar Base
 # **Prompt AI.
 Modulo: 1.
 Caso de uso: CU002 - M1ReasignarBase.
-Puerto del wizard: 3002 (ver `Promts/Herramientas/puertos.json`).
 
 
 Reglas:
@@ -37,7 +36,6 @@ Como desarrollador de aplicaciones web, ayudame a crear un formulario de registr
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados.
 Regla de ruta obligatoria:
-Usar el modulo indicado en `Promts/Herramientas/puertos.json` (campo `module`).
 Si el caso no existe en el archivo, detenerse y pedir confirmacion del modulo.
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -171,6 +169,8 @@ Al dar click en "Reasignar Base" el sistema debera registrar en tablas y luego e
 
 2) Ejecutar procedimiento para el cambio de base:
    - `CALL get_actualizarbasespaquete(vtipo_documento, vcodigo_paquete, vCodigo_base_nueva)`.
+   - Este cambio manual de base NO debe bloquearse por cupo maximo de horario.
+   - El limite de `maximo_pedidos` aplica solo para sugerencias de `get_bases_candidatas`, no para reasignacion manual.
 
 No utilizar datos mock.
 Solo utilizar datos reales de la base de datos especificada en erp.yml.

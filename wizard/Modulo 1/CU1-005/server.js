@@ -631,10 +631,17 @@ app.post('/api/emitir-factura', async (req, res) => {
   const recibe = payload.recibe || {};
   const pagos = Array.isArray(payload.pagos) ? payload.pagos : [];
   const saldoFavorUsado = Number(factura.saldo_favor_usado || 0) || 0;
+  const codigoBase = Number(factura.codigo_base);
+  const fechaReferenciaHorario = String(factura.fechaP || '').trim();
+
+  if (!Number.isFinite(codigoBase) || !fechaReferenciaHorario) {
+    return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
 
   const conn = await dbState.pool.getConnection();
   try {
     await conn.beginTransaction();
+    await runQuery(conn, 'CALL reservar_cupo_base_horario(?, ?)', [codigoBase, fechaReferenciaHorario]);
 
     if (entrega.modo === 'nuevo') {
       await runQuery(
@@ -729,7 +736,7 @@ app.post('/api/emitir-factura', async (req, res) => {
         pedido.codigo_cliente || null,
         factura.tipo_documento || 'FAC',
         factura.numero_documento || null,
-        factura.codigo_base || null,
+        codigoBase,
         codigoClienteNumrecibe,
         ordinalNumrecibe,
         pedido.codigo_cliente || null,

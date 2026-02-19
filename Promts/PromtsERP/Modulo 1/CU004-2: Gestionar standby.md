@@ -22,7 +22,6 @@ CU004: Gestionar paquetes en standby
 # **Prompt AI.
 Modulo: 1.
 Caso de uso: CU004 - M1PaquetesStandby.
-Puerto del wizard: 3004 (ver `Promts/Herramientas/puertos.json`).
 
 
 Reglas:
@@ -37,7 +36,6 @@ Como desarrollador de aplicaciones web, ayudame a crear un formulario de gestion
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados.
 Regla de ruta obligatoria:
-Usar el modulo indicado en `Promts/Herramientas/puertos.json` (campo `module`).
 Si el caso no existe en el archivo, detenerse y pedir confirmacion del modulo.
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 

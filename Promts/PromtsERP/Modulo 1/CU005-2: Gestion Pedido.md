@@ -23,7 +23,6 @@ CU005: Gestion Pedido.
 # **Prompt AI.
 Modulo: 1.
 Caso de uso: CU005 - M1GestionPedidos.
-Puerto del wizard: 3005 (ver `Promts/Herramientas/puertos.json`).
 
 
 Reglas:
@@ -38,7 +37,6 @@ Como desarrollador de aplicaciones web, ayudame a crear un formulario de registr
 
 El codigo generado debe guardarse en una sola carpeta por caso de uso, dentro de su modulo correspondiente, sobrescribiendo su propio wizard para evitar duplicados.
 Regla de ruta obligatoria:
-Usar el modulo indicado en `Promts/Herramientas/puertos.json` (campo `module`).
 Si el caso no existe en el archivo, detenerse y pedir confirmacion del modulo.
 **Stack tecnico:** HTML5, JavaScript ES6+, Bootstrap 5.3
 
@@ -282,6 +280,8 @@ En este paso, primero construir un JSON con el contenido del grid “vProdFactur
 Llamada SP: `get_bases_candidatas(p_vProdFactura JSON, vFechaP DATETIME)`
 Campos devueltos: `codigo_base`, `latitud`, `longitud`
 Uso: mostrar estas bases candidatas como ayuda/preview para decidir la base a asignar. Si hay bases candidatas, priorizarlas en la lista.
+Regla de cupo: `get_bases_candidatas` SI debe respetar `base_horarios.cantidad_pedidos < maximo_pedidos`.
+Regla manual: la asignacion manual de base NO debe bloquearse por cupo de horario; puede elegir base aunque ya este en el maximo.
 Mostrar dos listados simultaneos:
 (a) Bases candidatas por stock/horario (SP `get_bases_candidatas`),
 (b) Bases con tiempo estimado de llegada (Google Distance Matrix), ordenadas por menor tiempo.
@@ -305,7 +305,7 @@ vcodigo_base = codigo_base de la base seleccionada
 vBaseNombre = nombre de la base seleccionada
 
 El campo vBaseNombre sigue siendo select editable con valor inicial sugerido.
-El usuario puede seleccionar manualmente cualquier base candidata; la sugerida solo preselecciona.
+El usuario puede seleccionar manualmente cualquier base de `get_bases()`; la sugerida solo preselecciona.
 Si la API falla o faltan coordenadas, no sugerir base.
 Recalcular cada vez que cambien vLatitud o vLongitud.
 

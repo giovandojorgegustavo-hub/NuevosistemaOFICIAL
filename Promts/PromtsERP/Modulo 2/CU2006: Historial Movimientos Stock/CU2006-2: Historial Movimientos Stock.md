@@ -22,7 +22,6 @@ CU2006-2: Historial Movimientos Stock
 # **Prompt AI.
 Modulo: 2.
 Caso de uso: CU2006 - M2HistorialMovimientosStock.
-Puerto del wizard: 3022 (si difiere en `Promts/Herramientas/puertos.json`, usar el del archivo).
 
 Reglas:
 Toda variable/campo empieza con `v` y se lista sin `-`.

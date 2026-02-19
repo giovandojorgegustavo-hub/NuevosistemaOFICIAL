@@ -455,13 +455,12 @@ app.get('/api/ultima-asistencia', async (req, res) => {
 
 app.post('/api/abrir-horario', async (req, res) => {
   const payload = req.body || {};
-  const vFecha = payload.vFecha;
-  const vFechaRegistro = payload.vFecha_registro || vFecha;
   const vCodigoBase = normalizeBaseCode(payload.vCodigo_base);
   const vCodigoUsuario = payload.vCodigo_usuario;
   const codigoUsuarioAuth = extractCodigoUsuario(payload);
+  const marcaAsistencia = timestamp();
 
-  if (!vFecha || !vCodigoBase || !vCodigoUsuario || !vFechaRegistro || !hasValidUserCode(codigoUsuarioAuth)) {
+  if (!vCodigoBase || !vCodigoUsuario || !hasValidUserCode(codigoUsuarioAuth)) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
   }
 
@@ -490,13 +489,13 @@ app.post('/api/abrir-horario', async (req, res) => {
     await runQuery(
       conn,
       'INSERT INTO bitacoraBase (codigo_bitacora, fecha, codigo_base, codigo_usuario) VALUES (?, ?, ?, ?)',
-      [nextCodigo, vFechaRegistro, vCodigoBase, vCodigoUsuario]
+      [nextCodigo, marcaAsistencia, vCodigoBase, vCodigoUsuario]
     );
 
     logSql('COMMIT');
     await conn.commit();
 
-    res.json({ ok: true, ultima_asistencia: vFechaRegistro });
+    res.json({ ok: true, ultima_asistencia: marcaAsistencia });
   } catch (error) {
     if (transactionStarted) {
       logSql('ROLLBACK');
