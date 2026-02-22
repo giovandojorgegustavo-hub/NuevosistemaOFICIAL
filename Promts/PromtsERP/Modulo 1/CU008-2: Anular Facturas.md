@@ -115,7 +115,6 @@ Reglas:
 - Filtrar la lista de paquetes por `vCodigo_cliente` seleccionado (solo paquetes del cliente).
 - El `codigo_paquete` corresponde al numero de factura.
 - El `tipo_documento` de la factura seleccionada es siempre `FAC`.
-- No mostrar facturas anuladas (la logica de filtro debe quedar centralizada en el SP `get_paquetes_por_estado`).
 
 Validaciones:
 - vCodigo_cliente requerido.

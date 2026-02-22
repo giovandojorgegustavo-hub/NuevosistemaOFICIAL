@@ -2,9 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 const mysql = require('mysql2/promise');
 
-const PORT = process.env.PORT || 3002;
+const PORT = Number(process.env.PORT || getUseCasePort('CU1-002'));
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG_PATH = path.resolve(ROOT_DIR, '../../..', 'erp.yml');
@@ -289,7 +290,7 @@ app.post('/api/reasignar-base', async (req, res) => {
 
 initDb()
   .then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, '127.0.0.1', () => {
       logLine(`CU002 server listening on http://127.0.0.1:${PORT}`);
     });
   })

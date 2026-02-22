@@ -38,6 +38,10 @@ SET linktolaunch = CONCAT(@base_host, ':4000/CU1-008')
 WHERE codigo_usecase = 'CU008';
 
 UPDATE usecases
+SET linktolaunch = CONCAT(@base_host, ':4000/CU1-009')
+WHERE codigo_usecase = 'CU009';
+
+UPDATE usecases
 SET linktolaunch = CONCAT(@base_host, ':4001/CU2-001')
 WHERE codigo_usecase = 'CU2001';
 
@@ -56,6 +60,10 @@ WHERE codigo_usecase = 'CU2004';
 UPDATE usecases
 SET linktolaunch = CONCAT(@base_host, ':4001/CU2-006')
 WHERE codigo_usecase = 'CU2006';
+
+UPDATE usecases
+SET linktolaunch = CONCAT(@base_host, ':4001/CU2-007')
+WHERE codigo_usecase = 'CU2007';
 
 UPDATE usecases
 SET linktolaunch = CONCAT(@base_host, ':4002/CU3-001')
@@ -85,12 +93,17 @@ UPDATE usecases
 SET linktolaunch = CONCAT(@base_host, ':4003/CU4-004')
 WHERE codigo_usecase = 'CU4004';
 
+UPDATE usecases
+SET linktolaunch = CONCAT(@base_host, ':4005/CU6-001')
+WHERE codigo_usecase = 'CU6001';
+
 SELECT codigo_usecase, linktolaunch
 FROM usecases
 WHERE codigo_usecase IN (
-  'CU001','CU002','CU003','CU004','CU005','CU006','CU007','CU008',
-  'CU2001','CU2002','CU2003','CU2004','CU2006',
+  'CU001','CU002','CU003','CU004','CU005','CU006','CU007','CU008','CU009',
+  'CU2001','CU2002','CU2003','CU2004','CU2006','CU2007',
   'CU3001','CU3002','CU3003',
-  'CU4001','CU4002','CU4003','CU4004'
+  'CU4001','CU4002','CU4003','CU4004',
+  'CU6001'
 )
 ORDER BY codigo_usecase;

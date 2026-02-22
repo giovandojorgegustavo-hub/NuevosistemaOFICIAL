@@ -1,15 +1,20 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU6-001';
-const PORT = Number(process.env.PORT || 3021);
+const PORT = Number(process.env.PORT || getUseCasePort('CU6-001'));
 const UNAUTHORIZED_MESSAGE = 'Warning ACCESO NO AUTORIZADO !!!';
+const SESSION_COOKIE_NAME = 'cu6001_session';
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const sessions = new Map();
 
 function pad(vValue) {
   return String(vValue).padStart(2, '0');
@@ -257,6 +262,62 @@ function getSqlLines(vRaw) {
     .filter((vLine) => vLine.includes('[SQL]') || vLine.includes('SQL:'));
 }
 
+function parseCookies(req) {
+  const header = String(req.headers?.cookie || '');
+  const result = {};
+  if (!header) return result;
+  const pairs = header.split(';');
+  for (const pair of pairs) {
+    const idx = pair.indexOf('=');
+    if (idx <= 0) continue;
+    const key = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (!key) continue;
+    result[key] = decodeURIComponent(value);
+  }
+  return result;
+}
+
+function createSession(vCodigoUsuario) {
+  const token = crypto.randomBytes(24).toString('hex');
+  sessions.set(token, {
+    token,
+    vCodigoUsuario: String(vCodigoUsuario || ''),
+    createdAt: Date.now(),
+    lastSeenAt: Date.now()
+  });
+  return token;
+}
+
+function getSessionFromRequest(req) {
+  const cookies = parseCookies(req);
+  const token = String(cookies[SESSION_COOKIE_NAME] || '').trim();
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (Date.now() - session.lastSeenAt > SESSION_TTL_MS) {
+    sessions.delete(token);
+    return null;
+  }
+  session.lastSeenAt = Date.now();
+  return session;
+}
+
+function setSessionCookie(res, token) {
+  const maxAge = Math.floor(SESSION_TTL_MS / 1000);
+  const parts = [
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
+    `Max-Age=${maxAge}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax'
+  ];
+  if (process.env.NODE_ENV === 'production') {
+    parts.push('Secure');
+  }
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
@@ -276,6 +337,18 @@ app.use((req, res, next) => {
 });
 
 async function authorizeAndServeIndex(req, res) {
+  const vExistingSession = getSessionFromRequest(req);
+  if (vExistingSession) {
+    req.vAuth = {
+      vCodigo_usuario: vExistingSession.vCodigoUsuario,
+      vOTP: '',
+      vParámetros: null
+    };
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(ROOT_DIR, 'index.html'));
+    return;
+  }
+
   const vAuth = extractAuthParams(req.query || {}, req.headers || {});
   if (!hasValidAuthFormat(vAuth.vCodigo_usuario, vAuth.vOTP)) {
     res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
@@ -297,6 +370,8 @@ async function authorizeAndServeIndex(req, res) {
       res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
       return;
     }
+    const vSessionToken = createSession(vAuth.vCodigo_usuario);
+    setSessionCookie(res, vSessionToken);
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(ROOT_DIR, 'index.html'));
   } catch (vError) {
@@ -308,6 +383,16 @@ async function authorizeAndServeIndex(req, res) {
 }
 
 async function requireOtpApi(req, res, next) {
+  const vSession = getSessionFromRequest(req);
+  if (vSession) {
+    req.vAuth = {
+      vCodigo_usuario: vSession.vCodigoUsuario,
+      vOTP: '',
+      vParámetros: null
+    };
+    return next();
+  }
+
   const vSource = req.method === 'GET' ? req.query || {} : req.body || {};
   const vAuth = extractAuthParams(vSource, req.headers || {});
   if (!hasValidAuthFormat(vAuth.vCodigo_usuario, vAuth.vOTP)) {
@@ -332,6 +417,9 @@ async function requireOtpApi(req, res, next) {
     if (vResultado !== 1) {
       return res.status(403).json({ ok: false, message: UNAUTHORIZED_MESSAGE, resultado: vResultado });
     }
+
+    const vSessionToken = createSession(vAuth.vCodigo_usuario);
+    setSessionCookie(res, vSessionToken);
 
     req.vAuth = {
       vCodigo_usuario: vAuth.vCodigo_usuario,
@@ -494,7 +582,7 @@ async function start() {
   ensureLogFile();
   const vPool = await initDb();
   app.locals.vPool = vPool;
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     logLine(`Servidor CU6-001 escuchando en puerto ${PORT}`);
   });
 }

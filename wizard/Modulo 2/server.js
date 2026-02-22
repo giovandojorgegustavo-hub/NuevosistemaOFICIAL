@@ -11,13 +11,18 @@ const vCu005Id = 'CU2-005';
 const vCu005Dir = path.join(vRootDir, vCu005Id);
 const vCu006Id = 'CU2-006';
 const vCu006Dir = path.join(vRootDir, vCu006Id);
+const vCu007Id = 'CU2-007';
+const vCu007Dir = path.join(vRootDir, vCu007Id);
 const vLog005Dir = path.join(vCu005Dir, 'logs');
 const vLog006Dir = path.join(vCu006Dir, 'logs');
+const vLog007Dir = path.join(vCu007Dir, 'logs');
 const vErpConfigPath = path.join(vRootDir, '..', '..', 'erp.yml');
 const vLogPrefix005 = 'CU2-005';
 const vLogPrefix006 = 'CU2-006';
+const vLogPrefix007 = 'CU2-007';
 const vSessionCookie005Name = 'cu2_005_session';
 const vSessionCookie006Name = 'cu2_006_session';
+const vSessionCookie007Name = 'cu2_007_session';
 const vSessionTtlMs = 2 * 60 * 60 * 1000;
 
 const vDbState = {
@@ -26,6 +31,7 @@ const vDbState = {
 };
 const vSessionStore005 = new Map();
 const vSessionStore006 = new Map();
+const vSessionStore007 = new Map();
 
 function vPad(vValue) {
   return String(vValue).padStart(2, '0');
@@ -651,6 +657,132 @@ async function vLoadCu2006State(vLogger, vInput) {
   }
 }
 
+function vNormalizeCu2007Priv(vPriv) {
+  const vRaw = String(vPriv || '').trim().toUpperCase();
+  if (vRaw === 'ALL') return 'PRIV';
+  if (vRaw === 'PRIV' || vRaw === 'ONE') return vRaw;
+  return '';
+}
+
+function vNormalizeCu2007BaseCode(vValue, vMaxLength = 40) {
+  const vText = String(vValue ?? '').trim();
+  if (!vText) return '';
+  if (vText.length > vMaxLength) return '';
+  return /^[A-Za-z0-9_-]+$/.test(vText) ? vText : '';
+}
+
+function vMapAsistenciaRow(vRow) {
+  const vValues = Object.values(vRow || {});
+  return {
+    FECHA: vRow?.FECHA ?? vRow?.fecha ?? vValues[0] ?? null,
+    TURNO: String(vRow?.TURNO ?? vRow?.turno ?? vValues[1] ?? '').trim(),
+    codigo_base: String(vRow?.codigo_base ?? vRow?.CODIGO_BASE ?? vValues[2] ?? '').trim(),
+    FechaRegistro: vRow?.FechaRegistro ?? vRow?.fecha_registro ?? vValues[3] ?? null,
+    TurnoRegistro: String(vRow?.TurnoRegistro ?? vRow?.turno_registro ?? vValues[4] ?? '').trim(),
+    codigo_usuario: String(vRow?.codigo_usuario ?? vRow?.CODIGO_USUARIO ?? vValues[5] ?? '').trim(),
+    codigo_bitacora: String(vRow?.codigo_bitacora ?? vRow?.CODIGO_BITACORA ?? vValues[6] ?? '').trim()
+  };
+}
+
+function vResolveCu2007Filters(vInput) {
+  const vPriv = vInput.vPriv;
+  const vBaseUsuario = String(vInput.vBaseUsuario || '').trim();
+  const vBases = Array.isArray(vInput.vBases) ? vInput.vBases : [];
+  const vStrictDate = Boolean(vInput.vStrictDate);
+
+  let vFecha_consulta = vNormalizeIsoDate(vInput.vFecha_consulta);
+  if (!vFecha_consulta && !vStrictDate) {
+    vFecha_consulta = vGetTodayIsoDate();
+  }
+
+  if (vStrictDate && !vFecha_consulta) {
+    throw vBuildValidationError('VALIDATION_DATE_REQUIRED');
+  }
+
+  let vCodigo_base = '';
+  if (vPriv === 'ONE') {
+    vCodigo_base = vBaseUsuario;
+  } else if (vPriv === 'PRIV') {
+    const vCandidateBase = vNormalizeCu2007BaseCode(vInput.vCodigo_base, 40);
+    if (vCandidateBase) {
+      const vExists = vBases.some((vRow) => String(vRow.codigo_base) === vCandidateBase);
+      vCodigo_base = vExists ? vCandidateBase : '';
+    }
+  }
+
+  return {
+    vFecha_consulta,
+    vCodigo_base,
+    vSpCodigo_base: vPriv === 'ONE' ? vBaseUsuario : vCodigo_base || null
+  };
+}
+
+async function vLoadCu2007State(vLogger, vInput) {
+  const vPool = await vGetPool(vLogger);
+  const vConn = await vPool.getConnection();
+
+  try {
+    const [vPrivResult] = await vRunQuery(vLogger, vConn, 'CALL get_priv_usuario(?)', [vInput.vCodigoUsuario]);
+    const vPrivRows = vUnwrapRows(vPrivResult);
+
+    if (!Array.isArray(vPrivRows) || !vPrivRows.length) {
+      return {
+        ok: false,
+        unauthorized: true,
+        reason: 'PRIVILEGE_NOT_FOUND'
+      };
+    }
+
+    const vPrivDataRaw = vMapPrivRow(vPrivRows[0]);
+    const vPriv = vNormalizeCu2007Priv(vPrivDataRaw.vPriv);
+    if (!vPriv) {
+      return {
+        ok: false,
+        unauthorized: true,
+        reason: 'PRIVILEGE_INVALID'
+      };
+    }
+
+    let vBases = [];
+    if (vPriv === 'PRIV') {
+      const [vBasesResult] = await vRunQuery(vLogger, vConn, 'CALL get_bases()', []);
+      vBases = vUnwrapRows(vBasesResult).map(vMapBaseRow);
+    }
+
+    const vFiltros = vResolveCu2007Filters({
+      vPriv,
+      vBaseUsuario: vPrivDataRaw.vBase,
+      vBases,
+      vFecha_consulta: vInput.vFecha_consulta,
+      vCodigo_base: vInput.vCodigo_base,
+      vStrictDate: vInput.vStrictDate
+    });
+
+    const [vAsistenciaResult] = await vRunQuery(
+      vLogger,
+      vConn,
+      'CALL get_asistencia_dia_filtrado(?, ?)',
+      [vFiltros.vFecha_consulta, vFiltros.vSpCodigo_base]
+    );
+    const vAsistenciaDia = vUnwrapRows(vAsistenciaResult).map(vMapAsistenciaRow);
+
+    return {
+      ok: true,
+      data: {
+        vBaseUsuario: vPrivDataRaw.vBase,
+        vPriv,
+        vBaseAux: vPrivDataRaw.vBaseAux,
+        vBases,
+        vFecha_consulta: vFiltros.vFecha_consulta,
+        vCodigo_base: vPriv === 'ONE' ? vPrivDataRaw.vBase : vFiltros.vCodigo_base,
+        vAsistenciaDia
+      }
+    };
+  } finally {
+    vConn.release();
+  }
+}
+
 async function vLoadWizardState(vLogger, vInput) {
   const vPool = await vGetPool(vLogger);
   const vConn = await vPool.getConnection();
@@ -725,23 +857,24 @@ function vAttachNoStoreHeaders(vRes) {
 startModuleServer({
   moduleName: 'Modulo 2',
   moduleCode: 'M2',
-  portKeys: ['bk_modulo2_port', 'bk_almacen_port'],
-  defaultPort: 4001,
   cuDefs: [
-    { id: 'CU2-001', dir: 'CU2-001', internalPort: 3009 },
-    { id: 'CU2-002', dir: 'CU2-002', internalPort: 3010 },
-    { id: 'CU2-003', dir: 'CU2-003', internalPort: 3011 },
-    { id: 'CU2-004', dir: 'CU2-004', internalPort: 3012 }
+    { id: 'CU2-001', dir: 'CU2-001' },
+    { id: 'CU2-002', dir: 'CU2-002' },
+    { id: 'CU2-003', dir: 'CU2-003' },
+    { id: 'CU2-004', dir: 'CU2-004' }
   ],
   configureApp({ app, port }) {
     const vLogger005 = vCreateLogger(vLog005Dir, vLogPrefix005);
     const vLogger006 = vCreateLogger(vLog006Dir, vLogPrefix006);
-    const vLoggers = [vLogger005, vLogger006];
+    const vLogger007 = vCreateLogger(vLog007Dir, vLogPrefix007);
+    const vLoggers = [vLogger005, vLogger006, vLogger007];
 
     vLogger005.info(`SERVER_START: ${vCu005Id} integrado en servidor compartido M2 puerto ${port}`);
     vLogger005.info(`LOG_FILE: ${vLogger005.vLogFilePath}`);
     vLogger006.info(`SERVER_START: ${vCu006Id} integrado en servidor compartido M2 puerto ${port}`);
     vLogger006.info(`LOG_FILE: ${vLogger006.vLogFilePath}`);
+    vLogger007.info(`SERVER_START: ${vCu007Id} integrado en servidor compartido M2 puerto ${port}`);
+    vLogger007.info(`LOG_FILE: ${vLogger007.vLogFilePath}`);
 
     process.on('exit', () => vLoggers.forEach((vLogger) => vLogger.close()));
     process.on('SIGINT', () => vLoggers.forEach((vLogger) => vLogger.close()));
@@ -750,6 +883,7 @@ startModuleServer({
     void vGetPool(vLogger005).catch((vError) => {
       vLogger005.error(vError, 'DB_BOOTSTRAP_ERROR');
       vLogger006.error(vError, 'DB_BOOTSTRAP_ERROR');
+      vLogger007.error(vError, 'DB_BOOTSTRAP_ERROR');
     });
 
     function vRegisterCuRoutes(vConfig) {
@@ -837,6 +971,14 @@ startModuleServer({
       vLogger: vLogger006,
       vSessionStore: vSessionStore006,
       vSessionCookieName: vSessionCookie006Name
+    });
+
+    vRegisterCuRoutes({
+      vCuId: vCu007Id,
+      vCuDir: vCu007Dir,
+      vLogger: vLogger007,
+      vSessionStore: vSessionStore007,
+      vSessionCookieName: vSessionCookie007Name
     });
 
     app.post('/api/cu2-005/init', express.json({ limit: '1mb' }), async (vReq, vRes) => {
@@ -1001,6 +1143,90 @@ startModuleServer({
           return vRes.status(400).json({ ok: false, message: vError.vCode || 'VALIDATION_ERROR' });
         }
         vLogger006.error(vError, 'QUERY_ENDPOINT_ERROR');
+        return vRes.status(500).json({ ok: false, message: 'QUERY_ERROR' });
+      }
+    });
+
+    app.post('/api/cu2-007/init', express.json({ limit: '1mb' }), async (vReq, vRes) => {
+      const vPayload = vReq.body || {};
+      const { vParametrosRaw } = vExtractAuthParams(vPayload);
+      const vParametros = vParseOptionalParametros(vParametrosRaw);
+      const vSession = vGetSessionFromRequest(vReq, vSessionStore007, vSessionCookie007Name);
+
+      vLogger007.info(
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha=${String(vParametros?.fecha_consulta || '') || '-'} base=${String(vParametros?.codigo_base || '') || '-'}`
+      );
+
+      if (!vSession || !vSession.vCodigoUsuario) {
+        return vSendUnauthorizedJson(vRes);
+      }
+
+      try {
+        const vResult = await vLoadCu2007State(vLogger007, {
+          vCodigoUsuario: vSession.vCodigoUsuario,
+          vFecha_consulta: vParametros?.fecha_consulta,
+          vCodigo_base: vParametros?.codigo_base,
+          vStrictDate: false
+        });
+
+        if (!vResult.ok && vResult.unauthorized) {
+          return vSendUnauthorizedJson(vRes);
+        }
+
+        if (!vResult.ok) {
+          return vRes.status(500).json({ ok: false, message: 'INIT_ERROR' });
+        }
+
+        return vRes.json({
+          ok: true,
+          data: vResult.data
+        });
+      } catch (vError) {
+        if (vError?.vStatus === 400) {
+          return vRes.status(400).json({ ok: false, message: vError.vCode || 'VALIDATION_ERROR' });
+        }
+        vLogger007.error(vError, 'INIT_ENDPOINT_ERROR');
+        return vRes.status(500).json({ ok: false, message: 'INIT_ERROR' });
+      }
+    });
+
+    app.post('/api/cu2-007/consultar', express.json({ limit: '1mb' }), async (vReq, vRes) => {
+      const vPayload = vReq.body || {};
+      const vSession = vGetSessionFromRequest(vReq, vSessionStore007, vSessionCookie007Name);
+
+      vLogger007.info(
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha=${String(vPayload?.vFecha_consulta || '') || '-'} base=${String(vPayload?.vCodigo_base || '') || '-'}`
+      );
+
+      if (!vSession || !vSession.vCodigoUsuario) {
+        return vSendUnauthorizedJson(vRes);
+      }
+
+      try {
+        const vResult = await vLoadCu2007State(vLogger007, {
+          vCodigoUsuario: vSession.vCodigoUsuario,
+          vFecha_consulta: vPayload?.vFecha_consulta,
+          vCodigo_base: vPayload?.vCodigo_base,
+          vStrictDate: true
+        });
+
+        if (!vResult.ok && vResult.unauthorized) {
+          return vSendUnauthorizedJson(vRes);
+        }
+
+        if (!vResult.ok) {
+          return vRes.status(500).json({ ok: false, message: 'QUERY_ERROR' });
+        }
+
+        return vRes.json({
+          ok: true,
+          data: vResult.data
+        });
+      } catch (vError) {
+        if (vError?.vStatus === 400) {
+          return vRes.status(400).json({ ok: false, message: vError.vCode || 'VALIDATION_ERROR' });
+        }
+        vLogger007.error(vError, 'QUERY_ENDPOINT_ERROR');
         return vRes.status(500).json({ ok: false, message: 'QUERY_ERROR' });
       }
     });

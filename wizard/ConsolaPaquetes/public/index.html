@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consola Paquetes 1.01 | ERP</title>
+    <title>Consola Paquetes 3.0 CL40 | ERP</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     
     <style>
+        /* Variables de color personalizadas */
         :root {
             --kanban-bg: #f4f5f7;
             --column-bg: #ebedf0;
@@ -42,7 +43,7 @@
             align-items: flex-start;
         }
 
-        /* Columnas */
+        /* Estilos de las Columnas */
         .kanban-column {
             min-width: 320px;
             max-width: 320px;
@@ -74,7 +75,7 @@
             flex-grow: 1;
         }
 
-        /* Estilo de las Cards */
+        /* Estilo de las Cards de Paquetes */
         .package-card {
             background: white;
             border-radius: 8px;
@@ -100,7 +101,7 @@
             color: #6c757d;
         }
 
-        /* Scrollbar personalizado */
+        /* Scrollbar personalizado para una apariencia moderna */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -116,7 +117,7 @@
             background: #999;
         }
 
-        /* Responsive para móviles */
+        /* Responsive para dispositivos móviles */
         @media (max-width: 768px) {
             .kanban-board {
                 padding: 10px;
@@ -134,10 +135,13 @@
             <div class="container-fluid">
                 <a class="navbar-brand d-flex align-items-center" href="#">
                     <i class="bi bi-box-seam me-2"></i>
-                    <span>Consola Paquetes <small class="text-muted">v1.01</small></span>
+                    <span>Consola Paquetes <small class="text-muted">v3.0</small></span>
                 </a>
-                <div class="d-flex text-white-50 small">
-                    <span id="current-date"></span>
+                <div class="d-flex align-items-center gap-3">
+                    <button id="btn-refresh" class="btn btn-sm btn-outline-light">
+                        <i class="bi bi-arrow-clockwise"></i> Actualizar
+                    </button>
+                    <span id="current-date" class="text-white-50 small"></span>
                 </div>
             </div>
         </nav>
@@ -149,6 +153,45 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <!-- Modal de Paquete -->
+    <div class="modal fade" id="packageModal" tabindex="-1" aria-labelledby="packageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="packageModalLabel">Detalle del Paquete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Cliente:</strong> <span id="modal-client"></span>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <strong>Hora Registro:</strong> <span id="modal-time"></span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Dirección:</strong> <span id="modal-address"></span>
+                    </div>
+                    <h6>Productos</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th>Producto</th>
+                                    <th class="text-end" style="width: 100px;">Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-grid-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer" id="modal-footer-actions"></div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

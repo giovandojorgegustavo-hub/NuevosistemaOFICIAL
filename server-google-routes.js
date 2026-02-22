@@ -1,7 +1,9 @@
 const express = require('express');
+const { loadErpConfig, getServicePort } = require('./wizard/port-config');
 
 const app = express();
-const PORT = process.env.PORT || 3008;
+const config = loadErpConfig();
+const PORT = Number(process.env.PORT || getServicePort('google_routes', config));
 const API_KEY = process.env.GOOGLE_ROUTES_API_KEY;
 const REQUEST_TIMEOUT_MS = 8000;
 

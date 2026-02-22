@@ -3,12 +3,14 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU2-001';
-const PORT = 3009;
+const PORT = Number(process.env.PORT || getUseCasePort('CU2-001'));
+const BUSINESS_TZ_OFFSET = String(process.env.BUSINESS_TZ_OFFSET || '-05:00').trim();
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -19,6 +21,27 @@ function timestamp() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(
     now.getMinutes()
   )}:${pad(now.getSeconds())}`;
+}
+
+function parseOffsetToMinutes(offsetText) {
+  const text = String(offsetText || '').trim();
+  const match = text.match(/^([+-])(\d{2}):?(\d{2})$/);
+  if (!match) return -5 * 60;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours > 14 || minutes > 59) {
+    return -5 * 60;
+  }
+  return sign * (hours * 60 + minutes);
+}
+
+function businessTimestamp() {
+  const offsetMinutes = parseOffsetToMinutes(BUSINESS_TZ_OFFSET);
+  const businessDate = new Date(Date.now() + offsetMinutes * 60 * 1000);
+  return `${businessDate.getUTCFullYear()}-${pad(businessDate.getUTCMonth() + 1)}-${pad(
+    businessDate.getUTCDate()
+  )} ${pad(businessDate.getUTCHours())}:${pad(businessDate.getUTCMinutes())}:${pad(businessDate.getUTCSeconds())}`;
 }
 
 function ensureLogFile() {
@@ -166,6 +189,12 @@ function hasBaseAccess(privData, codigoBase) {
   return String(codigoBase || '') === String(privData.vBase || '');
 }
 
+function normalizePriv(value) {
+  const raw = String(value ?? '').trim().toUpperCase();
+  if (raw === 'PRIV') return 'ALL';
+  return raw;
+}
+
 function resolveBaseText(privData, allBases) {
   const baseCode = normalizeBaseCode(privData?.vBase);
   const foundBase = (allBases || []).find((row) => String(row.codigo_base) === String(baseCode));
@@ -184,7 +213,83 @@ async function loadPrivData(conn, codigoUsuario) {
   if (!rows.length) {
     return null;
   }
-  return mapPrivRow(rows[0]);
+  const mapped = mapPrivRow(rows[0]);
+  mapped.vPriv = normalizePriv(mapped.vPriv);
+  return mapped;
+}
+
+function unwrapProcedureRows(result) {
+  if (Array.isArray(result) && Array.isArray(result[0])) {
+    return result[0];
+  }
+  return Array.isArray(result) ? result : [];
+}
+
+async function evaluateTurnState(conn, codigoBase, codigoUsuario, referenciaFechaHora) {
+  const referencia = String(referenciaFechaHora || '').trim() || businessTimestamp();
+  const [[turnoRow]] = await runQuery(conn, 'SELECT get_turno_actual(?, ?) AS turno_actual', [codigoBase, referencia]);
+  const turnoActual = String(turnoRow?.turno_actual ?? '').trim();
+  if (!turnoActual) {
+    return {
+      vPuedeAbrirHorario: false,
+      vMotivoBloqueo: 'FUERA_DE_HORARIO',
+      vTurnoActual: null,
+      vYaMarcado: false
+    };
+  }
+
+  const [[horarioRow]] = await runQuery(
+    conn,
+    `SELECT TIME(bh.hr_apertura) AS hr_apertura, TIME(bh.hr_cierre) AS hr_cierre
+     FROM base_horarios bh
+     WHERE bh.codigo_base = ?
+       AND bh.dia = DAYOFWEEK(?)
+       AND TIME(bh.hr_apertura) = ?
+     ORDER BY bh.hr_apertura DESC
+     LIMIT 1`,
+    [codigoBase, referencia, turnoActual]
+  );
+  const hrApertura = String(horarioRow?.hr_apertura ?? turnoActual).trim();
+  const hrCierre = String(horarioRow?.hr_cierre ?? '').trim();
+  if (!hrCierre) {
+    return {
+      vPuedeAbrirHorario: false,
+      vMotivoBloqueo: 'FUERA_DE_HORARIO',
+      vTurnoActual: null,
+      vYaMarcado: false
+    };
+  }
+
+  const codigoUsuarioText = String(codigoUsuario ?? '').trim();
+  const [[asistenciaRow]] = await runQuery(
+    conn,
+    `SELECT 1 AS ya_marcado
+     FROM bitacoraBase
+     WHERE codigo_base = ?
+       AND codigo_usuario = ?
+       AND DATE(fecha) = DATE(?)
+       AND TIME(fecha) >= TIME(?)
+       AND TIME(fecha) < TIME(?)
+     LIMIT 1`,
+    [codigoBase, codigoUsuarioText, referencia, hrApertura, hrCierre]
+  );
+  const yaMarcado = Boolean(asistenciaRow?.ya_marcado);
+
+  if (yaMarcado) {
+    return {
+      vPuedeAbrirHorario: false,
+      vMotivoBloqueo: 'TURNO_YA_MARCADO',
+      vTurnoActual: turnoActual,
+      vYaMarcado: true
+    };
+  }
+
+  return {
+    vPuedeAbrirHorario: true,
+    vMotivoBloqueo: '',
+    vTurnoActual: turnoActual,
+    vYaMarcado: false
+  };
 }
 
 async function loadAllBases(conn) {
@@ -453,12 +558,49 @@ app.get('/api/ultima-asistencia', async (req, res) => {
   }
 });
 
+app.get('/api/estado-turno', async (req, res) => {
+  const codigoBase = normalizeBaseCode(req.query.codigo_base);
+  const codigoUsuario = String(req.query.codigo_usuario ?? '').trim();
+  const codigoUsuarioAuth = extractCodigoUsuario(req.query || {});
+
+  if (!codigoBase || !codigoUsuario || !hasValidUserCode(codigoUsuarioAuth)) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_BASE_USUARIO_REQUIRED' });
+  }
+
+  try {
+    const pool = app.locals.pool;
+    const conn = await pool.getConnection();
+    try {
+      const privData = await loadPrivData(conn, codigoUsuarioAuth);
+      if (!privData || (privData.vPriv !== 'ALL' && !privData.vBase)) {
+        return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+      }
+      if (!hasBaseAccess(privData, codigoBase)) {
+        return res.status(403).json({ ok: false, message: 'BASE_FORBIDDEN' });
+      }
+
+      const referenciaHorario = businessTimestamp();
+      const estadoTurno = await evaluateTurnState(conn, codigoBase, codigoUsuario, referenciaHorario);
+      return res.json({
+        ok: true,
+        referencia_horaria: referenciaHorario,
+        ...estadoTurno
+      });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'ESTADO_TURNO_ERROR');
+    return res.status(500).json({ ok: false, message: 'ESTADO_TURNO_ERROR' });
+  }
+});
+
 app.post('/api/abrir-horario', async (req, res) => {
   const payload = req.body || {};
   const vCodigoBase = normalizeBaseCode(payload.vCodigo_base);
   const vCodigoUsuario = payload.vCodigo_usuario;
   const codigoUsuarioAuth = extractCodigoUsuario(payload);
-  const marcaAsistencia = timestamp();
+  const marcaAsistencia = businessTimestamp();
 
   if (!vCodigoBase || !vCodigoUsuario || !hasValidUserCode(codigoUsuarioAuth)) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
@@ -474,6 +616,15 @@ app.post('/api/abrir-horario', async (req, res) => {
     }
     if (!hasBaseAccess(privData, vCodigoBase)) {
       return res.status(403).json({ ok: false, message: 'BASE_FORBIDDEN' });
+    }
+
+    const estadoTurno = await evaluateTurnState(conn, vCodigoBase, vCodigoUsuario, marcaAsistencia);
+    if (!estadoTurno.vPuedeAbrirHorario) {
+      return res.status(409).json({
+        ok: false,
+        message: estadoTurno.vMotivoBloqueo,
+        ...estadoTurno
+      });
     }
 
     logSql('BEGIN');
@@ -495,7 +646,11 @@ app.post('/api/abrir-horario', async (req, res) => {
     logSql('COMMIT');
     await conn.commit();
 
-    res.json({ ok: true, ultima_asistencia: marcaAsistencia });
+    res.json({
+      ok: true,
+      ultima_asistencia: marcaAsistencia,
+      vTurnoActual: estadoTurno.vTurnoActual
+    });
   } catch (error) {
     if (transactionStarted) {
       logSql('ROLLBACK');
@@ -522,7 +677,7 @@ async function start() {
   ensureLogFile();
   const pool = await initDb();
   app.locals.pool = pool;
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     logLine(`Servidor CU2001 escuchando en puerto ${PORT}`);
   });
 }

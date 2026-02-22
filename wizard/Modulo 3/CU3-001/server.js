@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
@@ -10,7 +11,7 @@ const MANDATED_LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU3-001';
 const LOG_PREFIX_MANDATED = 'CU3-001';
-const PORT = 3013;
+const PORT = Number(process.env.PORT || getUseCasePort('CU3-001'));
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -419,7 +420,7 @@ app.post('/api/facturar-compra', async (req, res) => {
 async function start() {
   ensureLogFiles();
   pool = await initDb();
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     logLine(`Servidor CU3001 escuchando en puerto ${PORT}`);
   });
 }

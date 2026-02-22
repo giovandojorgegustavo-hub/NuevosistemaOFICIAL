@@ -36,6 +36,53 @@ END//
 
 DELIMITER ;
 
+-- Turno vigente (no reemplaza get_turno, que mantiene logica de siguiente apertura)
+DROP FUNCTION IF EXISTS `get_turno_actual`;
+CREATE FUNCTION `get_turno_actual`(
+  p_codigo_base DECIMAL(12,0),
+  p_p_fecha DATETIME
+) RETURNS TIME
+DETERMINISTIC
+RETURN (
+  SELECT TIME(bh.hr_apertura)
+  FROM base_horarios bh
+  WHERE bh.codigo_base = p_codigo_base
+    AND bh.dia = DAYOFWEEK(p_p_fecha)
+    AND TIME(p_p_fecha) >= TIME(bh.hr_apertura)
+    AND TIME(p_p_fecha) < TIME(bh.hr_cierre)
+  ORDER BY bh.hr_apertura DESC
+  LIMIT 1
+);
+
+-- Asistencia diaria por turno/base (sin filtro y con filtro opcional de base)
+DROP PROCEDURE IF EXISTS `get_asistencia_dia`;
+CREATE PROCEDURE `get_asistencia_dia`(IN p_fecha datetime)
+CALL get_asistencia_dia_filtrado(p_fecha, NULL);
+
+DROP PROCEDURE IF EXISTS `get_asistencia_dia_filtrado`;
+CREATE PROCEDURE `get_asistencia_dia_filtrado`(
+  IN p_fecha datetime,
+  IN p_codigo_base numeric(12,0)
+)
+SELECT
+  date(p_fecha) AS FECHA,
+  time(bh.hr_apertura) AS TURNO,
+  bh.codigo_base,
+  bb.fecha AS FechaRegistro,
+  get_turno_actual(bb.codigo_base, bb.fecha) AS TurnoRegistro,
+  bb.codigo_usuario,
+  bb.codigo_bitacora
+FROM base_horarios bh
+LEFT JOIN bitacoraBase bb
+  ON bb.codigo_base = bh.codigo_base
+ AND get_turno_actual(bb.codigo_base, bb.fecha) = time(bh.hr_apertura)
+ AND bh.dia = weekday(bb.fecha)
+ AND date(bb.fecha) = date(p_fecha)
+ AND bh.dia = weekday(p_fecha)
+WHERE bh.dia = weekday(p_fecha)
+  AND (p_codigo_base IS NULL OR bh.codigo_base = p_codigo_base)
+ORDER BY FECHA, TURNO, bh.codigo_base, bb.codigo_usuario;
+
 -- -----------------------------------------------------------------------------
 -- ULTIMO COSTO POR PRODUCTO (detalle_mov_contable_prov)
 -- -----------------------------------------------------------------------------
@@ -409,6 +456,7 @@ BEGIN
   JOIN pedido_detalle pd
     ON pd.codigo_pedido = p.codigo_pedido
   WHERE pd.saldo > 0
+    AND p.estado <> 'anulado'
   ORDER BY p.fecha DESC, p.codigo_pedido DESC;
 END//
 DELIMITER ;

@@ -3,23 +3,17 @@ const express = require('express');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const path = require('path');
-const yaml = require('yaml');
+const portConfig = require('../port-config');
 
 const APP_PREFIX = 'CL01';
 const ROOT_DIR = __dirname;
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
-const ERP_CONFIG_PATH = path.join(ROOT_DIR, '..', '..', 'erp.yml');
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 let logStream = null;
 let dbPool = null;
-let modulePorts = {
-  1: 4000,
-  2: 4001,
-  3: 4002,
-  4: 4003
-};
+let modulePorts = {};
 const sessions = new Map();
 
 const TEXT = {
@@ -147,15 +141,8 @@ function parseDsn(dsn) {
   };
 }
 
-function asPort(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
-
 function loadErpConfig() {
-  const raw = fs.readFileSync(ERP_CONFIG_PATH, 'utf8');
-  const config = yaml.parse(raw) || {};
+  const config = portConfig.loadErpConfig();
 
   if (!Array.isArray(config.connections) || config.connections.length === 0) {
     throw new Error('erp.yml no contiene connections[0]');
@@ -165,16 +152,25 @@ function loadErpConfig() {
     throw new Error('erp.yml no contiene connections[0].dsn');
   }
 
-  const launcherPort = asPort(config.bk_launcher) || asPort(config.main_port) || 2026;
-  const ports = {
-    1: asPort(config.bk_modulo1_port) || 4000,
-    2: asPort(config.bk_modulo2_port) || 4001,
-    3: asPort(config.bk_modulo3_port) || 4002,
-    4: asPort(config.bk_modulo4_port) || 4003
-  };
+  const moduleConfig = config && config.ports ? config.ports.modules : null;
+  if (!moduleConfig || typeof moduleConfig !== 'object') {
+    throw new Error('erp.yml no contiene ports.modules');
+  }
+
+  const ports = {};
+  for (const rawCode of Object.keys(moduleConfig)) {
+    const code = String(rawCode || '').trim().toUpperCase();
+    const match = code.match(/^M(\d+)$/);
+    if (!match) continue;
+    ports[Number(match[1])] = portConfig.getModulePort(code, config);
+  }
+
+  if (!Object.keys(ports).length) {
+    throw new Error('erp.yml no contiene puertos de modulos validos (M1, M2, ... )');
+  }
 
   return {
-    launcherPort,
+    launcherPort: portConfig.getLauncherPort(config),
     modulePorts: ports,
     connection: {
       dsn: connection.dsn,
@@ -297,10 +293,15 @@ function resolveProtocol(req) {
 
 function moduleNumberByCode(moduloCode) {
   const code = String(moduloCode || '').trim().toUpperCase();
+  const directMatch = code.match(/^M(\d+)$/);
+  if (directMatch) return Number(directMatch[1]);
+  const moduloMatch = code.match(/^MODULO\s+(\d+)$/);
+  if (moduloMatch) return Number(moduloMatch[1]);
   if (code === 'VENTAS' || code === 'MODULO 1' || code === 'M1') return 1;
   if (code === 'BASE' || code === 'MODULO 2' || code === 'M2') return 2;
   if (code === 'COMPRAS' || code === 'MODULO 3' || code === 'M3') return 3;
   if (code === 'OPERACIONES' || code === 'MODULO 4' || code === 'M4') return 4;
+  if (code === 'SEGURIDAD' || code === 'MODULO 6' || code === 'M6') return 6;
   return null;
 }
 
@@ -341,14 +342,18 @@ function resolveModuleNumber(row, usecasePath) {
   const byCode = moduleNumberByCode(row.codigo_modulo);
   if (byCode) return byCode;
 
-  const pathMatch = String(usecasePath || '').toUpperCase().match(/^\/CU([1-4])-/);
+  const pathMatch = String(usecasePath || '').toUpperCase().match(/^\/CU(\d+)-/);
   if (pathMatch) return Number(pathMatch[1]);
 
   const ucCode = String(row.codigo_usecase || '').toUpperCase();
-  const codeMatch = ucCode.match(/^CU([1-4])\d{3}$/);
+  const codeMatch = ucCode.match(/^CU(\d+)\d{3}$/);
   if (codeMatch) return Number(codeMatch[1]);
 
-  return 1;
+  const firstKnown = Object.keys(modulePorts)
+    .map((key) => Number(key))
+    .filter((num) => Number.isFinite(num))
+    .sort((a, b) => a - b)[0];
+  return Number.isFinite(firstKnown) ? firstKnown : 1;
 }
 
 function buildModuleTitle(row) {

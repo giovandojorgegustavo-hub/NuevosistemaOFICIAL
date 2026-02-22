@@ -3,28 +3,14 @@ const fs = require('fs');
 const http = require('http');
 const net = require('net');
 const path = require('path');
-const yaml = require('yaml');
 const { spawn } = require('child_process');
-
-function loadErpConfig(rootDir) {
-  const configPath = path.join(rootDir, 'erp.yml');
-  const raw = fs.readFileSync(configPath, 'utf8');
-  return yaml.parse(raw) || {};
-}
-
-function resolvePort(config, keys, defaultPort) {
-  for (const key of keys) {
-    const value = Number(config[key]);
-    if (Number.isFinite(value) && value > 0) return value;
-  }
-  return defaultPort;
-}
+const { loadErpConfig, getModulePort, getUseCasePort } = require('./port-config');
 
 function writeLine(stream, line) {
   stream.write(`[${new Date().toISOString()}] ${line}\n`);
 }
 
-function startCuServices(moduleDir, moduleCode, cuDefs) {
+function startCuServices(moduleDir, moduleCode, cuDefs, config) {
   const logsDir = path.join(moduleDir, 'logs');
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
@@ -39,7 +25,7 @@ function startCuServices(moduleDir, moduleCode, cuDefs) {
     cuMap[cu.id.toUpperCase()] = {
       id: cu.id.toUpperCase(),
       rawId: cu.id,
-      internalPort: cu.internalPort,
+      internalPort: getUseCasePort(cu.id, config),
       cuDir,
       logsDir,
       moduleCode,
@@ -189,17 +175,15 @@ function proxyRequest(req, res, targetPort, targetPath) {
 function startModuleServer({
   moduleName,
   moduleCode,
-  portKeys,
-  defaultPort,
   cuDefs,
   configureApp
 }) {
   const moduleDir = __dirname && moduleName ? path.join(__dirname, moduleName) : process.cwd();
   const rootDir = path.resolve(moduleDir, '..');
-  const config = loadErpConfig(path.resolve(rootDir, '..'));
-  const port = resolvePort(config, portKeys, defaultPort);
+  const config = loadErpConfig();
+  const port = getModulePort(moduleCode, config);
 
-  const { cuMap } = startCuServices(moduleDir, moduleCode, cuDefs);
+  const { cuMap } = startCuServices(moduleDir, moduleCode, cuDefs, config);
   const app = express();
   const context = {
     app,

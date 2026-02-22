@@ -3,12 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU1-001';
-const PORT = 3001;
+const PORT = Number(process.env.PORT || getUseCasePort('CU1-001'));
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -863,7 +864,7 @@ async function start() {
   ensureLogFile();
   const db = await initDb();
   app.locals.db = db;
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     logLine(`Servidor CU-001 escuchando en puerto ${PORT}`);
   });
 }

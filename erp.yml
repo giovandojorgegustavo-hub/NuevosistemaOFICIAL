@@ -1,13 +1,40 @@
 connections:
   - name: "erpdb"
     dsn: "mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb"
-main_port: 3000
-bk_launcher: 3000
-bk_modulo1_port: 4000
-bk_modulo2_port: 4001
-bk_modulo3_port: 4002
-bk_modulo4_port: 4003
-bk_consola_pktes_port: 4004
+
+ports:
+  launcher: 3000
+  modules:
+    M1: 4000
+    M2: 4001
+    M3: 4002
+    M4: 4003
+  services:
+    consola_paquetes: 4004
+    google_routes: 3008
+  usecases:
+    CU1-001: 3001
+    CU1-002: 3002
+    CU1-003: 3003
+    CU1-004: 3004
+    CU1-005: 3005
+    CU1-006: 3006
+    CU1-007: 3007
+    CU1-008: 3008
+    CU1-009: 3016
+    CU2-001: 3009
+    CU2-002: 3010
+    CU2-003: 3011
+    CU2-004: 3012
+    CU2-007: 3022
+    CU3-001: 3013
+    CU3-002: 3014
+    CU3-003: 3015
+    CU4-001: 3017
+    CU4-002: 3018
+    CU4-003: 3019
+    CU4-004: 3020
+    CU6-001: 3021
 
 google_maps:
   api_key: "AIzaSyCGNcPSiLlcPlBq_34WzC52qApe3dgFkNw"

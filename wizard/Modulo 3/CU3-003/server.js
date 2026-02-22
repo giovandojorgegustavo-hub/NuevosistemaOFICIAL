@@ -3,12 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU3-003';
-const PORT = 3015;
+const PORT = Number(process.env.PORT || getUseCasePort('CU3-003'));
 const DECIMAL_2_REGEX = /^(?:0|[1-9]\d*)(?:[\.,]\d{1,2})?$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -463,7 +464,7 @@ async function startServer() {
 
   pool = await initDbPool();
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '127.0.0.1', () => {
     logInfo(`SERVER STARTED http://localhost:${PORT}`);
   });
 }

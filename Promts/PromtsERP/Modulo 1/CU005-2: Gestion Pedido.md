@@ -129,15 +129,15 @@ Mostrar un Grid llamado "vProdFactura" que se carga con el SP:
 p_codigo_pedido = vcodigo_pedido (seleccionado en Paso 1)
 Campos devueltos: `codigo_producto`, `nombre_producto`, `saldo`, `precio_unitario`
 Variables:
-vcodigo_producto no visible no editable
-vnombre_producto visible no editable
-vcantidad visible editable (inicia con saldo, acepta decimales hasta 2)
-vprecio_unitario no visible no editable
-vprecio_total visible no editable (vcantidad * vprecio_unitario, recalcular al cambiar cantidad)
+vFProductoCodigo no visible no editable (inicia con codigo_producto)
+vFProductoNombre visible no editable (inicia con nombre_producto)
+vFCantidadProducto visible editable (inicia con saldo, acepta decimales hasta 2)
+vFPrecioUnitario no visible no editable (inicia con precio_unitario)
+vFPrecioTotal visible no editable (vFCantidadProducto * vFPrecioUnitario, recalcular al cambiar cantidad)
 
 Filtrar el Grid: mostrar solo items con `saldo > 0`. Si saldo = 0, no mostrar en el grid.
 
-VfMontoDetalleProductos = suma de vprecio_total del Grid vProdFactura
+VfMontoDetalleProductos = suma de vFPrecioTotal del Grid vProdFactura
 VfCostoEnvio = vCostoEnvio, definida luego en el paso 3 por eso no es editable ni visible.
 VfMonto = VfMontoDetalleProductos + VfCostoEnvio
 Vfsaldo = VfMonto (saldo inicial, incluye costo de envio).
@@ -200,10 +200,10 @@ Nuevo: formulario guiado + mapa
 - vDepartamento = Select get_ubigeo_departamentos()
 - vProvincia = Select get_ubigeo_provincias(vCod_Dep)
 - vDistrito = Select get_ubigeo_distritos(vCod_Dep, vCod_Prov)
-- Vubigeo = concatenar vCod_Dep + vCod_Prov + vCod_Dist
+- vUbigeo = concatenar vCod_Dep + vCod_Prov + vCod_Dist
 3) Codigo punto entrega: recalcular si cambia el punto.
-- Si el punto es NUEVO: Vcodigo_puntoentrega = `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteCodigo` (si no hay registros empieza en 1).
-- Si el punto es EXISTENTE: Vcodigo_puntoentrega = valor seleccionado del registro existente (no recalcular).
+- Si el punto es NUEVO: vCodigo_puntoentrega = `SELECT COALESCE(MAX(codigo_puntoentrega), 0) + 1 AS next FROM puntos_entrega WHERE codigo_cliente_puntoentrega = vClienteCodigo` (si no hay registros empieza en 1).
+- Si el punto es EXISTENTE: vCodigo_puntoentrega = valor seleccionado del registro existente (no recalcular).
 4) Region y campos visibles:
 - vRegion_Entrega se calcula: LIMA si vCod_Dep='15' y vCod_Prov='01', si no PROV. No mostrar selector.
 - Si LIMA: vDireccionLinea, vReferencia, vLatitud, vLongitud.
@@ -211,9 +211,9 @@ Nuevo: formulario guiado + mapa
 - vCostoEnvio = 50 si vRegion_Entrega = "PROV", si no 0. (no visible)
 5) Navegacion:
 - Si vRegion_Entrega=LIMA => paso 4. Si no => paso 5.
-6) Vconcatenarpuntoentrega:
-- LIMA: `Vdireccion_linea | distrito | Vreferencia` (omite referencia vacia).
-- PROV: `Vnombre | Vdni | Vagencia | Vobservaciones` (omite vacios).
+6) vConcatenarPuntoEntrega:
+- LIMA: `vDireccionLinea | distrito | vReferencia` (omite referencia vacia).
+- PROV: `vNombre | vDni | vAgencia | vObservaciones` (omite vacios).
 
 
 ## Paso 4. Datos Recibe (solo si vRegion_Entrega = "LIMA").
@@ -235,7 +235,7 @@ Nuevo: se puede darle click para entrar a otros campos
 
 vNumeroRecibe = Campo para escribir
 vNombreRecibe = Campo para escribir 
-Vordinal_numrecibe = regla sin ambiguedad:
+vOrdinal_numrecibe = regla sin ambiguedad:
 - Siempre generar el siguiente correlativo con SQL `SELECT COALESCE(MAX(ordinal_numrecibe), 0) + 1 AS next FROM numrecibe WHERE codigo_cliente_numrecibe = vClienteCodigo` (si no hay registros empieza en 1).
 
 
@@ -243,7 +243,7 @@ vOrdinal_paquetedetalle = regla sin ambiguedad:
 - Si el paquete es NUEVO: asignar ordinal secuencial por linea (1,2,3...) segun el indice.
 - Si YA EXISTE: calcular con SQL `SELECT COALESCE(MAX(ordinal), 0) + 1 AS next FROM paquetedetalle WHERE codigo_paquete = vNumero_documento AND tipo_documento = 'FAC'`.
 
-Vconcatenarnumrecibe = `numero | nombre` (omite campos vacios).
+vConcatenarNumRecibe = `numero | nombre` (omite campos vacios).
 
 ## Paso 5. Registro de Pago (Recibo).
 
@@ -257,6 +257,7 @@ Numeracion para multiples pagos:
 vCuentaNombre = Select (Llamada SP: `get_cuentasbancarias()` devuelve `nombre`)
 Campos devueltos: `codigo_cuentabancaria`, `nombre`, `banco`
 Variables:  
+vCodigo_cuentabancaria = `codigo_cuentabancaria` (no visible)
 vCuentaNombre = `nombre` (visible)
 vCuentaBanco = `banco` (visible)
 
@@ -312,12 +313,12 @@ Recalcular cada vez que cambien vLatitud o vLongitud.
 Formato del JSON (ejemplo):
 [
   {
-    "vFProducto": 1,
+    "vFProductoCodigo": 1,
     "vFCantidadProducto": 2,
     "vFPrecioTotal": 150.50
   },
   {
-    "vFProducto": 2,
+    "vFProductoCodigo": 2,
     "vFCantidadProducto": 1,
     "vFPrecioTotal": 75.00
   }
@@ -339,27 +340,27 @@ Emitir Factura. Al terminar el formulario multipasos, cuando el usuario da click
 ## Grabar el Punto_entrega si hubiera. Tomar los datos capturados en el paso 3:
 
 ## registrarlos en la tabla puntos_entrega
-ubigeo=Vubigeo
-codigo_puntoentrega=Vcodigo_puntoentrega
+ubigeo=vUbigeo
+codigo_puntoentrega=vCodigo_puntoentrega
 codigo_cliente_puntoentrega=vClienteCodigo
-direccion_linea=Vdireccion_linea
-referencia=Vreferencia
-nombre=Vnombre
-dni=Vdni
-agencia=Vagencia
-observaciones=Vobservaciones
+direccion_linea=vDireccionLinea
+referencia=vReferencia
+nombre=vNombre
+dni=vDni
+agencia=vAgencia
+observaciones=vObservaciones
 region_entrega=vRegion_Entrega
-concatenarpuntoentrega = Vconcatenarpuntoentrega
+concatenarpuntoentrega = vConcatenarPuntoEntrega
 latitud = vLatitud
 longitud = vLongitud
 
 ## Grabar el numrecibe si hubiera. Tomar los datos capturados en el paso 4:
 ## registrarlos en la tabla numrecibe
-ordinal_numrecibe=Vordinal_numrecibe
-numero=Vnumero
-nombre=Vnombre
+ordinal_numrecibe=vOrdinal_numrecibe
+numero=vNumeroRecibe
+nombre=vNombreRecibe
 codigo_cliente_numrecibe=vClienteCodigo
-concatenarnumrecibe = Vconcatenarnumrecibe
+concatenarnumrecibe = vConcatenarNumRecibe
 
 ## Grabar Factura. Tomar los datos capturados en el paso 2 (factura) y paso 6 (base):
 ## Guardar en la tabla "mov_contable". 
@@ -375,16 +376,16 @@ tipo_documento="FAC"
 numero_documento=vNumero_documento
 codigo_base=vcodigo_base
 codigo_cliente_numrecibe= (si vRegion_Entrega = "LIMA") vClienteCodigo, si no NULL
-ordinal_numrecibe= (si vRegion_Entrega = "LIMA") Vordinal_numrecibe, si no NULL
+ordinal_numrecibe= (si vRegion_Entrega = "LIMA") vOrdinal_numrecibe, si no NULL
 codigo_cliente_puntoentrega=vClienteCodigo
-codigo_puntoentrega=Vcodigo_puntoentrega
+codigo_puntoentrega=vCodigo_puntoentrega
 costoenvio=vCostoEnvio
 
 ## Guardar en la tabla "mov_contable_detalle". 
-tipo_documento"FAC"
+tipo_documento="FAC"
 numero_documento=vNumero_documento
 ordinal=correlativo por item (1,2,3...) en facturas nuevas; si es edicion usar vOrdinalDetMovCont calculado
-codigo_producto=vFCantidadProducto
+codigo_producto=vFProductoCodigo
 cantidad=vFCantidadProducto
 saldo=vFCantidadProducto
 precio_total=vFPrecioTotal
@@ -412,11 +413,11 @@ numero_documento=secuencial segun la regla definida en Paso 5
 fecha_emision=vFechaP
 fecha_vencimiento=vFechaP
 fecha_valor=vFechaP
-codigo_cuentabancaria=vCuentaBancaria
+codigo_cuentabancaria=vCodigo_cuentabancaria
 monto=monto_pago
 saldo=monto_pago
 
-Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteCodigo, vTipo_documento, mov_contable.saldo)`.
+Actualizar saldos de cliente ejecutando el procedimiento `actualizarsaldosclientes(vClienteCodigo, vTipo_documento_pago, monto_pago)`.
 
 Aplicar el recibo contra facturas (de la mas reciente a la mas antigua) y registrar en Facturas_Pagadas:
 `CALL aplicar_recibo_a_facturas(vClienteCodigo, vNumero_documento_pago, monto_pago)`

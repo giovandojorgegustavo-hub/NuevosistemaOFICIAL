@@ -77,6 +77,12 @@ Si `wizard/_design-system/` no existe, generar un nuevo baseline visual y luego 
 - Ver Logs de sentencias SQL
 - Boton "Abrir Horario"
 - Mostrar "Ultima asistencia" y actualizarla al registrar
+- Validar estado de turno vigente por base antes de habilitar/ejecutar "Abrir Horario":
+  - `vTurnoActual = Llamada SQL: SELECT get_turno(vCodigo_base, NOW())`
+  - Si `vTurnoActual` es `NULL` => bloquear boton y mostrar mensaje de fuera de horario.
+  - `vAsistenciaTurno = Llamada SP: get_asistencia_dia_filtrado(NOW(), vCodigo_base)`
+  - Si el usuario ya tiene marca en `vTurnoActual` => bloquear boton y mostrar mensaje de turno ya marcado.
+  - Solo si pasa ambas validaciones permitir registrar.
 Transaccionalidad total: si falla algo, rollback y no registrar nada.
 Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario tiene >1 paso.
 
@@ -111,6 +117,12 @@ En el mismo paso, cuando el usuario da click al boton "Abrir Horario" el sistema
   fecha=vFecha_registro (debe guardar fecha y hora real de marcacion; no usar solo vFecha)
   codigo_base=vCodigo_base
   codigo_usuario=vCodigo_usuario
+
+Reglas de bloqueo obligatorias (previas al INSERT):
+- Consultar `get_turno(vCodigo_base, NOW())`.
+- Si retorna `NULL`: no insertar y devolver estado `FUERA_DE_HORARIO`.
+- Consultar `get_asistencia_dia_filtrado(NOW(), vCodigo_base)` y validar si ya existe marca del usuario en el turno actual.
+- Si ya existe: no insertar y devolver estado `TURNO_YA_MARCADO`.
 
 Despues de registrar, actualizar vUltima_asistencia con la fecha registrada y cambiar el color del boton a verde.
 

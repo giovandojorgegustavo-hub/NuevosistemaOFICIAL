@@ -41,6 +41,9 @@ const state = {
   vBases: [],
   vCodigo_usuario: 1,
   vUltima_asistencia: null,
+  vPuedeAbrirHorario: true,
+  vMotivoBloqueo: '',
+  vTurnoActual: null,
   Codigo_usuario: '',
   OTP: '',
   vParametros: null
@@ -56,6 +59,7 @@ const baseHelpText = document.getElementById('baseHelpText');
 const vCodigoBaseInput = document.getElementById('vCodigo_base');
 const vCodigoUsuarioInput = document.getElementById('vCodigo_usuario');
 const ultimaAsistenciaText = document.getElementById('ultimaAsistencia');
+const estadoTurnoText = document.getElementById('estadoTurno');
 const abrirHorarioBtn = document.getElementById('abrirHorarioBtn');
 const confirmCheck = document.getElementById('confirmCheck');
 
@@ -80,6 +84,10 @@ const i18n = {
     sinRegistro: 'sin registro',
     abrirHorario: 'Abrir Horario',
     asistenciaRegistrada: 'Asistencia registrada',
+    fueraDeHorario: 'No puedes abrir horario fuera del turno de la base.',
+    turnoYaMarcado: 'Ya registraste asistencia en este turno.',
+    turnoDisponible: 'Turno habilitado para abrir horario.',
+    estadoDesconocido: 'No se pudo validar el estado del turno.',
     confirmRequired: 'Debes confirmar que los datos son correctos.',
     loading: 'Procesando...',
     success: 'Horario abierto correctamente.',
@@ -99,6 +107,10 @@ const i18n = {
     sinRegistro: 'no record',
     abrirHorario: 'Open Schedule',
     asistenciaRegistrada: 'Attendance recorded',
+    fueraDeHorario: 'You cannot open schedule outside the base shift.',
+    turnoYaMarcado: 'Attendance already registered for this shift.',
+    turnoDisponible: 'Shift available to open schedule.',
+    estadoDesconocido: 'Shift status could not be validated.',
     confirmRequired: 'You must confirm that the data is correct.',
     loading: 'Processing...',
     success: 'Schedule opened successfully.',
@@ -302,12 +314,18 @@ function clearAlerts() {
 }
 
 function setLoading(isLoading) {
+  state.vLoading = Boolean(isLoading);
   loadingOverlay.classList.toggle('d-none', !isLoading);
-  abrirHorarioBtn.disabled = isLoading || !confirmCheck.checked;
+  updateAbrirHorarioButtonState(isLoading);
   if (vBaseNombreInput) {
     const allowEditBase = state.vPriv === 'ALL' && !isLoading;
     vBaseNombreInput.readOnly = !allowEditBase;
   }
+}
+
+function updateAbrirHorarioButtonState(isLoading = state.vLoading || false) {
+  const blockedByTurn = !state.vPuedeAbrirHorario;
+  abrirHorarioBtn.disabled = Boolean(isLoading || !confirmCheck.checked || blockedByTurn);
 }
 
 function denyAccessAndClose() {
@@ -377,6 +395,28 @@ function setAsistenciaState(isActive) {
     abrirHorarioBtn.dataset.active = 'false';
     abrirHorarioBtn.textContent = i18n[getLang()].abrirHorario;
   }
+}
+
+function updateEstadoTurnoUi() {
+  if (!estadoTurnoText) return;
+  const dict = i18n[getLang()];
+  const turnoLabel = state.vTurnoActual ? ` (${state.vTurnoActual})` : '';
+  if (state.vPuedeAbrirHorario) {
+    estadoTurnoText.textContent = `${dict.turnoDisponible}${turnoLabel}`;
+    estadoTurnoText.classList.remove('text-danger');
+    estadoTurnoText.classList.add('text-success');
+    return;
+  }
+
+  if (state.vMotivoBloqueo === 'FUERA_DE_HORARIO') {
+    estadoTurnoText.textContent = `${dict.fueraDeHorario}${turnoLabel}`;
+  } else if (state.vMotivoBloqueo === 'TURNO_YA_MARCADO') {
+    estadoTurnoText.textContent = `${dict.turnoYaMarcado}${turnoLabel}`;
+  } else {
+    estadoTurnoText.textContent = dict.estadoDesconocido;
+  }
+  estadoTurnoText.classList.remove('text-success');
+  estadoTurnoText.classList.add('text-danger');
 }
 
 function parseDateValue(value) {
@@ -468,6 +508,24 @@ async function fetchUltimaAsistencia() {
   updateUltimaAsistencia(state.vUltima_asistencia);
 }
 
+async function fetchEstadoTurno() {
+  const params = new URLSearchParams({
+    codigo_base: state.vCodigo_base,
+    codigo_usuario: state.vCodigo_usuario,
+    Codigo_usuario: state.Codigo_usuario
+  });
+
+  const response = await fetch(`./api/estado-turno?${params.toString()}`);
+  const data = await response.json();
+  if (!data.ok) throw new Error(data.message || 'ESTADO_TURNO_ERROR');
+
+  state.vPuedeAbrirHorario = Boolean(data.vPuedeAbrirHorario);
+  state.vMotivoBloqueo = String(data.vMotivoBloqueo || '').trim().toUpperCase();
+  state.vTurnoActual = data.vTurnoActual || null;
+  updateEstadoTurnoUi();
+  updateAbrirHorarioButtonState();
+}
+
 async function syncBaseSelection() {
   if (state.vPriv !== 'ALL') return;
   const selected = resolveBaseFromInput(vBaseNombreInput.value);
@@ -487,6 +545,7 @@ async function syncBaseSelection() {
   updateHiddenFields();
   try {
     await fetchUltimaAsistencia();
+    await fetchEstadoTurno();
   } catch (error) {
     const code = String(error?.message || '').trim().toUpperCase();
     if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED') {
@@ -494,6 +553,11 @@ async function syncBaseSelection() {
       return;
     }
     updateUltimaAsistencia(null);
+    state.vPuedeAbrirHorario = false;
+    state.vMotivoBloqueo = 'ESTADO_TURNO_ERROR';
+    state.vTurnoActual = null;
+    updateEstadoTurnoUi();
+    updateAbrirHorarioButtonState();
   }
 }
 
@@ -554,11 +618,20 @@ async function abrirHorario() {
     state.vUltima_asistencia = data.ultima_asistencia || null;
     updateUltimaAsistencia(state.vUltima_asistencia);
     setAsistenciaState(true);
+    await fetchEstadoTurno();
     showAlert(i18n[getLang()].success, 'success');
   } catch (error) {
     const code = String(error?.message || '').trim().toUpperCase();
     if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED') {
       denyAccessAndClose();
+      return;
+    }
+    if (code === 'FUERA_DE_HORARIO' || code === 'TURNO_YA_MARCADO') {
+      state.vPuedeAbrirHorario = false;
+      state.vMotivoBloqueo = code;
+      updateEstadoTurnoUi();
+      updateAbrirHorarioButtonState();
+      showAlert(code === 'FUERA_DE_HORARIO' ? i18n[getLang()].fueraDeHorario : i18n[getLang()].turnoYaMarcado);
       return;
     }
     showAlert(i18n[getLang()].error);
@@ -605,6 +678,10 @@ async function init() {
   }
   updateHiddenFields();
   setAsistenciaState(false);
+  state.vPuedeAbrirHorario = true;
+  state.vMotivoBloqueo = '';
+  state.vTurnoActual = null;
+  updateEstadoTurnoUi();
   await fetchUltimaAsistencia().catch((error) => {
     const code = String(error?.message || '').trim().toUpperCase();
     if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED') {
@@ -613,11 +690,23 @@ async function init() {
     }
     updateUltimaAsistencia(null);
   });
+  await fetchEstadoTurno().catch((error) => {
+    const code = String(error?.message || '').trim().toUpperCase();
+    if (code === 'UNAUTHORIZED' || code === 'BASE_FORBIDDEN' || code === 'CODIGO_USUARIO_REQUIRED') {
+      denyAccessAndClose();
+      return;
+    }
+    state.vPuedeAbrirHorario = false;
+    state.vMotivoBloqueo = 'ESTADO_TURNO_ERROR';
+    state.vTurnoActual = null;
+    updateEstadoTurnoUi();
+    updateAbrirHorarioButtonState();
+  });
 }
 
 abrirHorarioBtn.addEventListener('click', abrirHorario);
 confirmCheck.addEventListener('change', () => {
-  abrirHorarioBtn.disabled = !confirmCheck.checked;
+  updateAbrirHorarioButtonState();
 });
 vBaseNombreInput.addEventListener('change', () => {
   void syncBaseSelection();

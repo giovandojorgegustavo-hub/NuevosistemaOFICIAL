@@ -3,12 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
+const { getUseCasePort } = require('../../port-config');
 
 const ROOT_DIR = __dirname;
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, '..', '..', 'Modulo 2', 'CU2-004', 'logs');
 const LOG_PREFIX = 'CU2-004';
-const PORT = 3020;
+const PORT = Number(process.env.PORT || getUseCasePort('CU4-004'));
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -610,7 +611,7 @@ async function start() {
   ensureLogFile();
   try {
     app.locals.pool = await initDb();
-    app.listen(PORT, () => {
+    app.listen(PORT, '127.0.0.1', () => {
       logLine(`SERVER_START: http://localhost:${PORT}`);
     });
   } catch (error) {

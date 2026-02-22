@@ -14,6 +14,20 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
+NODE_BIN="${NODE_BIN:-}"
+if [[ -z "$NODE_BIN" ]]; then
+  if [[ -x "$HOME/.nvm/versions/node/v20.20.0/bin/node" ]]; then
+    NODE_BIN="$HOME/.nvm/versions/node/v20.20.0/bin/node"
+  elif command -v node >/dev/null 2>&1; then
+    NODE_BIN="$(command -v node)"
+  fi
+fi
+
+if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
+  echo "No se encontro un binario de node ejecutable."
+  exit 1
+fi
+
 mapfile -d '' -t SERVERS < <(find "$ROOT_DIR/wizard" -mindepth 2 -maxdepth 2 -name server.js -print0 | sort -z)
 
 if [[ ${#SERVERS[@]} -eq 0 ]]; then
@@ -56,7 +70,7 @@ start_service() {
   dir="$(dirname "$server")"
   (
     cd "$dir"
-    nohup node "server.js" >> "$log_file" 2>&1 &
+    nohup "$NODE_BIN" "server.js" >> "$log_file" 2>&1 &
     echo $! > "$pid_file"
   )
   echo "START $id (log: $log_file)"

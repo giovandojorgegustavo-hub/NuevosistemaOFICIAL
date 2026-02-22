@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consola Paquetes 3.0 | ERP</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --kanban-bg: #f4f5f7;
+      --column-bg: #ebedf0;
+      --card-border: #0d6efd;
+    }
+
+    body {
+      background-color: var(--kanban-bg);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+
+    .kanban-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .navbar {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+    }
+
+    .kanban-board {
+      display: flex;
+      flex: 1;
+      overflow-x: auto;
+      padding: 20px;
+      gap: 1.25rem;
+      align-items: flex-start;
+    }
+
+    .kanban-column {
+      min-width: 320px;
+      max-width: 320px;
+      background-color: var(--column-bg);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      max-height: 100%;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+
+    .column-header {
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .column-header h6 {
+      margin: 0;
+      font-weight: 700;
+      color: #444;
+      letter-spacing: 0.5px;
+    }
+
+    .column-body {
+      padding: 0.75rem;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .package-card {
+      background: #fff;
+      border-radius: 8px;
+      border: none;
+      border-left: 5px solid var(--card-border);
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .package-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12) !important;
+    }
+
+    .package-card .card-body {
+      padding: 1rem;
+    }
+
+    .card-id {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #6c757d;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #999;
+    }
+
+    @media (max-width: 768px) {
+      .kanban-board {
+        padding: 10px;
+      }
+
+      .kanban-column {
+        min-width: 85vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="kanban-wrapper">
+    <nav class="navbar navbar-dark bg-dark">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+          <i class="bi bi-box-seam me-2"></i>
+          <span id="titleText">Consola Paquetes <small class="text-muted">v3.0</small></span>
+        </a>
+        <div class="d-flex align-items-center gap-3">
+          <button id="btn-refresh" class="btn btn-sm btn-outline-light" type="button">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span id="refreshText">Actualizar</span>
+          </button>
+          <span id="current-date" class="text-white-50 small"></span>
+        </div>
+      </div>
+    </nav>
+
+    <main id="board" class="kanban-board">
+      <div class="d-flex justify-content-center w-100 align-items-center">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Cargando tablero...</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal fade" id="packageModal" tabindex="-1" aria-labelledby="packageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="packageModalLabel">Detalle del Paquete</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6"><strong id="lblClient">Cliente:</strong> <span id="modal-client"></span></div>
+            <div class="col-md-6 text-md-end"><strong id="lblTime">Hora:</strong> <span id="modal-time"></span></div>
+          </div>
+          <div class="mb-3"><strong id="lblAddress">Dirección de Entrega:</strong> <span id="modal-address"></span></div>
+          <h6 id="gridTitle">vGrid - Productos del Paquete</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped table-bordered align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 70px;">#</th>
+                  <th id="thProduct">Producto</th>
+                  <th id="thQty" class="text-end" style="width: 120px;">Cantidad</th>
+                </tr>
+              </thead>
+              <tbody id="modal-grid-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="modal-footer-actions" class="modal-footer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
