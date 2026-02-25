@@ -34,7 +34,15 @@ function parseMysqlDsn(dsn) {
 }
 
 function loadConfig() {
-  const configPath = path.join(__dirname, 'erp.yml');
+  const configCandidates = [
+    path.join(__dirname, 'erp.yml'),
+    path.join(__dirname, '..', '..', 'erp.yml'),
+    path.join(process.cwd(), 'erp.yml'),
+  ];
+  const configPath = configCandidates.find((candidate) => fs.existsSync(candidate));
+  if (!configPath) {
+    throw new Error(`No se encontro erp.yml. Rutas probadas: ${configCandidates.join(', ')}`);
+  }
   const file = fs.readFileSync(configPath, 'utf8');
   const config = yaml.load(file) || {};
 
