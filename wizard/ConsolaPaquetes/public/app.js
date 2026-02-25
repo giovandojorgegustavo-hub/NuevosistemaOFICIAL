@@ -1,292 +1,390 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const boardContainer = document.getElementById('board'); // CORREGIDO: 'board-container' a 'board'
-    const refreshBtn = document.getElementById('btn-refresh');
-    
-    // Modal Elements
-    let packageModal = null;
-    const modalClient = document.getElementById('modal-client');
-    const modalTime = document.getElementById('modal-time');
-    const modalAddress = document.getElementById('modal-address');
-    const modalGridBody = document.getElementById('modal-grid-body');
-    const modalFooter = document.getElementById('modal-footer-actions');
+  const dict = {
+    es: {
+      title: 'Consola de Paquetes',
+      refresh: 'Actualizar',
+      unauthorized: 'Warning ACCESO NO AUTORIZADO !!!',
+      boardError: 'No se pudieron cargar los datos',
+      loadBoard: 'Cargando tablero...',
+      detail: 'Detalle del Paquete',
+      client: 'Cliente',
+      time: 'Hora',
+      address: 'Direccion',
+      product: 'Producto',
+      qty: 'Cantidad',
+      noProducts: 'Sin productos',
+      loadingProducts: 'Cargando productos...',
+      close: 'Cerrar',
+      notImplemented: 'Accion no implementada aun',
+      settle: 'Liquidar Paquete',
+      pack: 'Empacar',
+      dispatch: 'Despachar',
+      standby: 'Procesar Standby',
+      session: 'Usuario',
+      restrictedAction: 'Usuario ONE: solo esta permitido Empacar',
+    },
+    en: {
+      title: 'Package Console',
+      refresh: 'Refresh',
+      unauthorized: 'Warning UNAUTHORIZED ACCESS !!!',
+      boardError: 'Failed to load data',
+      loadBoard: 'Loading board...',
+      detail: 'Package Detail',
+      client: 'Client',
+      time: 'Time',
+      address: 'Address',
+      product: 'Product',
+      qty: 'Qty',
+      noProducts: 'No products',
+      loadingProducts: 'Loading products...',
+      close: 'Close',
+      notImplemented: 'Action not implemented yet',
+      settle: 'Settle Package',
+      pack: 'Pack',
+      dispatch: 'Dispatch',
+      standby: 'Process Standby',
+      session: 'User',
+      restrictedAction: 'ONE scope user: only Pack is allowed',
+    },
+  };
 
-    // State
-    let columnsDef = [];
+  const lang = (navigator.language || 'es').toLowerCase().startsWith('en') ? 'en' : 'es';
+  const t = (key) => dict[lang][key] || key;
 
-    // Initialize
-    init();
+  const params = new URLSearchParams(window.location.search || '');
+  const vUsuario = Number(params.get('vUsuario') || params.get('v_usuario') || params.get('Codigo_usuario') || 1) || 1;
+  const vOTP = String(params.get('vOTP') || params.get('v_otp') || params.get('OTP') || '').trim();
 
-    async function fetchWithFallback(urls, options) {
-        let lastError = null;
-        for (const url of urls) {
-            try {
-                const res = await fetch(url, options);
-                if (!res.ok) {
-                    if (res.status === 404) continue;
-                    const text = await res.text();
-                    throw new Error(text || `HTTP ${res.status}`);
-                }
-                return await res.json();
-            } catch (error) {
-                lastError = error;
-            }
-        }
-        throw lastError || new Error('No disponible');
+  const board = document.getElementById('board');
+  const refreshBtn = document.getElementById('btn-refresh');
+  const alertContainer = document.getElementById('alert-container');
+  const toastContainer = document.getElementById('toast-container');
+  const sessionUser = document.getElementById('session-user');
+
+  const modalElement = document.getElementById('packageModal');
+  const hasBootstrap = Boolean(window.bootstrap);
+  const modal = hasBootstrap && modalElement ? new window.bootstrap.Modal(modalElement) : null;
+  const modalClient = document.getElementById('modal-client');
+  const modalTime = document.getElementById('modal-time');
+  const modalAddress = document.getElementById('modal-address');
+  const modalBody = document.getElementById('modal-grid-body');
+  const modalActions = document.getElementById('modal-footer-actions');
+
+  let selectedPackage = null;
+  let userScope = { vPriv: 'ALL', canLaunchAll: true, vBase: '' };
+
+  function setStaticLabels() {
+    document.getElementById('title-app').textContent = t('title');
+    document.getElementById('txt-refresh').textContent = t('refresh');
+    document.getElementById('packageModalLabel').textContent = t('detail');
+    document.getElementById('lbl-client').textContent = t('client');
+    document.getElementById('lbl-time').textContent = t('time');
+    document.getElementById('lbl-address').textContent = t('address');
+    document.getElementById('th-product').textContent = t('product');
+    document.getElementById('th-qty').textContent = t('qty');
+    sessionUser.textContent = `${t('session')}: ${vUsuario}`;
+  }
+
+  function showAlert(message, type = 'danger') {
+    alertContainer.innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    `;
+  }
+
+  function showToast(message, type = 'danger') {
+    if (!hasBootstrap || !toastContainer || !window.bootstrap?.Toast) {
+      showAlert(message, type);
+      return;
     }
 
-    function init() {
-        loadBoard();
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', loadBoard);
-        }
+    const wrapper = document.createElement('div');
+    wrapper.className = `toast text-bg-${type} border-0`;
+    wrapper.role = 'alert';
+    wrapper.ariaLive = 'assertive';
+    wrapper.ariaAtomic = 'true';
+    wrapper.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white m-auto me-2" data-bs-dismiss="toast"></button>
+      </div>`;
+    toastContainer.appendChild(wrapper);
+    const toast = new bootstrap.Toast(wrapper, { delay: 4500 });
+    toast.show();
+    wrapper.addEventListener('hidden.bs.toast', () => wrapper.remove());
+  }
+
+  async function apiFetch(url, options) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail = data?.detail ? `: ${data.detail}` : '';
+      throw new Error(`${data?.message || data?.error || 'Error'}${detail}`);
     }
+    return data;
+  }
 
-    async function loadBoard() {
-        if (!boardContainer) {
-            console.error("El contenedor del tablero ('#board') no fue encontrado.");
-            return;
-        }
-        boardContainer.innerHTML = `
-            <div class="d-flex justify-content-center w-100 align-items-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Cargando tablero...</span>
-                </div>
-            </div>`;
+  function renderLoading() {
+    board.innerHTML = `
+      <div class="d-flex align-items-center justify-content-center w-100 pt-5">
+        <div class="spinner-border text-success me-3" role="status"></div>
+        <span>${t('loadBoard')}</span>
+      </div>
+    `;
+  }
 
-        try {
-            // 1. Load Columns (Tablero)
-            const tabResponse = await fetch('/api/board-config');
-            if (!tabResponse.ok) throw new Error('Error cargando tablero');
-            columnsDef = await tabResponse.json();
+  function renderBoard(columns, packages) {
+    board.innerHTML = '';
+    const colMap = new Map();
 
-            // 2. Load Packages
-            const packages = await fetchWithFallback(['/api/packages', '/api/paquetes']);
-
-            renderBoard(columnsDef, packages);
-
-        } catch (error) {
-            console.error(error);
-            boardContainer.innerHTML = `
-                <div class="alert alert-danger m-4" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    No se pudieron cargar los datos: ${error.message}
-                </div>`;
-        }
-    }
-
-    function renderBoard(columns, packages) {
-        if (!boardContainer) return;
-        boardContainer.innerHTML = '';
-
-        // Create Columns
-        columns.forEach(col => {
-            const colDiv = document.createElement('div');
-            colDiv.className = 'kanban-column';
-            colDiv.dataset.ordinal = col.ordinal;
-
-            // Header
-            const header = document.createElement('div');
-            header.className = 'column-header';
-            header.innerHTML = `
-                <h6>${col.titulo}</h6>
-                <span class="badge bg-secondary rounded-pill count-badge">0</span>
-            `;
-
-            // Body (Container for cards)
-            const body = document.createElement('div');
-            body.className = 'column-body';
-            body.id = `col-body-${col.ordinal}`;
-
-            colDiv.appendChild(header);
-            colDiv.appendChild(body);
-            boardContainer.appendChild(colDiv);
-        });
-
-        // Distribute Packages into Columns
-        packages.forEach(pkg => {
-            // get_paquetes returns a field 'columna' which matches 'ordinal'
-            const targetColId = pkg.columna; 
-            const targetBody = document.getElementById(`col-body-${targetColId}`);
-
-            if (targetBody) {
-                const card = createPackageCard(pkg);
-                targetBody.appendChild(card);
-            }
-        });
-
-        // Update counts
-        columns.forEach(col => {
-            const body = document.getElementById(`col-body-${col.ordinal}`);
-            const countBadge = body.previousElementSibling.querySelector('.count-badge');
-            if(countBadge) countBadge.textContent = body.children.length;
-        });
-    }
-
-    function createPackageCard(pkg) {
-        const card = document.createElement('div');
-        card.className = 'card package-card';
-        // Store data for modal
-        card.dataset.json = JSON.stringify(pkg);
-
-        card.innerHTML = `
-            <div class="card-body">
-                <span class="card-id">#${pkg.codigo_paquete}</span>
-                <div class="card-client">${pkg.nombre_cliente || 'Sin Nombre'}</div>
-                <div class="card-address">
-                    <i class="bi bi-geo-alt-fill text-danger small"></i> 
-                    ${pkg.concatenarpuntoentrega || 'Sin Dirección'}
-                </div>
-            </div>
+    columns
+      .sort((a, b) => Number(a.ordinal) - Number(b.ordinal))
+      .forEach((col) => {
+        const colSection = document.createElement('section');
+        colSection.className = 'kanban-column';
+        colSection.innerHTML = `
+          <header class="column-head">
+            <h6>${col.titulo || 'Columna'}</h6>
+            <span class="badge badge-count" id="count-${col.ordinal}">0</span>
+          </header>
+          <div class="column-body" id="col-${col.ordinal}"></div>
         `;
+        board.appendChild(colSection);
+        colMap.set(Number(col.ordinal), colSection.querySelector('.column-body'));
+      });
 
-        // Double Click Event
-        card.addEventListener('dblclick', () => openPackageModal(pkg));
+    (packages || []).forEach((pkg) => {
+      const body = colMap.get(Number(pkg.columna));
+      if (!body) return;
 
-        return card;
+      const card = document.createElement('article');
+      card.className = 'package-card card';
+      card.innerHTML = `
+        <div class="card-body">
+          <div class="package-id">#${pkg.codigo_paquete || '-'}</div>
+          <div class="package-client">${pkg.nombre_cliente || '-'}</div>
+          <div class="package-address"><i class="bi bi-geo-alt"></i> ${pkg.concatenarpuntoentrega || '-'}</div>
+        </div>
+      `;
+      card.addEventListener('dblclick', () => openModal(pkg));
+      body.appendChild(card);
+    });
+
+    colMap.forEach((body, ordinal) => {
+      const count = body.querySelectorAll('.package-card').length;
+      const badge = document.getElementById(`count-${ordinal}`);
+      if (badge) badge.textContent = String(count);
+    });
+  }
+
+  async function openModal(pkg) {
+    selectedPackage = pkg;
+    modalClient.textContent = pkg.nombre_cliente || '-';
+    modalAddress.textContent = pkg.concatenarpuntoentrega || '-';
+
+    const when = pkg.fecha_registro ? new Date(pkg.fecha_registro) : null;
+    modalTime.textContent = when && !Number.isNaN(when.getTime())
+      ? when.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' })
+      : '-';
+
+    modalBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">${t('loadingProducts')}</td></tr>`;
+    renderActionButtons(pkg.columna);
+    if (!modal) {
+      showToast('UI modal no disponible (bootstrap.js no cargado)', 'warning');
+      return;
+    }
+    modal.show();
+
+    try {
+      const products = await apiFetch(`/api/details/${encodeURIComponent(pkg.tipo_documento)}/${encodeURIComponent(pkg.codigo_paquete)}`);
+      if (!Array.isArray(products) || !products.length) {
+        modalBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">${t('noProducts')}</td></tr>`;
+        return;
+      }
+
+      modalBody.innerHTML = '';
+      products.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.ordinal || index + 1}</td>
+          <td>${item.nombre || '-'}</td>
+          <td class="text-end">${item.cantidad ?? 0}</td>
+        `;
+        modalBody.appendChild(tr);
+      });
+    } catch (error) {
+      modalBody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">${error.message}</td></tr>`;
+      showToast(error.message);
+    }
+  }
+
+  function createActionButton(label, classes, icon) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn ${classes} me-auto`;
+    button.innerHTML = `<i class="bi ${icon} me-1"></i>${label}`;
+    return button;
+  }
+
+  function actionAllowed(actionKey) {
+    if (userScope?.canLaunchAll) return true;
+    return String(actionKey || '').toLowerCase() === 'empacar';
+  }
+
+  function applyActionScope(button, actionKey) {
+    if (!button) return;
+    if (actionAllowed(actionKey)) return;
+    button.disabled = true;
+    button.classList.add('disabled');
+    button.title = t('restrictedAction');
+  }
+
+  function renderActionButtons(column) {
+    modalActions.innerHTML = '';
+
+    let action = null;
+    switch (Number(column)) {
+      case 1:
+        action = createActionButton(t('pack'), 'btn-primary', 'bi-box-seam');
+        action.id = 'btn-empacar';
+        action.addEventListener('click', empacarPaquete);
+        applyActionScope(action, 'empacar');
+        break;
+      case 2:
+        action = createActionButton(t('dispatch'), 'btn-success', 'bi-truck');
+        break;
+      case 3:
+        action = createActionButton(t('settle'), 'btn-warning', 'bi-cash-coin');
+        action.id = 'btn-liquidar';
+        action.addEventListener('click', liquidarPaquete);
+        applyActionScope(action, 'encamino');
+        break;
+      case 4:
+        action = createActionButton(t('standby'), 'btn-info text-white', 'bi-hourglass-split');
+        action.id = 'btn-standby';
+        action.addEventListener('click', standbyPaquete);
+        applyActionScope(action, 'standby');
+        break;
+      default:
+        break;
     }
 
-    async function openPackageModal(pkg) {
-        const modalEl = document.getElementById('packageModal');
-        if (!packageModal && modalEl) {
-            packageModal = new bootstrap.Modal(modalEl);
-        }
-        if (!packageModal) {
-            console.error("El modal no pudo ser inicializado.");
-            return;
-        }
-
-        // 1. Fill Basic Info
-        if (modalClient) modalClient.textContent = pkg.nombre_cliente;
-        
-        // Format Time from fecha_registro
-        const dateObj = new Date(pkg.fecha_registro);
-        if (modalTime) modalTime.textContent = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        
-        if (modalAddress) modalAddress.textContent = pkg.concatenarpuntoentrega;
-
-        // 2. Load Grid (Products)
-        if (modalGridBody) modalGridBody.innerHTML = '<tr><td colspan="3" class="text-center">Cargando productos...</td></tr>';
-        
-        try {
-            const products = await fetchWithFallback([
-                `/api/details/${pkg.tipo_documento}/${pkg.codigo_paquete}`,
-                `/api/paquetes/${pkg.codigo_paquete}/productos?tipo_documento=${encodeURIComponent(pkg.tipo_documento)}`
-            ]);
-            
-            renderProductGrid(products);
-        } catch (e) {
-            if (modalGridBody) modalGridBody.innerHTML = `<tr><td colspan="3" class="text-danger text-center">Error: ${e.message}</td></tr>`;
-        }
-
-        // 3. Render Buttons based on Column
-        renderModalButtons(pkg.columna);
-
-        // Show Modal
-        packageModal.show();
+    if (action && action.id !== 'btn-liquidar' && action.id !== 'btn-empacar' && action.id !== 'btn-standby') {
+      action.addEventListener('click', () => showToast(t('notImplemented'), 'warning'));
     }
 
-    function renderProductGrid(products) {
-        if (!modalGridBody) return;
-        modalGridBody.innerHTML = '';
-        if (products.length === 0) {
-            modalGridBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Sin productos</td></tr>';
-            return;
-        }
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'btn btn-secondary';
+    close.setAttribute('data-bs-dismiss', 'modal');
+    close.textContent = t('close');
 
-        products.forEach((prod, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${prod.ordinal || (index + 1)}</td>
-                <td>${prod.nombre}</td>
-                <td class="text-end fw-bold">${prod.cantidad}</td>
-            `;
-            modalGridBody.appendChild(row);
-        });
+    if (action) modalActions.appendChild(action);
+    modalActions.appendChild(close);
+  }
+
+  async function liquidarPaquete() {
+    const button = document.getElementById('btn-liquidar');
+    if (!button) return;
+    await launchUsecase(button, 'encamino', 'liquidar');
+  }
+
+  async function standbyPaquete() {
+    const button = document.getElementById('btn-standby');
+    if (!button) return;
+    await launchUsecase(button, 'standby', 'standby');
+  }
+
+  async function empacarPaquete() {
+    const button = document.getElementById('btn-empacar');
+    if (!button) return;
+    await launchUsecase(button, 'empacar', 'empacar');
+  }
+
+  async function launchUsecase(button, action, endpoint) {
+    const oldHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
+
+    try {
+      const payload = {
+        vUsuario,
+        tipo_documento: selectedPackage?.tipo_documento,
+        codigo_paquete: selectedPackage?.codigo_paquete,
+        action,
+      };
+
+      const result = await apiFetch(`/api/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!result.url) {
+        throw new Error('URL de lanzamiento no disponible');
+      }
+
+      window.open(result.url, '_blank', 'noopener');
+      if (modal) modal.hide();
+      await loadBoard();
+    } catch (error) {
+      showToast(error.message, 'danger');
+      button.disabled = false;
+      button.innerHTML = oldHtml;
     }
+  }
 
-    function renderModalButtons(colOrdinal) {
-        if (!modalFooter) return;
-        // Clear previous dynamic buttons
-        modalFooter.innerHTML = '';
-
-        let actionBtn = null;
-
-        // Logic from requirements
-        // 1: Empacar, 2: Despachar, 3: Liquidar, 4: Procesar Standby
-        switch (parseInt(colOrdinal)) {
-            case 1:
-                actionBtn = createBtn('Empacar', 'btn-primary', 'bi-box-seam');
-                break;
-            case 2:
-                actionBtn = createBtn('Despachar', 'btn-success', 'bi-truck');
-                break;
-            case 3:
-                actionBtn = createBtn('Liquidar Paquete', 'btn-warning', 'bi-cash-coin', true);
-                break;
-            case 4:
-                actionBtn = createBtn('Procesar Standby', 'btn-info text-white', 'bi-hourglass-split');
-                break;
-            default:
-                // No specific action for 5, 6, etc.
-                break;
-        }
-
-        if (actionBtn) {
-            actionBtn.addEventListener('click', () => {
-                if (parseInt(colOrdinal) === 3) {
-                    liquidarpaquete();
-                } else {
-                    alert(`Acción "${actionBtn.textContent.trim()}" no implementada en este demo.`);
-                }
-            });
-            modalFooter.appendChild(actionBtn);
-        }
-
-        // Always add Close button
-        const closeBtn = document.createElement('button');
-        closeBtn.className = 'btn btn-secondary';
-        closeBtn.dataset.bsDismiss = 'modal';
-        closeBtn.textContent = 'Cerrar';
-        modalFooter.appendChild(closeBtn);
+  async function validateSessionIfNeeded() {
+    if (!vOTP) return true;
+    try {
+      const result = await apiFetch(`/api/session/validate?v_usuario=${encodeURIComponent(vUsuario)}&v_otp=${encodeURIComponent(vOTP)}`);
+      return Boolean(result?.authorized);
+    } catch (error) {
+      showAlert(t('unauthorized'));
+      setTimeout(() => {
+        window.close();
+      }, 500);
+      return false;
     }
+  }
 
-    function createBtn(text, classColor, iconClass, isLiquidate = false) {
-        const btn = document.createElement('button');
-        btn.className = `btn ${classColor} me-auto`; // me-auto pushes close button to right
-        btn.innerHTML = `<i class="bi ${iconClass} me-2"></i>${text}`;
-        if (isLiquidate) btn.id = 'btn-liquidar';
-        return btn;
+  async function loadUserScope() {
+    try {
+      const scope = await apiFetch(`/api/user-scope?v_usuario=${encodeURIComponent(vUsuario)}`);
+      userScope = {
+        vPriv: String(scope?.vPriv || 'ONE').toUpperCase(),
+        canLaunchAll: Boolean(scope?.canLaunchAll),
+        vBase: String(scope?.vBase || ''),
+      };
+    } catch (error) {
+      userScope = { vPriv: 'ALL', canLaunchAll: true, vBase: '' };
     }
+  }
 
-    async function liquidarpaquete() {
-        const btn = document.getElementById('btn-liquidar');
-        const originalText = btn ? btn.innerHTML : '';
-        
-        if(btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Procesando...';
-        }
-
-        try {
-            const response = await fetch('/api/liquidar', { method: 'POST' });
-            if (!response.ok) throw new Error('Error al liquidar paquete');
-            
-            const data = await response.json();
-            
-            if (data.url) {
-                // Open URL in new tab
-                window.open(data.url, '_blank');
-                // Close modal and refresh
-                if (packageModal) packageModal.hide();
-                loadBoard();
-            }
-        } catch (error) {
-            console.error(error);
-            alert('Error: ' + error.message);
-            if(btn) {
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-            }
-        }
+  async function loadBoard() {
+    renderLoading();
+    try {
+      const columns = await apiFetch('/api/board-config');
+      const packages = await apiFetch(`/api/packages?v_usuario=${encodeURIComponent(vUsuario)}`);
+      renderBoard(columns, packages);
+    } catch (error) {
+      showAlert(`${t('boardError')}: ${error.message}`);
+      board.innerHTML = '';
     }
+  }
+
+  async function bootstrap() {
+    setStaticLabels();
+
+    const authorized = await validateSessionIfNeeded();
+    if (!authorized) return;
+    await loadUserScope();
+
+    if (refreshBtn) refreshBtn.addEventListener('click', loadBoard);
+    loadBoard();
+  }
+
+  bootstrap();
 });

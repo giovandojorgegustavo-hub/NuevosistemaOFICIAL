@@ -115,7 +115,7 @@ async function ensureCuStarted(cu) {
     cu.out = out;
     writeLine(out, `[${cu.rawId}] START requested on port ${cu.internalPort}`);
 
-    const child = spawn('node', ['server.js'], {
+    const child = spawn(process.execPath, ['server.js'], {
       cwd: cu.cuDir,
       env: { ...process.env, PORT: String(cu.internalPort) },
       stdio: ['ignore', 'pipe', 'pipe']

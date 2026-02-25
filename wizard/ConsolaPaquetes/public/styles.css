@@ -1,0 +1,173 @@
+:root {
+  --bg-0: #f2f6f7;
+  --bg-1: #d8e8ea;
+  --ink-0: #122126;
+  --ink-1: #2a4750;
+  --card: #ffffff;
+  --line: #c8d5d8;
+  --accent: #0a8a7e;
+  --accent-soft: #def3ef;
+  --danger: #a9303a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink-0);
+  background: radial-gradient(1200px 600px at 20% -10%, #ffffff 0%, var(--bg-0) 45%, var(--bg-1) 100%);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.erp-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.erp-topbar {
+  background: linear-gradient(90deg, #12414a, #0a8a7e);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(18, 65, 74, 0.25);
+}
+
+.erp-topbar .navbar-brand,
+.erp-topbar .btn,
+.erp-topbar .badge {
+  color: #fff;
+}
+
+.erp-topbar .btn {
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.erp-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  overflow: auto;
+  align-items: flex-start;
+}
+
+.kanban-column {
+  width: 320px;
+  min-width: 320px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 92%, #cfe3e8);
+  box-shadow: 0 6px 16px rgba(18, 65, 74, 0.08);
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+.column-head {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.column-head h6 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink-1);
+}
+
+.column-body {
+  padding: 0.75rem;
+  overflow-y: auto;
+  min-height: 100px;
+}
+
+.package-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  background: var(--card);
+  margin-bottom: 0.75rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.package-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(18, 65, 74, 0.1);
+}
+
+.package-id {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #5f6e72;
+}
+
+.package-client {
+  font-weight: 600;
+}
+
+.package-address {
+  font-size: 0.85rem;
+  color: #516367;
+}
+
+.meta-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5f6e72;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.meta-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.badge-count {
+  background: var(--accent-soft);
+  color: var(--ink-1);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, white);
+}
+
+@media (max-width: 768px) {
+  .kanban-column {
+    width: 86vw;
+    min-width: 86vw;
+  }
+
+  .erp-topbar .container-fluid {
+    gap: 0.5rem;
+  }
+}
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */

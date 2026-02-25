@@ -27,6 +27,7 @@ Toda variable/campo empieza con `v` y se lista sin `-`.
 Cada variable debe indicar si es visible / no visible y si es editable / no editable.
 En SPs de lectura: primero declarar `vX = Llamada SP: ... (devuelve campo_visible)`, luego listar `Campos devueltos` y despues `Variables` con su visibilidad/edicion.
 Todo campo tipo Select debe permitir escribir y filtrar la lista conforme se escribe (typeahead) para soportar miles de registros.
+En las consultas de paquetes del tablero, `get_paquetes` debe invocarse con usuario: `CALL get_paquetes(NOW(), vUsuario)`.
 
 Como desarrollador de aplicaciones web, ayudame a crear un formulario de un solo paso para crear recibos de proveedores.
 

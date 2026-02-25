@@ -155,9 +155,53 @@ body {
   box-shadow: var(--shadow-glow);
 }
 
-.vRules {
+.form-control::file-selector-button {
+  margin-right: 12px;
+  border: 0;
+  background: linear-gradient(120deg, var(--primary), var(--accent));
+  color: var(--white);
+  padding: 8px 12px;
+  border-radius: var(--btn-radius);
+}
+
+textarea.form-control {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.vHelperText {
+  display: inline-block;
+  margin-top: 6px;
   color: var(--muted);
-  font-size: var(--text-sm);
+}
+
+.vPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.vPreviewItem {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.vPreviewItem img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.vPreviewMeta {
+  font-size: var(--text-xs);
+  padding: 6px 8px;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn {
