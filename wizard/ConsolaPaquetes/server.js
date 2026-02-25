@@ -6,7 +6,9 @@ const mysql = require('mysql2/promise');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
+const PUBLIC_DIR = path.join(__dirname, 'public');
+app.use(express.static(PUBLIC_DIR));
+app.use('/public', express.static(PUBLIC_DIR));
 
 function parseMysqlDsn(dsn) {
   if (typeof dsn !== 'string' || dsn.trim() === '') {
@@ -229,6 +231,10 @@ app.post('/api/standby', async (_req, res) => {
   } catch (error) {
     return apiError(res, 'procesarStandBy', error);
   }
+});
+
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 app.listen(runtime.port, () => {

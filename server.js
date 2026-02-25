@@ -1,71 +1,96 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
-const yaml = require('js-yaml');
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
+const mysql = require('mysql2/promise');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
+const PUBLIC_DIR = path.join(__dirname, 'wizard', 'ConsolaPaquetes', 'public');
+app.use(express.static(PUBLIC_DIR));
+app.use('/public', express.static(PUBLIC_DIR));
+
+function parseMysqlDsn(dsn) {
+  if (typeof dsn !== 'string' || dsn.trim() === '') {
+    throw new Error('DSN vacio o invalido en erp.yml');
+  }
+
+  const tcpFormat = dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/([^?]+)$/i);
+  if (tcpFormat) {
+    const [, user, password, host, port, database] = tcpFormat;
+    return { user, password, host, port: Number(port), database };
+  }
+
+  const stdUrl = new URL(dsn);
+  if (stdUrl.protocol !== 'mysql:') {
+    throw new Error('DSN debe usar protocolo mysql://');
+  }
+
+  return {
+    user: decodeURIComponent(stdUrl.username || ''),
+    password: decodeURIComponent(stdUrl.password || ''),
+    host: stdUrl.hostname,
+    port: Number(stdUrl.port || 3306),
+    database: (stdUrl.pathname || '').replace(/^\//, ''),
+  };
+}
 
 function loadConfig() {
   const configPath = path.join(__dirname, 'erp.yml');
   const file = fs.readFileSync(configPath, 'utf8');
-  const config = yaml.load(file);
+  const config = yaml.load(file) || {};
 
-  const connection = (config.connections || []).find((c) => c.name) || null;
-  if (!connection || !connection.dsn) {
-    throw new Error('No se encontro una conexion valida en erp.yml');
+  const connection = (config.connections || []).find((item) => item && item.dsn && item.name);
+  if (!connection) {
+    throw new Error('No se encontro una conexion con {name} y {dsn} en erp.yml');
   }
 
-  const match = connection.dsn.match(/^mysql:\/\/([^:]+):([^@]+)@tcp\(([^:]+):(\d+)\)\/([^?]+)$/);
-  if (!match) {
-    throw new Error('Formato DSN invalido en erp.yml');
-  }
-
-  const [, user, password, host, port, dbFromDsn] = match;
-  const dbName = connection.name || dbFromDsn;
+  const parsed = parseMysqlDsn(connection.dsn);
 
   return {
     db: {
-      host,
-      port: Number(port),
-      user,
-      password,
-      database: dbName,
+      host: parsed.host,
+      port: parsed.port,
+      user: parsed.user,
+      password: parsed.password,
+      database: connection.name,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
       dateStrings: true,
     },
-    port: config?.ports?.services?.consola_paquetes || 4004,
+    port: Number(config?.ports?.services?.consola_paquetes || 4004),
   };
 }
 
-const runtime = loadConfig();
-const pool = mysql.createPool(runtime.db);
-
-function normalizeSpRows(result) {
+function normalizeRows(result) {
   if (!Array.isArray(result)) return [];
   if (Array.isArray(result[0])) return result[0];
   return result;
 }
 
-function getFirstRow(rows) {
+function firstRow(rows) {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
+function extractScalar(row) {
+  if (!row || typeof row !== 'object') return null;
+  const keys = Object.keys(row);
+  if (keys.length === 0) return null;
+  return row[keys[0]];
+}
+
 function extractOtp(rows) {
-  const first = getFirstRow(rows);
-  if (!first) return null;
+  const row = firstRow(rows);
+  if (!row) return null;
   const candidates = ['otp', 'OTP', 'vOTP', 'codigo_otp', 'token'];
   for (const key of candidates) {
-    if (first[key] !== undefined && first[key] !== null && String(first[key]).trim() !== '') {
-      return String(first[key]);
+    if (row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+      return String(row[key]);
     }
   }
-  const firstKey = Object.keys(first)[0];
-  return firstKey ? String(first[firstKey]) : null;
+  const value = extractScalar(row);
+  return value == null ? null : String(value);
 }
 
 function appendQuery(url, query) {
@@ -74,13 +99,13 @@ function appendQuery(url, query) {
     Object.entries(query).forEach(([key, value]) => parsed.searchParams.set(key, String(value)));
     return parsed.toString();
   } catch {
-    const params = new URLSearchParams();
-    Object.entries(query).forEach(([key, value]) => params.set(key, String(value)));
-    return `${url}${url.includes('?') ? '&' : '?'}${params.toString()}`;
+    const qs = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => qs.set(key, String(value)));
+    return `${url}${url.includes('?') ? '&' : '?'}${qs.toString()}`;
   }
 }
 
-function sendError(res, context, error, status = 500) {
+function apiError(res, context, error, status = 500) {
   console.error(`[${new Date().toISOString()}] ${context}:`, error?.message || error);
   return res.status(status).json({
     error: `Fallo en ${context}`,
@@ -88,71 +113,123 @@ function sendError(res, context, error, status = 500) {
   });
 }
 
-app.get('/api/board-config', async (req, res) => {
-  try {
-    const [result] = await pool.query('CALL get_tablero(?)', ['PAQ']);
-    const rows = normalizeSpRows(result).sort((a, b) => Number(a.ordinal) - Number(b.ordinal));
-    return res.json(rows);
-  } catch (error) {
-    return sendError(res, 'get_tablero', error);
-  }
-});
+const runtime = loadConfig();
+const pool = mysql.createPool(runtime.db);
 
-app.get('/api/packages', async (req, res) => {
-  try {
-    const [result] = await pool.query('CALL get_paquetes(NOW())');
-    const rows = normalizeSpRows(result);
-    return res.json(rows);
-  } catch (error) {
-    return sendError(res, 'get_paquetes', error);
-  }
-});
+async function runBoardAndPackages() {
+  const [boardRaw] = await pool.query('CALL get_tablero(?)', ['PAQ']);
+  const columns = normalizeRows(boardRaw).sort((a, b) => Number(a.ordinal) - Number(b.ordinal));
 
-app.get('/api/details/:type/:code', async (req, res) => {
-  const { type, code } = req.params;
-  if (!type || !code) {
-    return res.status(400).json({ error: 'Parametros invalidos', detail: 'type y code son requeridos' });
-  }
-
-  try {
-    const [result] = await pool.query('CALL get_productos_pkte(?, ?)', [type, code]);
-    const rows = normalizeSpRows(result).sort((a, b) => Number(a.ordinal) - Number(b.ordinal));
-    return res.json(rows);
-  } catch (error) {
-    return sendError(res, 'get_productos_pkte', error);
-  }
-});
-
-app.post('/api/liquidar', async (req, res) => {
+  // Seguridad provisoria solicitada por requerimiento.
   const vUsuario = 1;
-  const vUseCaseToLaunch = 'CU003';
+  const [packRaw] = await pool.query('CALL get_paquetes(NOW(), ?)', [vUsuario]);
+  const packages = normalizeRows(packRaw);
+
+  return { columns, packages, vUsuario };
+}
+
+async function launchUseCase(codigoUseCase) {
+  const vUsuario = 1;
+
+  const [otpRaw] = await pool.query('CALL generar_otp_usuario(?)', [vUsuario]);
+  const vOTP = extractOtp(normalizeRows(otpRaw));
+  if (!vOTP) {
+    throw new Error('SP generar_otp_usuario no retorno OTP valido');
+  }
+
+  const [linkRaw] = await pool.query('CALL get_usecase_link(?)', [codigoUseCase]);
+  const linkRow = firstRow(normalizeRows(linkRaw));
+  const linkToLaunch = linkRow?.linktolaunch;
+  if (!linkToLaunch) {
+    throw new Error(`SP get_usecase_link(${codigoUseCase}) no retorno linktolaunch`);
+  }
+
+  const url = appendQuery(linkToLaunch, { vUsuario, vOTP });
+  return { useCase: codigoUseCase, vUsuario, vOTP, url };
+}
+
+app.get('/api/init', async (req, res) => {
+  const Codigo_usuario = String(req.query.Codigo_usuario || '').trim();
+  const OTP = String(req.query.OTP || '').trim();
+
+  if (!Codigo_usuario || !OTP) {
+    return res.status(400).json({
+      ok: false,
+      code: 0,
+      message: 'Warning ACCESO NO AUTORIZADO !!!',
+      detail: 'Parametros obligatorios faltantes: Codigo_usuario y OTP',
+    });
+  }
 
   try {
-    const [otpResult] = await pool.query('CALL generar_otp_usuario(?)', [vUsuario]);
-    const otpRows = normalizeSpRows(otpResult);
-    const vOTP = extractOtp(otpRows);
+    const [otpCheckRaw] = await pool.query('CALL validar_otp_usuario(?, ?)', [Codigo_usuario, OTP]);
+    const otpCheckRow = firstRow(normalizeRows(otpCheckRaw));
+    const otpCheckValue = Number(extractScalar(otpCheckRow));
 
-    if (!vOTP) {
-      return res.status(500).json({ error: 'No se pudo generar OTP', detail: 'SP generar_otp_usuario sin datos validos' });
+    if (otpCheckValue !== 1) {
+      return res.status(401).json({
+        ok: false,
+        code: otpCheckValue,
+        message: 'Warning ACCESO NO AUTORIZADO !!!',
+      });
     }
 
-    const [linkResult] = await pool.query('CALL get_usecase_link(?)', [vUseCaseToLaunch]);
-    const linkRows = normalizeSpRows(linkResult);
-    const linkRow = getFirstRow(linkRows);
-    const vLinkToLaunch = linkRow?.linktolaunch;
+    const boardData = await runBoardAndPackages();
 
-    if (!vLinkToLaunch) {
-      return res.status(500).json({ error: 'No se encontro link de usecase', detail: `SP get_usecase_link(${vUseCaseToLaunch}) sin linktolaunch` });
-    }
-
-    const url = appendQuery(vLinkToLaunch, { vUsuario, vOTP });
-    return res.json({ ok: true, vUsuario, vOTP, url, usecase: vUseCaseToLaunch });
+    return res.json({
+      ok: true,
+      code: 1,
+      message: 'OK',
+      ...boardData,
+    });
   } catch (error) {
-    return sendError(res, 'liquidarpaquete', error);
+    return apiError(res, 'init', error);
   }
+});
+
+app.get('/api/productos', async (req, res) => {
+  const tipo_documento = String(req.query.tipo_documento || '').trim();
+  const codigo_paquete = String(req.query.codigo_paquete || '').trim();
+
+  if (!tipo_documento || !codigo_paquete) {
+    return res.status(400).json({
+      error: 'Parametros invalidos',
+      detail: 'tipo_documento y codigo_paquete son obligatorios',
+    });
+  }
+
+  try {
+    const [raw] = await pool.query('CALL get_productos_pkte(?, ?)', [tipo_documento, codigo_paquete]);
+    const rows = normalizeRows(raw).sort((a, b) => Number(a.ordinal) - Number(b.ordinal));
+    return res.json({ ok: true, rows });
+  } catch (error) {
+    return apiError(res, 'get_productos_pkte', error);
+  }
+});
+
+app.post('/api/liquidar', async (_req, res) => {
+  try {
+    const result = await launchUseCase('CU003');
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return apiError(res, 'liquidarpaquete', error);
+  }
+});
+
+app.post('/api/standby', async (_req, res) => {
+  try {
+    const result = await launchUseCase('CU004');
+    return res.json({ ok: true, ...result });
+  } catch (error) {
+    return apiError(res, 'procesarStandBy', error);
+  }
+});
+
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 app.listen(runtime.port, () => {
-  console.log(`Consola Paquetes API escuchando en puerto ${runtime.port}`);
+  console.log(`Consola Paquetes corriendo en puerto ${runtime.port}`);
   console.log(`MySQL: ${runtime.db.host}:${runtime.db.port}/${runtime.db.database}`);
 });
