@@ -75,7 +75,7 @@ Estados de loading y error
 Ver Logs de sentencias SQL (no en interfaz)
 Filtros por fecha desde/hasta (obligatorios)
 Filtro por producto (opcional)
-Filtro por base condicionado por privilegio de usuario (`PRIV` o `ONE`)
+Filtro por base condicionado por privilegio de usuario (`ALL` o `ONE`)
 Grid de resultados con ordenamiento por columnas y filtro rapido por texto
 Boton "Consultar" para ejecutar la busqueda
 Boton "Limpiar filtros" para volver a valores iniciales
@@ -100,7 +100,7 @@ vBaseAux no visible no editable
 
 Reglas de privilegios:
 - Si no hay filas en `get_priv_usuario`, mostrar `Warning ACCESO NO AUTORIZADO !!!`, cerrar pagina y salir.
-- `vPriv = "PRIV"`:
+- `vPriv = "ALL"`:
   - Puede consultar cualquier base.
   - Puede dejar base vacia para consultar todas las bases.
   - Selector de base habilitado.
@@ -110,7 +110,7 @@ Reglas de privilegios:
   - No puede cambiar base ni limpiar base.
   - Si llega `codigo_base` en `vParámetros`, ignorarlo y usar `vBaseUsuario`.
 
-vBases = Llamada SP: `get_bases()` (devuelve campo_visible) SOLO si `vPriv = "PRIV"`
+vBases = Llamada SP: `get_bases()` (devuelve campo_visible) SOLO si `vPriv = "ALL"`
 Campos devueltos: `codigo_base`, `nombre`
 Variables:
 vCodigo_base visible editable
@@ -130,7 +130,7 @@ Reglas de validacion:
 - `vFecha_desde <= vFecha_hasta`.
 - `vCodigo_producto` es opcional (si vacio, consultar todos los productos).
 - Base:
-  - Si `vPriv = "PRIV"` y base vacia: consultar todas las bases.
+  - Si `vPriv = "ALL"` y base vacia: consultar todas las bases.
   - Si `vPriv = "ONE"`: usar siempre `vBaseUsuario`.
 
 vHistorialMovimientos = Llamada SP:
@@ -141,8 +141,8 @@ Parametros a enviar:
 - `p_codigo_producto = vCodigo_producto` o `NULL` si vacio
 - `p_codigo_base`:
   - Si `vPriv = "ONE"`: `vBaseUsuario`
-  - Si `vPriv = "PRIV"` y base seleccionada: `vCodigo_base`
-  - Si `vPriv = "PRIV"` y base vacia: `NULL`
+  - Si `vPriv = "ALL"` y base seleccionada: `vCodigo_base`
+  - Si `vPriv = "ALL"` y base vacia: `NULL`
 
 Campos devueltos por SP:
 `fecha`, `tipo_documento`, `numero_documento`, `codigo_base`, `nombre_base`, `codigo_producto`, `nombre_producto`, `cantidad`
@@ -163,6 +163,6 @@ Reglas de carga:
 - Si el SP devuelve 0 filas, mostrar Grid vacio con mensaje "Sin registros".
 - Soportar parametro opcional `vParámetros` JSON:
   - `fecha_desde`, `fecha_hasta`, `codigo_producto`, `codigo_base`
-  - Aplicar `codigo_base` solo cuando `vPriv = "PRIV"`.
+  - Aplicar `codigo_base` solo cuando `vPriv = "ALL"`.
 
 **

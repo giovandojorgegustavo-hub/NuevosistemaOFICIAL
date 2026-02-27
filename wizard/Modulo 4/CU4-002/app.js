@@ -50,7 +50,10 @@ class FormWizard {
     document.getElementById('prevBtn').addEventListener('click', () => this.handlePrev());
     document.getElementById('resetBtn').addEventListener('click', () => this.resetForm());
     document.getElementById('addRowBtn').addEventListener('click', () => this.addDetalleRow());
-    document.getElementById('refreshLogsBtn').addEventListener('click', () => this.loadSqlLogs());
+    const refreshLogsBtn = document.getElementById('refreshLogsBtn');
+    if (refreshLogsBtn) {
+      refreshLogsBtn.addEventListener('click', () => this.loadSqlLogs());
+    }
     document.getElementById('vConfirmar').addEventListener('change', () => {
       if (this.currentStep === 2) {
         document.getElementById('nextBtn').disabled = !document.getElementById('vConfirmar').checked;
@@ -468,7 +471,7 @@ class FormWizard {
     const vCodigo_base = document.getElementById('vCodigo_base').value.trim();
 
     if (!this.dateRegex.test(vFecha)) {
-      errors.push('vFecha no es valida');
+      errors.push('La fecha no es valida');
     }
     if (!vBaseNombre || !vCodigo_base) {
       errors.push('Selecciona una base valida');
@@ -485,29 +488,29 @@ class FormWizard {
       return !real;
     });
     if (faltantes.length) {
-      errors.push('Completa Vcantidad_real en todas las lineas o quitalas');
+      errors.push('Completa la cantidad real en todas las lineas o eliminalas');
     }
 
     const detalle = this.getDetalleItems();
     if (!detalle.length) {
-      errors.push('Agrega al menos un producto en vDetalleAjuste');
+      errors.push('Agrega al menos un producto en el detalle');
     }
 
     const productosInvalidos = detalle.filter((item) => !this.productos.find((prod) => String(prod.codigo_producto) === String(item.vcodigo_producto)));
     if (productosInvalidos.length) {
-      errors.push('vcodigo_producto debe existir en la lista de productos');
+      errors.push('El producto debe existir en la lista de productos');
     }
 
     const cantidadRealErrores = detalle.filter((item) => !this.decimalRegex.test(String(item.Vcantidad_real)));
     if (cantidadRealErrores.length) {
-      errors.push('Vcantidad_real debe ser un numero con hasta 2 decimales');
+      errors.push('La cantidad real debe ser un numero con hasta 2 decimales');
     }
 
     const montoErrores = detalle.filter(
       (item) => item.Vcantidad > 0 && item.Vmonto && !this.decimalRegex.test(String(item.Vmonto))
     );
     if (montoErrores.length) {
-      errors.push('Vmonto debe ser un numero con hasta 2 decimales');
+      errors.push('El monto debe ser un numero con hasta 2 decimales');
     }
 
     return errors;

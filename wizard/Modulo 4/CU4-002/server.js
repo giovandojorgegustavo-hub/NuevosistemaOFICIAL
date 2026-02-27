@@ -191,8 +191,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -342,16 +342,14 @@ app.get('/api/productos-stock', async (req, res) => {
         conn,
         `SELECT p.codigo_producto,
                 p.nombre,
-                COALESCE(sp.saldo_partidas, 0) AS saldo_actual
-         FROM productos p
-         LEFT JOIN (
-           SELECT codigo_producto, SUM(saldo) AS saldo_partidas
-           FROM detalle_mov_contable_prov
-           GROUP BY codigo_producto
-         ) sp
-           ON sp.codigo_producto = p.codigo_producto
+                COALESCE(ss.saldo_actual, 0) AS saldo_actual
+         FROM saldo_stock ss
+         INNER JOIN productos p
+           ON p.codigo_producto = ss.codigo_producto
+         WHERE ss.codigo_base = ?
+           AND COALESCE(ss.saldo_actual, 0) > 0
          ORDER BY p.nombre`,
-        []
+        [codigoBase]
       );
       res.json({ ok: true, data: rows });
     } finally {
@@ -375,8 +373,8 @@ app.get('/api/saldo-stock', async (req, res) => {
     try {
       const [[row]] = await runQuery(
         conn,
-        'SELECT COALESCE(SUM(saldo), 0) AS saldo_partidas FROM detalle_mov_contable_prov WHERE codigo_producto = ?',
-        [codigoProducto]
+        'SELECT COALESCE(saldo_actual, 0) AS saldo_partidas FROM saldo_stock WHERE codigo_base = ? AND codigo_producto = ? LIMIT 1',
+        [codigoBase, codigoProducto]
       );
       res.json({ ok: true, saldo: row ? Number(row.saldo_partidas) : 0 });
     } finally {

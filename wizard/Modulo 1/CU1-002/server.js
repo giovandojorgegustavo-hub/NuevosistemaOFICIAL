@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const yaml = require('yaml');
 const { getUseCasePort } = require('../../port-config');
 const mysql = require('mysql2/promise');
@@ -9,6 +10,9 @@ const PORT = Number(process.env.PORT || getUseCasePort('CU1-002'));
 const ROOT_DIR = __dirname;
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG_PATH = path.resolve(ROOT_DIR, '../../..', 'erp.yml');
+const SESSION_COOKIE_NAME = 'cu002_session';
+const SESSION_TTL_SECONDS = 60 * 30;
+const sessionStore = new Map();
 
 function loadErpConfig() {
   const content = fs.readFileSync(ERP_CONFIG_PATH, 'utf8');
@@ -66,6 +70,50 @@ function logLine(message, isError = false) {
   fs.appendFileSync(LOG_FILE, `${line}\n`);
 }
 
+function parseCookies(cookieHeader) {
+  const out = {};
+  if (!cookieHeader) return out;
+  cookieHeader.split(';').forEach((part) => {
+    const idx = part.indexOf('=');
+    if (idx <= 0) return;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    out[key] = decodeURIComponent(value);
+  });
+  return out;
+}
+
+function createSession(codigoUsuario) {
+  const token = crypto.randomBytes(24).toString('hex');
+  sessionStore.set(token, {
+    codigoUsuario,
+    expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
+  });
+  return token;
+}
+
+function getSessionFromRequest(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token) return null;
+  const session = sessionStore.get(token);
+  if (!session) return null;
+  if (session.expiresAt <= Date.now()) {
+    sessionStore.delete(token);
+    return null;
+  }
+  return { token, ...session };
+}
+
+function requireApiSession(req, res, next) {
+  const session = getSessionFromRequest(req);
+  if (!session) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  req.auth = { codigo_usuario: session.codigoUsuario, token: session.token };
+  next();
+}
+
 // OTP_GATE_ENABLED_START
 function extractFirstInteger(value) {
   if (value === null || value === undefined) return null;
@@ -114,8 +162,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -163,10 +211,15 @@ async function authorizeAndServeIndex(req, res) {
       res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
       return;
     }
+    const token = createSession(codigoUsuario);
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`
+    );
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(ROOT_DIR, 'index.html'));
   } catch (error) {
-    logError(error, 'INDEX OTP VALIDATION ERROR');
+    logLine(`ERROR INDEX OTP VALIDATION: ${error.stack || error.message}`, true);
     res.status(500).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
   }
 }
@@ -205,6 +258,11 @@ app.use((req, res, next) => {
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
+});
+
+app.use('/api', (req, res, next) => {
+  if (req.path === '/health') return next();
+  return requireApiSession(req, res, next);
 });
 
 app.get('/api/config', (req, res) => {
@@ -248,14 +306,30 @@ app.get('/api/bases', async (req, res) => {
 
 app.post('/api/reasignar-base', async (req, res) => {
   const { vtipo_documento, vcodigo_paquete, vcodigo_base, vCodigo_base_nueva, vcodigo_usuario } = req.body || {};
-  if (!vtipo_documento || !vcodigo_paquete || !vcodigo_base || !vCodigo_base_nueva || !vcodigo_usuario) {
+  const usuarioSesion = req.auth && req.auth.codigo_usuario ? String(req.auth.codigo_usuario).trim() : '';
+  const usuarioPayload = vcodigo_usuario ? String(vcodigo_usuario).trim() : '';
+  const usuarioFinal = usuarioPayload || usuarioSesion;
+  if (!vtipo_documento || !vcodigo_paquete || !vcodigo_base || !vCodigo_base_nueva || !usuarioFinal) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+  if (usuarioPayload && usuarioSesion && usuarioPayload !== usuarioSesion) {
+    return res.status(403).json({ error: 'Código de usuario inválido.' });
+  }
+  if (String(vCodigo_base_nueva).trim() === String(vcodigo_base).trim()) {
+    return res.status(400).json({ error: 'La base nueva debe ser distinta a la base actual.' });
   }
 
   try {
+    const basesRows = await execQuery('CALL get_bases()');
+    const bases = basesRows[0] || [];
+    const baseExiste = bases.some((base) => String(base.codigo_base) === String(vCodigo_base_nueva));
+    if (!baseExiste) {
+      return res.status(400).json({ error: 'Código de base inválido.' });
+    }
+
     const userRows = await execQuery(
       'SELECT 1 FROM usuarios WHERE codigo_usuario = ? LIMIT 1',
-      [vcodigo_usuario]
+      [usuarioFinal]
     );
     if (!userRows || userRows.length === 0) {
       return res.status(400).json({ error: 'Código de usuario inválido.' });
@@ -270,7 +344,7 @@ app.post('/api/reasignar-base', async (req, res) => {
     await connection.beginTransaction();
     await execQuery(
       'INSERT INTO Log_reasignacionBase (tipo_documento, numero_documento, codigo_base_actual, codigo_base_reasignada, codigo_usuario, fecha) VALUES (?, ?, ?, ?, ?, NOW())',
-      [vtipo_documento, vcodigo_paquete, vcodigo_base, vCodigo_base_nueva, vcodigo_usuario],
+      [vtipo_documento, vcodigo_paquete, vcodigo_base, vCodigo_base_nueva, usuarioFinal],
       connection
     );
     await execQuery('CALL get_actualizarbasespaquete(?, ?, ?)', [vtipo_documento, vcodigo_paquete, vCodigo_base_nueva], connection);

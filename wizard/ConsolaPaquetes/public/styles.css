@@ -1,13 +1,13 @@
 :root {
-  --bg-0: #f2f6f7;
-  --bg-1: #d8e8ea;
-  --ink-0: #122126;
-  --ink-1: #2a4750;
-  --card: #ffffff;
-  --line: #c8d5d8;
-  --accent: #0a8a7e;
-  --accent-soft: #def3ef;
-  --danger: #a9303a;
+  --bg-deep: #071733;
+  --bg-mid: #0d2d53;
+  --bg-soft: #114b7a;
+  --glass: rgba(8, 27, 50, 0.72);
+  --glass-border: rgba(152, 223, 255, 0.18);
+  --text-main: #f4fbff;
+  --text-soft: #c6d6e6;
+  --accent: #39c8ff;
+  --accent-warm: #ffb350;
 }
 
 * {
@@ -16,139 +16,271 @@
 
 body {
   margin: 0;
-  color: var(--ink-0);
-  background: radial-gradient(1200px 600px at 20% -10%, #ffffff 0%, var(--bg-0) 45%, var(--bg-1) 100%);
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.erp-shell {
   min-height: 100vh;
+  font-family: "DM Sans", sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(57, 200, 255, 0.24), transparent 38%),
+    radial-gradient(circle at 90% 20%, rgba(255, 179, 80, 0.2), transparent 35%),
+    linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-mid) 55%, var(--bg-soft) 100%);
+  overflow: hidden;
+}
+
+.bg-shape {
+  position: fixed;
+  pointer-events: none;
+  filter: blur(1px);
+  opacity: 0.65;
+  z-index: 0;
+}
+
+.bg-shape-1 {
+  top: -4rem;
+  right: -6rem;
+  width: 20rem;
+  height: 20rem;
+  border-radius: 45% 55% 55% 45%;
+  background: linear-gradient(120deg, rgba(57, 200, 255, 0.35), rgba(57, 200, 255, 0.05));
+  animation: floatY 8s ease-in-out infinite;
+}
+
+.bg-shape-2 {
+  bottom: -5rem;
+  left: -5rem;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 38% 62% 57% 43%;
+  background: linear-gradient(160deg, rgba(255, 179, 80, 0.28), rgba(255, 179, 80, 0.04));
+  animation: floatY 10s ease-in-out infinite reverse;
+}
+
+.kanban-wrapper {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  padding: 0.85rem;
+  gap: 0.6rem;
 }
 
-.erp-topbar {
-  background: linear-gradient(90deg, #12414a, #0a8a7e);
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(18, 65, 74, 0.25);
+.navbar {
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(140deg, rgba(7, 28, 54, 0.78), rgba(8, 44, 78, 0.62)) !important;
+  border-radius: 1rem;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 14px 38px rgba(0, 6, 17, 0.28);
 }
 
-.erp-topbar .navbar-brand,
-.erp-topbar .btn,
-.erp-topbar .badge {
-  color: #fff;
+#titleApp {
+  font-family: "Space Grotesk", sans-serif;
+  letter-spacing: 0.02em;
 }
 
-.erp-topbar .btn {
-  border-color: rgba(255, 255, 255, 0.45);
+#sessionBadge {
+  color: #ecf7ff !important;
+  background: rgba(57, 200, 255, 0.16) !important;
+  border: 1px solid rgba(152, 223, 255, 0.22);
 }
 
-.erp-content {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+#btnRefresh {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ecf7ff;
+  background: transparent;
+}
+
+#btnRefresh:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+#alertArea .alert {
+  border: 1px solid rgba(152, 223, 255, 0.24);
 }
 
 .kanban-board {
-  flex: 1;
-  min-height: 0;
   display: flex;
-  gap: 1rem;
-  padding: 1rem;
+  flex: 1;
   overflow: auto;
+  padding: 0.3rem;
+  gap: 1rem;
   align-items: flex-start;
+  min-height: 0;
 }
 
 .kanban-column {
-  width: 320px;
   min-width: 320px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--card) 92%, #cfe3e8);
-  box-shadow: 0 6px 16px rgba(18, 65, 74, 0.08);
+  max-width: 320px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 1rem;
   display: flex;
   flex-direction: column;
   max-height: 100%;
+  box-shadow: 0 14px 38px rgba(0, 6, 17, 0.2);
+  backdrop-filter: blur(6px);
 }
 
-.column-head {
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid var(--line);
+.column-header {
+  padding: 0.95rem 1rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(152, 223, 255, 0.16);
 }
 
-.column-head h6 {
+.column-header h6 {
   margin: 0;
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
-  color: var(--ink-1);
+  color: var(--text-main);
+  letter-spacing: 0.02em;
 }
 
 .column-body {
   padding: 0.75rem;
   overflow-y: auto;
-  min-height: 100px;
+  flex-grow: 1;
 }
 
 .package-card {
-  border: 1px solid var(--line);
+  background: rgba(7, 30, 53, 0.72);
+  border-radius: 0.85rem;
+  border: 1px solid rgba(153, 225, 255, 0.12);
   border-left: 4px solid var(--accent);
-  border-radius: 10px;
-  background: var(--card);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.7rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  color: var(--text-main);
 }
 
 .package-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(18, 65, 74, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 6, 17, 0.22) !important;
 }
 
-.package-id {
-  font-size: 0.76rem;
+.card-id {
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #5f6e72;
+  color: #8fd7ff;
+  margin-bottom: 0.2rem;
 }
 
-.package-client {
-  font-weight: 600;
+.card-client {
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
 }
 
-.package-address {
-  font-size: 0.85rem;
-  color: #516367;
+.card-address,
+.card-date {
+  font-size: 0.875rem;
+  color: var(--text-soft);
 }
 
 .meta-label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #5f6e72;
-  letter-spacing: 0.03em;
+  font-size: 0.75rem;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8fd7ff;
+  margin-bottom: 0.2rem;
 }
 
 .meta-value {
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-main);
 }
 
-.badge-count {
-  background: var(--accent-soft);
-  color: var(--ink-1);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, white);
+.status-bar {
+  min-height: 42px;
+  background: linear-gradient(140deg, rgba(7, 28, 54, 0.78), rgba(8, 44, 78, 0.62));
+  color: var(--text-main);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.85rem;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow-x: auto;
+  box-shadow: 0 14px 38px rgba(0, 6, 17, 0.18);
+  backdrop-filter: blur(5px);
+}
+
+.modal-content {
+  background: linear-gradient(140deg, rgba(7, 28, 54, 0.92), rgba(8, 44, 78, 0.9));
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: rgba(152, 223, 255, 0.2);
+}
+
+.table {
+  color: var(--text-main);
+}
+
+.table > :not(caption) > * > * {
+  border-bottom-color: rgba(152, 223, 255, 0.2);
+}
+
+.btn-secondary {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #ecf7ff;
+  background: transparent;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(8, 27, 50, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(143, 215, 255, 0.55);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(143, 215, 255, 0.82);
+}
+
+@keyframes floatY {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(14px);
+  }
 }
 
 @media (max-width: 768px) {
-  .kanban-column {
-    width: 86vw;
-    min-width: 86vw;
+  .kanban-wrapper {
+    padding: 0.6rem;
   }
 
-  .erp-topbar .container-fluid {
-    gap: 0.5rem;
+  .kanban-board {
+    padding: 0.25rem;
+  }
+
+  .kanban-column {
+    min-width: 85vw;
+  }
+
+  .status-bar {
+    font-size: 0.78rem;
   }
 }
 

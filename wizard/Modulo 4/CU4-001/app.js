@@ -32,6 +32,7 @@ class FormWizard {
     this.detalleBody = document.getElementById('detalleBody');
     this.decimalRegex = /^\d+(\.\d{1,2})?$/;
     this.dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    this.auth = this.extractAuthFromLocation();
   }
 
   async init() {
@@ -65,6 +66,39 @@ class FormWizard {
   setLangFromBrowser() {
     const lang = navigator.language || 'es';
     document.documentElement.setAttribute('lang', lang);
+  }
+
+  extractAuthFromLocation() {
+    const params = new URLSearchParams(window.location.search || '');
+    const codigoUsuario =
+      params.get('vUsuario') || params.get('Codigo_usuario') || params.get('codigo_usuario') || '';
+    const otp = params.get('vOTP') || params.get('OTP') || params.get('otp') || '';
+    return {
+      codigoUsuario: String(codigoUsuario).trim(),
+      otp: String(otp).trim()
+    };
+  }
+
+  authHeaders() {
+    const headers = {};
+    if (this.auth.codigoUsuario) {
+      headers['x-codigo-usuario'] = this.auth.codigoUsuario;
+    }
+    if (this.auth.otp) {
+      headers['x-otp'] = this.auth.otp;
+    }
+    return headers;
+  }
+
+  withAuth(path) {
+    const url = new URL(path, window.location.href);
+    if (this.auth.codigoUsuario) {
+      url.searchParams.set('vUsuario', this.auth.codigoUsuario);
+    }
+    if (this.auth.otp) {
+      url.searchParams.set('vOTP', this.auth.otp);
+    }
+    return `${url.pathname}${url.search}`;
   }
 
   showAlert(message, type = 'danger') {
@@ -281,9 +315,9 @@ class FormWizard {
     this.setLoading(true, 'Cargando datos iniciales...');
     try {
       const [initResponse, basesResponse, productosResponse] = await Promise.all([
-        fetch('./api/init'),
-        fetch('./api/bases'),
-        fetch('./api/productos')
+        fetch(this.withAuth('./api/init'), { headers: this.authHeaders() }),
+        fetch(this.withAuth('./api/bases'), { headers: this.authHeaders() }),
+        fetch(this.withAuth('./api/productos'), { headers: this.authHeaders() })
       ]);
       const initData = await initResponse.json();
       const basesData = await basesResponse.json();
@@ -291,6 +325,12 @@ class FormWizard {
 
       if (!initData.ok) {
         throw new Error(initData.message || 'Error al inicializar');
+      }
+      if (!basesData.ok) {
+        throw new Error(basesData.message || 'Error cargando bases');
+      }
+      if (!productosData.ok) {
+        throw new Error(productosData.message || 'Error cargando productos');
       }
       this.bases = basesData.data || [];
       this.productos = productosData.data || [];
@@ -348,9 +388,12 @@ class FormWizard {
         vDetalleTransferencia: this.getDetalleItems()
       };
 
-      const response = await fetch('./api/transferencias', {
+      const response = await fetch(this.withAuth('./api/transferencias'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders()
+        },
         body: JSON.stringify(payload)
       });
       const result = await response.json();
@@ -379,7 +422,7 @@ class FormWizard {
 
   async loadSqlLogs() {
     try {
-      const response = await fetch('./api/sql-logs');
+      const response = await fetch(this.withAuth('./api/sql-logs'), { headers: this.authHeaders() });
       const data = await response.json();
       if (!data.ok) {
         throw new Error(data.message || 'No se pudieron cargar los logs');

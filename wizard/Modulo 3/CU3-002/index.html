@@ -54,17 +54,8 @@
               </div>
             </div>
 
-            <div class="table-responsive mt-3">
-              <table class="table table-hover align-middle" id="proveedoresTable">
-                <thead>
-                  <tr>
-                    <th data-i18n="colNombre">Proveedor</th>
-                    <th data-i18n="colSaldo">Saldo pendiente</th>
-                    <th data-i18n="colAction">Accion</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+            <div class="proveedor-list mt-3" id="proveedoresList">
+              <div class="text-muted">-</div>
             </div>
           </section>
 
@@ -77,28 +68,22 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label" data-i18n="proveedorLabel">Proveedor</label>
-                <input type="text" class="form-control" id="proveedorNombre" readonly />
+                <input type="text" class="form-control system-input" id="proveedorNombre" readonly />
               </div>
               <div class="col-md-6">
                 <label class="form-label" data-i18n="saldoLabel">Saldo pendiente</label>
-                <input type="text" class="form-control" id="proveedorSaldo" readonly />
+                <input type="text" class="form-control system-input" id="proveedorSaldo" readonly />
               </div>
             </div>
 
             <div class="row g-3 mt-1">
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label class="form-label" data-i18n="fechaLabel">Fecha</label>
-                <input type="date" class="form-control" id="fechaPago" required />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label" data-i18n="tipoDoc">Tipo documento</label>
-                <input type="text" class="form-control" id="tipoDocumento" readonly />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label" data-i18n="numDoc">Numero documento</label>
-                <input type="text" class="form-control" id="numeroDocumento" readonly />
+                <input type="datetime-local" step="1" class="form-control" id="fechaPago" required />
               </div>
             </div>
+            <input type="hidden" id="tipoDocumento" />
+            <input type="hidden" id="numeroDocumento" />
 
             <div class="row g-3 mt-1">
               <div class="col-md-6">
@@ -109,7 +94,7 @@
               </div>
               <div class="col-md-6">
                 <label class="form-label" data-i18n="bancoLabel">Banco</label>
-                <input type="text" class="form-control" id="cuentaBanco" readonly />
+                <input type="text" class="form-control system-input" id="cuentaBanco" readonly />
               </div>
             </div>
 

@@ -11,7 +11,8 @@ const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU3-003';
 const PORT = Number(process.env.PORT || getUseCasePort('CU3-003'));
 const DECIMAL_2_REGEX = /^(?:0|[1-9]\d*)(?:[\.,]\d{1,2})?$/;
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const DATETIME_REGEX = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
 
 let logStream;
 let pool;
@@ -143,9 +144,45 @@ function todayYmd() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+function currentHms() {
+  const now = new Date();
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+
+function normalizeSqlDateTime(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (DATE_ONLY_REGEX.test(raw)) {
+    return `${raw} ${currentHms()}`;
+  }
+
+  const match = raw.match(DATETIME_REGEX);
+  if (!match) {
+    return null;
+  }
+
+  const [, year, month, day, hour, minute, second = '00'] = match;
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
 function parsePositiveInt(value) {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0) {
+    return null;
+  }
+  return n;
+}
+
+function parseNonNegativeInt(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
     return null;
   }
   return n;
@@ -163,6 +200,82 @@ function parsePositiveDecimal(value) {
     return null;
   }
   return n;
+}
+
+async function resolveUniqueBaseFromRemitos(conn, codigoProvedor, tipoDocumentoOrigen, numDocumentoOrigen, codigoProducto) {
+  if (!codigoProvedor || !codigoProducto) {
+    return null;
+  }
+
+  if (tipoDocumentoOrigen && numDocumentoOrigen) {
+    const [rowsOrigen] = await runQuery(
+      conn,
+      `SELECT
+        CASE
+          WHEN COUNT(DISTINCT d.codigo_base) = 1 THEN MIN(d.codigo_base)
+          ELSE NULL
+        END AS codigo_base_unica
+      FROM mov_contable_prov m
+      INNER JOIN detalle_mov_contable_prov d
+        ON d.tipo_documento_compra = m.tipo_documento_compra
+       AND d.num_documento_compra = m.num_documento_compra
+       AND d.codigo_provedor = m.codigo_provedor
+      WHERE m.tipo_documento_compra = 'REM'
+        AND m.codigo_provedor = ?
+        AND m.tipo_documento_compra_origen = ?
+        AND m.num_documento_compra_origen = ?
+        AND m.codigo_provedor_origen = ?
+        AND d.codigo_producto = ?
+        AND d.codigo_base IS NOT NULL`,
+      [codigoProvedor, tipoDocumentoOrigen, numDocumentoOrigen, codigoProvedor, codigoProducto]
+    );
+    const baseDesdeOrigen = parsePositiveInt(rowsOrigen?.[0]?.codigo_base_unica);
+    if (baseDesdeOrigen) {
+      return baseDesdeOrigen;
+    }
+  }
+
+  const [rowsProveedorProducto] = await runQuery(
+    conn,
+    `SELECT
+      CASE
+        WHEN COUNT(DISTINCT d.codigo_base) = 1 THEN MIN(d.codigo_base)
+        ELSE NULL
+      END AS codigo_base_unica
+    FROM detalle_mov_contable_prov d
+    WHERE d.tipo_documento_compra = 'REM'
+      AND d.codigo_provedor = ?
+      AND d.codigo_producto = ?
+      AND d.codigo_base IS NOT NULL`,
+    [codigoProvedor, codigoProducto]
+  );
+
+  const baseDesdeRemitos = parsePositiveInt(rowsProveedorProducto?.[0]?.codigo_base_unica);
+  if (baseDesdeRemitos) {
+    return baseDesdeRemitos;
+  }
+
+  // Fallback: algunos flujos historicos (AJE/FBF/FCC) pudieron registrar base en detalle.
+  const [rowsHistorico] = await runQuery(
+    conn,
+    `SELECT
+      CASE
+        WHEN COUNT(DISTINCT d.codigo_base) = 1 THEN MIN(d.codigo_base)
+        ELSE NULL
+      END AS codigo_base_unica
+    FROM detalle_mov_contable_prov d
+    INNER JOIN mov_contable_prov m
+      ON m.tipo_documento_compra = d.tipo_documento_compra
+     AND m.num_documento_compra = d.num_documento_compra
+     AND m.codigo_provedor = d.codigo_provedor
+    WHERE d.codigo_provedor = ?
+      AND d.codigo_producto = ?
+      AND d.codigo_base IS NOT NULL
+      AND d.tipo_documento_compra IN ('AJE', 'FBF', 'REM')`,
+    [codigoProvedor, codigoProducto]
+  );
+
+  return parsePositiveInt(rowsHistorico?.[0]?.codigo_base_unica);
 }
 
 // OTP_GATE_ENABLED_START
@@ -287,21 +400,60 @@ app.get('/api/bootstrap', async (req, res) => {
     const [proveedoresResult] = await runQuery(pool, 'CALL get_proveedores()');
     const [productosResult] = await runQuery(pool, 'CALL get_productos()');
     const [basesResult] = await runQuery(pool, 'CALL get_bases()');
+    const [facturasResult] = await runQuery(
+      pool,
+      `SELECT
+        m.tipo_documento_compra,
+        m.num_documento_compra,
+        m.codigo_provedor,
+        p.nombre AS nombre_provedor,
+        SUM(COALESCE(d.saldo, 0)) AS saldo_pendiente_total,
+        COALESCE(
+          NULLIF(m.monto, 0),
+          SUM(COALESCE(d.monto, 0)),
+          0
+        ) AS monto_total,
+        m.fecha
+      FROM mov_contable_prov m
+      INNER JOIN provedores p
+        ON p.codigo_provedor = m.codigo_provedor
+      LEFT JOIN detalle_mov_contable_prov d
+        ON d.tipo_documento_compra = m.tipo_documento_compra
+       AND d.num_documento_compra = m.num_documento_compra
+       AND d.codigo_provedor = m.codigo_provedor
+      WHERE m.tipo_documento_compra = 'FCC'
+        AND m.codigo_provedor > 0
+      GROUP BY
+        m.tipo_documento_compra,
+        m.num_documento_compra,
+        m.codigo_provedor,
+        p.nombre,
+        m.monto,
+        m.fecha
+      HAVING SUM(COALESCE(d.saldo, 0)) > 0
+      ORDER BY m.fecha DESC, m.num_documento_compra DESC`
+    );
     const [nextResult] = await runQuery(
       pool,
       'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
       ['NCC']
     );
 
+    const vFacturasFCC = (facturasResult || []).filter(
+      (row) => String(row.tipo_documento_compra || '').toUpperCase() === 'FCC'
+    );
+
     res.json({
       ok: true,
       data: {
         vFecha: todayYmd(),
+        vFechaDisplay: timestamp(),
         vTipo_documento_compra: 'NCC',
         vNum_documento_compra: nextResult?.[0]?.next || 1,
         vProveedores: proveedoresResult?.[0] || [],
         vProductos: productosResult?.[0] || [],
-        vBases: basesResult?.[0] || []
+        vBases: basesResult?.[0] || [],
+        vFacturasFCC
       }
     });
   } catch (error) {
@@ -310,121 +462,298 @@ app.get('/api/bootstrap', async (req, res) => {
   }
 });
 
+app.post('/api/fcc-detalle', async (req, res) => {
+  const payload = req.body || {};
+  const vTipo = String(payload.vTipo_documento_compra || '').trim();
+  const vNum = parsePositiveInt(payload.vNum_documento_compra);
+  const vCodigo = parsePositiveInt(payload.vCodigo_provedor);
+
+  if (!vTipo || !vNum || !vCodigo) {
+    return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+
+  try {
+    const [rows] = await runQuery(
+      pool,
+      `SELECT
+        d.ordinal,
+        COALESCE(
+          d.codigo_base,
+          (
+            SELECT
+              CASE
+                WHEN COUNT(DISTINCT dr.codigo_base) = 1 THEN MIN(dr.codigo_base)
+                ELSE NULL
+              END
+            FROM mov_contable_prov mr
+            INNER JOIN detalle_mov_contable_prov dr
+              ON dr.tipo_documento_compra = mr.tipo_documento_compra
+             AND dr.num_documento_compra = mr.num_documento_compra
+             AND dr.codigo_provedor = mr.codigo_provedor
+            WHERE mr.tipo_documento_compra = 'REM'
+              AND mr.tipo_documento_compra_origen = d.tipo_documento_compra
+              AND mr.num_documento_compra_origen = d.num_documento_compra
+              AND mr.codigo_provedor_origen = d.codigo_provedor
+              AND dr.codigo_producto = d.codigo_producto
+              AND dr.codigo_base IS NOT NULL
+          ),
+          (
+            SELECT
+              CASE
+                WHEN COUNT(DISTINCT dr2.codigo_base) = 1 THEN MIN(dr2.codigo_base)
+                ELSE NULL
+              END
+            FROM detalle_mov_contable_prov dr2
+            WHERE dr2.tipo_documento_compra = 'REM'
+              AND dr2.codigo_provedor = d.codigo_provedor
+              AND dr2.codigo_producto = d.codigo_producto
+              AND dr2.codigo_base IS NOT NULL
+          ),
+          (
+            SELECT
+              CASE
+                WHEN COUNT(DISTINCT dh.codigo_base) = 1 THEN MIN(dh.codigo_base)
+                ELSE NULL
+              END
+            FROM detalle_mov_contable_prov dh
+            INNER JOIN mov_contable_prov mh
+              ON mh.tipo_documento_compra = dh.tipo_documento_compra
+             AND mh.num_documento_compra = dh.num_documento_compra
+             AND mh.codigo_provedor = dh.codigo_provedor
+            WHERE dh.codigo_provedor = d.codigo_provedor
+              AND dh.codigo_producto = d.codigo_producto
+              AND dh.codigo_base IS NOT NULL
+              AND dh.tipo_documento_compra IN ('AJE', 'FBF', 'REM')
+          )
+        ) AS codigo_base,
+        d.codigo_producto,
+        p.nombre AS nombre_producto,
+        d.cantidad,
+        d.cantidad_entregada,
+        d.saldo AS saldo_disponible,
+        ROUND(
+          CASE
+            WHEN COALESCE(d.cantidad, 0) = 0 THEN 0
+            ELSE COALESCE(d.monto, 0) / d.cantidad
+          END,
+          6
+        ) AS costo_unitario,
+        ROUND(
+          CASE
+            WHEN COALESCE(d.cantidad, 0) = 0 THEN 0
+            ELSE (COALESCE(d.monto, 0) / d.cantidad) * COALESCE(d.saldo, 0)
+          END,
+          2
+        ) AS monto_disponible
+      FROM detalle_mov_contable_prov d
+      INNER JOIN productos p ON p.codigo_producto = d.codigo_producto
+      WHERE d.tipo_documento_compra = ?
+        AND d.num_documento_compra = ?
+        AND d.codigo_provedor = ?
+        AND COALESCE(d.saldo, 0) > 0
+      ORDER BY d.ordinal`,
+      [vTipo, vNum, vCodigo]
+    );
+
+    const detalle = Array.isArray(rows) ? rows : [];
+    res.json({ ok: true, detalle });
+  } catch (error) {
+    logError(error, 'FCC_DETALLE_ERROR');
+    res.status(500).json({ ok: false, message: 'FCC_DETALLE_ERROR' });
+  }
+});
+
 app.post('/api/nota-credito-proveedor', async (req, res) => {
   const payload = req.body || {};
 
-  const vFecha = payload.vFecha;
+  const vFecha = normalizeSqlDateTime(payload.vFecha);
   const vTipo_documento_compra = String(payload.vTipo_documento_compra || 'NCC').trim();
-  const vNum_documento_compra = parsePositiveInt(payload.vNum_documento_compra);
+  const vTipo_nota_credito = String(payload.vTipo_nota_credito || 'PRODUCTO').trim().toUpperCase();
   const vCodigo_provedor = parsePositiveInt(payload.vCodigo_provedor);
+  const vTipo_documento_compra_origen = String(payload.vTipo_documento_compra_origen || '').trim();
+  const vNum_documento_compra_origen = parsePositiveInt(payload.vNum_documento_compra_origen);
+  const vMonto_dinero = parsePositiveDecimal(payload.vMonto_dinero);
   const vDetalleNotaCredito = Array.isArray(payload.vDetalleNotaCredito) ? payload.vDetalleNotaCredito : [];
 
-  if (!vFecha || !vTipo_documento_compra || !vNum_documento_compra || !vCodigo_provedor || !vDetalleNotaCredito.length) {
+  if (!vTipo_documento_compra || !vCodigo_provedor) {
     return res.status(400).json({ ok: false, message: 'DATOS_INCOMPLETOS' });
   }
-  if (!DATE_REGEX.test(vFecha)) {
+  if (!vFecha) {
     return res.status(400).json({ ok: false, message: 'FECHA_INVALIDA' });
   }
   if (vTipo_documento_compra !== 'NCC') {
     return res.status(400).json({ ok: false, message: 'TIPO_DOCUMENTO_INVALIDO' });
   }
-
-  const detalleNormalizado = [];
-  for (let i = 0; i < vDetalleNotaCredito.length; i += 1) {
-    const item = vDetalleNotaCredito[i] || {};
-    const codigo_base = parsePositiveInt(item.codigo_base);
-    const codigo_producto = parsePositiveInt(item.codigo_producto);
-    const cantidad = parsePositiveDecimal(item.cantidad);
-    const monto = parsePositiveDecimal(item.monto);
-
-    if (!codigo_base || !codigo_producto || !cantidad || !monto) {
-      return res.status(400).json({ ok: false, message: 'DETALLE_INVALIDO' });
-    }
-
-    detalleNormalizado.push({
-      ordinal: i + 1,
-      codigo_base,
-      codigo_producto,
-      cantidad,
-      saldo: 0,
-      monto
-    });
+  if (!['PRODUCTO', 'DINERO'].includes(vTipo_nota_credito)) {
+    return res.status(400).json({ ok: false, message: 'TIPO_NCC_INVALIDO' });
+  }
+  if (vTipo_documento_compra_origen !== 'FCC' || !vNum_documento_compra_origen) {
+    return res.status(400).json({ ok: false, message: 'FCC_ORIGEN_REQUERIDA' });
+  }
+  if (vTipo_nota_credito === 'PRODUCTO' && !vDetalleNotaCredito.length) {
+    return res.status(400).json({ ok: false, message: 'DETALLE_REQUERIDO' });
+  }
+  if (vTipo_nota_credito === 'DINERO' && !vMonto_dinero) {
+    return res.status(400).json({ ok: false, message: 'MONTO_DINERO_INVALIDO' });
   }
 
-  const vTotal_nota = Number(
-    detalleNormalizado.reduce((acc, item) => acc + item.cantidad * item.monto, 0).toFixed(2)
-  );
+  const detalleNormalizado = [];
+  if (vTipo_nota_credito === 'PRODUCTO') {
+    for (let i = 0; i < vDetalleNotaCredito.length; i += 1) {
+      const item = vDetalleNotaCredito[i] || {};
+      const codigo_base = parseNonNegativeInt(item.codigo_base);
+      const codigo_producto = parsePositiveInt(item.codigo_producto);
+      const cantidad = parsePositiveDecimal(item.cantidad);
+      const monto = parsePositiveDecimal(item.monto);
+
+      if (codigo_base === null || !codigo_producto || !cantidad || !monto) {
+        return res.status(400).json({ ok: false, message: 'DETALLE_INVALIDO' });
+      }
+
+      detalleNormalizado.push({
+        ordinal: i + 1,
+        codigo_base: codigo_base > 0 ? codigo_base : null,
+        codigo_producto,
+        cantidad,
+        saldo: 0,
+        monto
+      });
+    }
+  }
+
+  const vTotal_nota = Number((vTipo_nota_credito === 'DINERO'
+    ? vMonto_dinero
+    : detalleNormalizado.reduce((acc, item) => acc + item.monto, 0)).toFixed(2));
   if (vTotal_nota <= 0) {
     return res.status(400).json({ ok: false, message: 'TOTAL_INVALIDO' });
   }
 
   let conn;
+  let vNum_documento_compra;
 
   try {
     conn = await pool.getConnection();
     logSql('BEGIN', []);
     await conn.beginTransaction();
 
-    await runQuery(
-      conn,
-      `INSERT INTO mov_contable_prov (
-        tipo_documento_compra,
-        num_documento_compra,
-        codigo_provedor,
-        fecha,
-        monto,
-        saldo
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, vFecha, vTotal_nota, vTotal_nota]
-    );
-
-    for (const item of detalleNormalizado) {
-      await runQuery(
+    // Reserva numero NCC dentro de la transaccion y reintenta si hay colision de PK.
+    let insertado = false;
+    const MAX_RETRIES = 5;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+      const [nextRows] = await runQuery(
         conn,
-        `INSERT INTO detalle_mov_contable_prov (
-          tipo_documento_compra,
-          num_documento_compra,
-          codigo_provedor,
-          codigo_base,
-          ordinal,
-          codigo_producto,
-          cantidad,
-          cantidad_entregada,
-          saldo,
-          monto
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-        [
+        'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
+        [vTipo_documento_compra]
+      );
+      const nextNumber = parsePositiveInt(nextRows?.[0]?.next) || 1;
+
+      try {
+        await runQuery(
+          conn,
+          `INSERT INTO mov_contable_prov (
+            tipo_documento_compra,
+            num_documento_compra,
+            codigo_provedor,
+            tipo_documento_compra_origen,
+            num_documento_compra_origen,
+            codigo_provedor_origen,
+            fecha,
+            monto,
+            saldo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            vTipo_documento_compra,
+            nextNumber,
+            vCodigo_provedor,
+            vTipo_documento_compra_origen,
+            vNum_documento_compra_origen,
+            vCodigo_provedor,
+            vFecha,
+            vTotal_nota,
+            vTotal_nota
+          ]
+        );
+        vNum_documento_compra = nextNumber;
+        insertado = true;
+        break;
+      } catch (insertError) {
+        if (insertError && insertError.code === 'ER_DUP_ENTRY' && attempt < MAX_RETRIES) {
+          logInfo(`NCC DUPLICADA detectada en intento ${attempt}. Reintentando numeracion...`);
+          continue;
+        }
+        throw insertError;
+      }
+    }
+
+    if (!insertado) {
+      throw new Error('NCC_SEQUENCE_CONFLICT');
+    }
+
+    if (vTipo_nota_credito === 'PRODUCTO') {
+      for (const item of detalleNormalizado) {
+        if (!(item.codigo_base > 0)) {
+          item.codigo_base = await resolveUniqueBaseFromRemitos(
+            conn,
+            vCodigo_provedor,
+            vTipo_documento_compra_origen,
+            vNum_documento_compra_origen,
+            item.codigo_producto
+          );
+        }
+
+        if (!(item.codigo_base > 0)) {
+          throw new Error('BASE_STOCK_REQUERIDA');
+        }
+
+        await runQuery(
+          conn,
+          `INSERT INTO detalle_mov_contable_prov (
+            tipo_documento_compra,
+            num_documento_compra,
+            codigo_provedor,
+            codigo_base,
+            ordinal,
+            codigo_producto,
+            cantidad,
+            cantidad_entregada,
+            saldo,
+            monto
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+          [
+            vTipo_documento_compra,
+            vNum_documento_compra,
+            vCodigo_provedor,
+            item.codigo_base,
+            item.ordinal,
+            item.codigo_producto,
+            item.cantidad,
+            item.cantidad,
+            item.monto
+          ]
+        );
+      }
+
+      for (const item of detalleNormalizado) {
+        await runQuery(conn, 'CALL aplicar_nota_credito_partidas_prov(?, ?, ?, ?, ?)', [
           vTipo_documento_compra,
           vNum_documento_compra,
           vCodigo_provedor,
-          item.codigo_base,
-          item.ordinal,
           item.codigo_producto,
-          item.cantidad,
-          item.cantidad,
-          item.monto
-        ]
-      );
-    }
+          item.cantidad
+        ]);
+      }
 
-    for (const item of detalleNormalizado) {
-      await runQuery(conn, 'CALL aplicar_nota_credito_partidas_prov(?, ?, ?, ?, ?)', [
-        vTipo_documento_compra,
-        vNum_documento_compra,
-        vCodigo_provedor,
-        item.codigo_producto,
-        item.cantidad
-      ]);
-    }
-
-    for (const item of detalleNormalizado) {
-      await runQuery(conn, 'CALL upd_stock_bases(?, ?, ?, ?, ?)', [
-        item.codigo_base,
-        item.codigo_producto,
-        item.cantidad,
-        vTipo_documento_compra,
-        vNum_documento_compra
-      ]);
+      for (const item of detalleNormalizado) {
+        if (item.codigo_base > 0) {
+          await runQuery(conn, 'CALL upd_stock_bases(?, ?, ?, ?, ?)', [
+            item.codigo_base,
+            item.codigo_producto,
+            item.cantidad,
+            vTipo_documento_compra,
+            vNum_documento_compra
+          ]);
+        }
+      }
     }
 
     await runQuery(conn, 'CALL aplicar_nota_credito_a_facturas_prov(?, ?, ?)', [
@@ -449,7 +778,13 @@ app.post('/api/nota-credito-proveedor', async (req, res) => {
       await conn.rollback();
     }
     logError(error, 'REGISTRAR_NCC_ERROR');
-    res.status(500).json({ ok: false, message: 'ERROR_REGISTRAR_NCC' });
+    const isDataError = [
+      'BASE_STOCK_REQUERIDA',
+      'NCC_SIN_DOCUMENTO_ORIGEN',
+      'FCC_ORIGEN_NO_ENCONTRADA',
+      'SALDO_FCC_ORIGEN_INSUFICIENTE'
+    ].includes(String(error?.message || ''));
+    res.status(isDataError ? 400 : 500).json({ ok: false, message: isDataError ? error.message : 'ERROR_REGISTRAR_NCC' });
   } finally {
     if (conn) {
       conn.release();

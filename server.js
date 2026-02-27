@@ -93,6 +93,14 @@ function extractOtp(rows) {
   return value == null ? null : String(value);
 }
 
+async function validateOtp(codigoUsuario, otp) {
+  await pool.query('CALL validar_otp_usuario(?, ?, @p_resultado)', [codigoUsuario, otp]);
+  const [resultRows] = await pool.query('SELECT @p_resultado AS resultado');
+  const row = Array.isArray(resultRows) && resultRows.length ? resultRows[0] : null;
+  const value = row ? Number(extractScalar(row)) : NaN;
+  return Number.isFinite(value) ? value : NaN;
+}
+
 function appendQuery(url, query) {
   try {
     const parsed = new URL(url);
@@ -162,9 +170,7 @@ app.get('/api/init', async (req, res) => {
   }
 
   try {
-    const [otpCheckRaw] = await pool.query('CALL validar_otp_usuario(?, ?)', [Codigo_usuario, OTP]);
-    const otpCheckRow = firstRow(normalizeRows(otpCheckRaw));
-    const otpCheckValue = Number(extractScalar(otpCheckRow));
+    const otpCheckValue = await validateOtp(Codigo_usuario, OTP);
 
     if (otpCheckValue !== 1) {
       return res.status(401).json({

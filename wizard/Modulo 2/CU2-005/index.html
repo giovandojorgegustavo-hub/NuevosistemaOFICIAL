@@ -57,22 +57,11 @@
 
               <div class="row g-3 align-items-end">
                 <div class="col-12 col-lg-5">
-                  <label for="vBaseTexto" class="form-label" data-i18n="baseActiveLabel">Base activa</label>
-                  <input id="vBaseTexto" class="form-control" readonly />
-                </div>
-
-                <div class="col-12 col-lg-5 d-none" id="vBaseSelectorWrap">
-                  <label for="vBaseSelector" class="form-label" data-i18n="baseSelectorLabel">Cambiar base</label>
-                  <input
+                  <label for="vBaseSelector" class="form-label" data-i18n="baseActiveLabel">Base activa</label>
+                  <select
                     id="vBaseSelector"
                     class="form-control"
-                    list="vBasesList"
-                    autocomplete="off"
-                    data-i18n-placeholder="baseSelectorPlaceholder"
-                    placeholder="Escribe para filtrar por codigo o nombre"
-                  />
-                  <datalist id="vBasesList"></datalist>
-                  <div class="form-text" data-i18n="baseSelectorHelp">Typeahead habilitado para filtrar miles de registros.</div>
+                  ></select>
                 </div>
 
                 <div class="col-12 col-lg-2 d-grid">
@@ -109,7 +98,6 @@
                       <th scope="col"><button type="button" class="sort-btn" data-sort="nombre_producto" data-i18n="thProducto">Producto</button></th>
                       <th scope="col"><button type="button" class="sort-btn" data-sort="fecha_saldoactual" data-i18n="thFecha">Fecha</button></th>
                       <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_actual" data-i18n="thSaldoActual">Saldo Actual</button></th>
-                      <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="costo_unitario" data-i18n="thCostoUnitario">Costo Unitario</button></th>
                       <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_reservado" data-i18n="thSaldoReservado">Saldo Reservado</button></th>
                       <th scope="col" class="text-end"><button type="button" class="sort-btn" data-sort="saldo_disponible" data-i18n="thSaldoDisponible">Saldo Disponible</button></th>
                     </tr>

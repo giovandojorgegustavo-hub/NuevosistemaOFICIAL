@@ -186,8 +186,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -282,6 +282,62 @@ app.get('/api/paquetes-standby', async (req, res) => {
   } catch (error) {
     logError(error, 'Error al cargar paquetes standby');
     res.status(500).json({ ok: false, message: 'ERROR' });
+  }
+});
+
+async function callPaqueteStandbyByCodigo(conn, codigoPaquete, tipoDocumento) {
+  const candidates = [
+    { sql: 'CALL get_paquete_por_codigo(?, ?, ?)', params: [codigoPaquete, tipoDocumento, 'standby'] },
+    { sql: 'CALL get_paquete_por_codigo(?, ?)', params: [codigoPaquete, tipoDocumento] },
+    { sql: 'CALL get_paquete_por_codigo(?)', params: [codigoPaquete] },
+    { sql: 'CALL get_paquete_numero(?, ?, ?)', params: [codigoPaquete, tipoDocumento, 'standby'] },
+    { sql: 'CALL get_paquete_numero(?)', params: [codigoPaquete] }
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const [rows] = await runQuery(conn, candidate.sql, candidate.params);
+      const normalized = unwrapRows(rows);
+      if (Array.isArray(normalized) && normalized.length > 0) {
+        return normalized[0];
+      }
+      return null;
+    } catch (error) {
+      const code = String(error?.code || '');
+      if (code !== 'ER_SP_DOES_NOT_EXIST' && code !== 'ER_SP_WRONG_NO_OF_ARGS') {
+        throw error;
+      }
+    }
+  }
+
+  const [rows] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', ['standby']);
+  const paquetes = unwrapRows(rows);
+  const codigo = String(codigoPaquete || '').trim();
+  return (Array.isArray(paquetes) ? paquetes : []).find((item) => String(item?.codigo_paquete || '').trim() === codigo) || null;
+}
+
+app.get('/api/paquete', async (req, res) => {
+  const codigoPaquete = String(req.query.codigo_paquete || '').trim();
+  const tipoDocumento = String(req.query.tipo_documento || 'FAC').trim().toUpperCase();
+
+  if (!codigoPaquete || !/^\d+$/.test(codigoPaquete)) {
+    return res.status(400).json({ ok: false, message: 'INVALID_INPUT' });
+  }
+
+  try {
+    const conn = await dbState.pool.getConnection();
+    try {
+      const row = await callPaqueteStandbyByCodigo(conn, codigoPaquete, tipoDocumento);
+      if (!row || (String(row.estado || '').toLowerCase() && String(row.estado || '').toLowerCase() !== 'standby')) {
+        return res.status(404).json({ ok: false, message: 'PAQUETE_NOT_FOUND' });
+      }
+      return res.json({ ok: true, row });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'Error al cargar paquete por codigo');
+    return res.status(500).json({ ok: false, message: 'ERROR' });
   }
 });
 

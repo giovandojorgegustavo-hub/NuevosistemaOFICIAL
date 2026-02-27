@@ -47,29 +47,24 @@
         <div class="card-surface mb-4" id="step1">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <div>
-              <h2 class="h4 mb-1" data-i18n="step1Title">Seleccionar paquete pendiente</h2>
+              <h2 class="h4 mb-1" data-i18n="step1Title">Buscar paquete pendiente</h2>
               <p class="mb-0 text-muted" data-i18n="step1Hint">
-                Elige un paquete pendiente de empaque para continuar.
+                Ingresa tipo documento y numero de paquete para cargar el detalle.
               </p>
             </div>
-            <div class="spinner-border text-info d-none" role="status" id="loadingPendientes"></div>
+            <div class="spinner-border text-info d-none" role="status" id="loadingSearch"></div>
           </div>
-          <div class="table-responsive">
-            <table class="table table-dark table-striped table-hover table-selectable align-middle" id="pendientesTable">
-              <thead>
-                <tr>
-                  <th data-i18n="colCodigo">Codigo</th>
-                  <th data-i18n="colFecha">Actualizado</th>
-                  <th data-i18n="colCliente">Cliente</th>
-                  <th data-i18n="colBase">Base</th>
-                  <th data-i18n="colNumero">Numero</th>
-                  <th data-i18n="colEntrega">Punto entrega</th>
-                  <th data-i18n="colRecibe">Recibe</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="tipoDocumentoInput" data-i18n="docTypeLabel">Tipo documento</label>
+              <input class="form-control" id="tipoDocumentoInput" value="FAC" autocomplete="off" />
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="codigoPaqueteInput" data-i18n="packageCodeLabel">Numero paquete</label>
+              <input class="form-control" id="codigoPaqueteInput" placeholder="Ej. 31" autocomplete="off" />
+            </div>
           </div>
+          <p class="text-muted mt-3 mb-0" data-i18n="step1Hint2">Se consultan los datos del paquete para pasar al detalle.</p>
         </div>
 
         <div class="card-surface mb-4 d-none" id="step2">
@@ -146,7 +141,7 @@
           <button class="btn btn-outline-light" id="btnPrev" disabled data-i18n="prev">Anterior</button>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-light" id="btnReset" data-i18n="reset">Limpiar</button>
-            <button class="btn btn-primary" id="btnNext" data-i18n="next">Siguiente</button>
+            <button class="btn btn-primary" id="btnNext" data-i18n="search">Buscar paquete</button>
           </div>
         </div>
       </div>

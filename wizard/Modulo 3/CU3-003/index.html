@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CU3003 - Nota Credito Provedor</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260224-03" />
 </head>
 <body>
   <div class="app-shell">
@@ -27,7 +27,7 @@
             <h1 data-i18n="wizardTitle">CU3003 - Nota Credito Provedor</h1>
             <p class="text-muted" data-i18n="wizardHint">Flujo multi-paso con transaccion total y trazabilidad SQL.</p>
           </div>
-          <div class="step-indicator" id="stepIndicator">1 / 2</div>
+          <div class="step-indicator" id="stepIndicator">1 / 3</div>
         </div>
 
         <div class="progress wizard-progress" role="progressbar" aria-label="progress">
@@ -40,27 +40,8 @@
         <form id="wizardForm" novalidate>
           <section class="step-panel active" data-step="1">
             <div class="step-header">
-              <h2 data-i18n="step1Title">1. Crear Nota Credito Provedor</h2>
-              <p data-i18n="step1Hint">Completa la cabecera y el detalle de la nota de credito.</p>
-            </div>
-
-            <div class="row g-3">
-              <div class="col-md-3">
-                <label class="form-label" for="vFecha" data-i18n="fecha">vFecha</label>
-                <input type="date" class="form-control" id="vFecha" name="vFecha" readonly />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label" for="vTipo_documento_compra" data-i18n="tipoDocumento">vTipo_documento_compra</label>
-                <input type="text" class="form-control" id="vTipo_documento_compra" name="vTipo_documento_compra" readonly />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label" for="vNum_documento_compra" data-i18n="numeroDocumento">vNum_documento_compra</label>
-                <input type="text" class="form-control" id="vNum_documento_compra" name="vNum_documento_compra" readonly />
-              </div>
-              <div class="col-md-3">
-                <label class="form-label" for="vTotal_nota" data-i18n="totalNota">vTotal_nota</label>
-                <input type="text" class="form-control" id="vTotal_nota" name="vTotal_nota" readonly />
-              </div>
+              <h2 data-i18n="step1Title">1. Seleccionar FCC</h2>
+              <p data-i18n="step1Hint">Selecciona proveedor y factura FCC origen.</p>
             </div>
 
             <div class="row g-3 mt-1">
@@ -81,22 +62,79 @@
                 <input type="hidden" id="vCodigo_provedor" name="vCodigo_provedor" />
                 <small class="text-muted" id="proveedoresCount">0</small>
               </div>
-              <div class="col-lg-4 d-flex align-items-end justify-content-lg-end">
-                <button type="button" class="btn btn-outline-light" id="addRowBtn" data-i18n="addRow">Agregar linea</button>
+            </div>
+
+            <div class="mt-3">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <h3 class="h6 mb-0" data-i18n="fccListTitle">Facturas FCC</h3>
+                <small class="text-muted" id="facturasFccCount">0</small>
+              </div>
+              <div class="table-responsive">
+                <table class="table align-middle table-borderless fcc-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Numero</th>
+                      <th>Proveedor</th>
+                      <th class="text-end">Monto</th>
+                    </tr>
+                  </thead>
+                  <tbody id="facturasFccBody">
+                    <tr>
+                      <td colspan="4" class="fcc-empty" data-i18n="fccEmpty">Sin facturas FCC para el filtro actual.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-panel" data-step="2">
+            <div class="step-header">
+              <h2 data-i18n="step2Title">2. Editar detalle</h2>
+              <p data-i18n="step2Hint">Selecciona tipo de nota y completa monto o detalle de productos.</p>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="resumenProveedor">Proveedor</label>
+                <input type="text" class="form-control" id="step2Proveedor" readonly />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label" data-i18n="resumenFecha">Fecha</label>
+                <input type="text" class="form-control" id="step2Fecha" readonly />
               </div>
             </div>
 
-            <div class="table-responsive mt-3">
+            <div class="mt-3">
+              <label class="form-label" data-i18n="tipoNotaLabel">Tipo de nota</label>
+              <div class="d-flex flex-wrap gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="vTipoNota" id="vTipoNotaProducto" value="PRODUCTO" checked />
+                  <label class="form-check-label" for="vTipoNotaProducto" data-i18n="tipoNotaProducto">Producto</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="vTipoNota" id="vTipoNotaDinero" value="DINERO" />
+                  <label class="form-check-label" for="vTipoNotaDinero" data-i18n="tipoNotaDinero">Dinero</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-1 d-none" id="detalleDineroPanel">
+              <div class="col-md-6">
+                <label class="form-label" for="vMontoDinero" data-i18n="montoDineroLabel">Monto nota</label>
+                <input type="text" class="form-control" id="vMontoDinero" inputmode="decimal" placeholder="0.00" />
+              </div>
+            </div>
+
+            <div class="table-responsive mt-3" id="detalleProductoPanel">
               <table class="table table-hover align-middle" id="vDetalleNotaCredito">
                 <thead>
                   <tr>
                     <th data-i18n="colOrdinal">vOrdinal</th>
-                    <th data-i18n="colBase">codigo_base</th>
-                    <th data-i18n="colProducto">codigo_producto</th>
+                    <th data-i18n="colProductoNombre">Producto</th>
                     <th data-i18n="colCantidad">cantidad</th>
-                    <th class="d-none" data-i18n="colSaldo">saldo</th>
                     <th data-i18n="colMonto">monto</th>
-                    <th data-i18n="colAccion">Accion</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -106,33 +144,54 @@
             <div class="text-muted mt-2" id="detalleCount">0 lineas</div>
           </section>
 
-          <section class="step-panel" data-step="2">
+          <section class="step-panel" data-step="3">
             <div class="step-header">
-              <h2 data-i18n="step2Title">2. Confirmar y registrar Nota Credito</h2>
-              <p data-i18n="step2Hint">Valida el resumen y confirma la operacion.</p>
+              <h2 data-i18n="step3Title">3. Confirmar y registrar Nota Credito</h2>
+              <p data-i18n="step3Hint">Valida el resumen y confirma la operacion.</p>
             </div>
 
-            <div class="summary-grid">
-              <div>
-                <div class="summary-label" data-i18n="resumenProveedor">Proveedor</div>
-                <div class="summary-value" id="summaryProveedor">-</div>
-              </div>
-              <div>
-                <div class="summary-label" data-i18n="resumenFecha">Fecha</div>
-                <div class="summary-value" id="summaryFecha">-</div>
-              </div>
-              <div>
-                <div class="summary-label" data-i18n="resumenDocumento">Documento</div>
-                <div class="summary-value" id="summaryDocumento">-</div>
-              </div>
-              <div>
-                <div class="summary-label" data-i18n="resumenTotal">Total nota</div>
-                <div class="summary-value" id="summaryTotal">-</div>
-              </div>
-              <div>
-                <div class="summary-label" data-i18n="resumenItems">Items</div>
-                <div class="summary-value" id="summaryItems">-</div>
-              </div>
+            <div class="summary-table table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th data-i18n="summaryColCampo">Campo</th>
+                    <th data-i18n="summaryColValor">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td data-i18n="resumenFecha">Fecha</td>
+                    <td id="summaryFecha">-</td>
+                  </tr>
+                  <tr>
+                    <td data-i18n="resumenProveedor">Proveedor</td>
+                    <td id="summaryProveedor">-</td>
+                  </tr>
+                  <tr>
+                    <td data-i18n="resumenTotal">Total nota</td>
+                    <td id="summaryTotal">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="summary-table table-responsive mt-3">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th data-i18n="colOrdinal">vOrdinal</th>
+                    <th data-i18n="colBase">codigo_base</th>
+                    <th data-i18n="colProducto">codigo_producto</th>
+                    <th data-i18n="colCantidad">cantidad</th>
+                    <th data-i18n="colMonto">monto</th>
+                  </tr>
+                </thead>
+                <tbody id="summaryDetalleBody">
+                  <tr>
+                    <td colspan="5" class="fcc-empty" data-i18n="summaryEmptyDetail">Sin detalle.</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             <div class="form-check mt-3">
@@ -161,6 +220,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260224-04"></script>
 </body>
 </html>

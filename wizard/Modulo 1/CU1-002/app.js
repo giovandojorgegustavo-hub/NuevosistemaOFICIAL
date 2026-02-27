@@ -183,7 +183,11 @@ document.querySelectorAll('[data-i18n]').forEach((el) => {
 
 function getCodigoUsuarioFromQuery() {
   const params = new URLSearchParams(window.location.search);
-  const value = params.get('vUsuario') || params.get('codigo_usuario') || params.get('codigoUsuario');
+  const value =
+    params.get('vUsuario') ||
+    params.get('Codigo_usuario') ||
+    params.get('codigo_usuario') ||
+    params.get('codigoUsuario');
   if (!value) return null;
   const trimmed = value.trim();
   if (!userCodeRe.test(trimmed)) return null;
@@ -253,9 +257,11 @@ function renderMovDetalle(rows) {
 function renderBaseOptions(filter) {
   const normalized = filter.trim().toLowerCase();
   const matches = state.bases.filter((base) => {
+    const codigo = String(base.codigo_base || '').toLowerCase();
+    const nombre = String(base.nombre || '').toLowerCase();
     return (
-      base.codigo_base.toLowerCase().includes(normalized) ||
-      base.nombre.toLowerCase().includes(normalized)
+      codigo.includes(normalized) ||
+      nombre.includes(normalized)
     );
   });
 
@@ -484,7 +490,9 @@ baseSearch.addEventListener('change', (event) => {
   const value = event.target.value.trim().toLowerCase();
   if (!value) return;
   const match = state.bases.find(
-    (base) => base.codigo_base.toLowerCase() === value || base.nombre.toLowerCase() === value
+    (base) =>
+      String(base.codigo_base || '').toLowerCase() === value ||
+      String(base.nombre || '').toLowerCase() === value
   );
   if (match) {
     selectBase(match);

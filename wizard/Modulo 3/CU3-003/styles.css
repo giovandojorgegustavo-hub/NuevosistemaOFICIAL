@@ -266,6 +266,22 @@ body {
   background: rgba(30, 136, 255, 0.18);
 }
 
+.fcc-table tbody tr {
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+}
+
+.fcc-table tbody tr.is-selected {
+  background: rgba(30, 136, 255, 0.25);
+}
+
+.fcc-empty {
+  border: 1px dashed rgba(154, 164, 178, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--muted);
+}
+
 .item-code {
   color: var(--muted);
   font-size: var(--text-xs);
@@ -291,6 +307,13 @@ body {
 .summary-value {
   font-size: var(--text-md);
   font-weight: 600;
+}
+
+.summary-table table {
+  background: rgba(8, 15, 32, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .form-check-input {
@@ -399,3 +422,23 @@ body {
     width: 100%;
   }
 }
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */

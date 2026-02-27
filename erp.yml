@@ -9,6 +9,8 @@ ports:
     M2: 4001
     M3: 4002
     M4: 4003
+    M7: 4004
+    M6: 4005
   services:
     consola_paquetes: 4004
     google_routes: 3008
@@ -30,11 +32,13 @@ ports:
     CU3-001: 3013
     CU3-002: 3014
     CU3-003: 3015
+    CU3-004: 3024
     CU4-001: 3017
     CU4-002: 3018
     CU4-003: 3019
     CU4-004: 3020
     CU6-001: 3021
+    CU6-002: 3023
 
 google_maps:
   api_key: "AIzaSyCGNcPSiLlcPlBq_34WzC52qApe3dgFkNw"

@@ -37,16 +37,6 @@
               Flujo de devolucion parcial con trazabilidad total
             </div>
           </div>
-          <div class="wizard-meta">
-            <div>
-              <div class="meta-label" data-i18n="metaDocType">Tipo</div>
-              <div class="meta-value" id="docTypeValue">NTC</div>
-            </div>
-            <div>
-              <div class="meta-label" data-i18n="metaDocNumber">Numero</div>
-              <div class="meta-value" id="docNumberValue">-</div>
-            </div>
-          </div>
         </div>
 
         <div class="progress" role="progressbar" aria-label="wizard progress">
@@ -58,6 +48,7 @@
           <button type="button" class="step-chip" data-step="2">2</button>
           <button type="button" class="step-chip" data-step="3">3</button>
           <button type="button" class="step-chip" data-step="4">4</button>
+          <button type="button" class="step-chip" data-step="5">5</button>
         </div>
 
         <div id="alertArea" class="alert d-none" role="alert"></div>
@@ -90,6 +81,39 @@
                 </div>
                 <div class="field-hint" id="clienteNombre">-</div>
               </div>
+              <div class="col-lg-6">
+                <label class="form-label" for="paquete_filtro" data-i18n="labelFactura">Seleccionar factura</label>
+                <input id="codigo_paquete" type="hidden" />
+                <input
+                  id="paquete_filtro"
+                  type="text"
+                  class="form-control"
+                  autocomplete="off"
+                  placeholder="Filtrar..."
+                />
+              </div>
+              <div class="col-lg-12">
+                <div class="table-responsive">
+                  <table class="table align-middle table-dark table-borderless paquete-table">
+                    <thead>
+                      <tr>
+                        <th>Factura</th>
+                        <th>Cliente</th>
+                        <th>Punto entrega</th>
+                        <th>Packing</th>
+                      </tr>
+                    </thead>
+                    <tbody id="paquetesTableBody"></tbody>
+                  </table>
+                </div>
+                <div class="field-hint" id="paquetesEmpty">Sin facturas disponibles.</div>
+                <div class="field-hint" id="paqueteDetalle">-</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="step-view d-none" data-step="2">
+            <div class="row g-4">
               <div class="col-lg-12">
                 <label class="form-label" data-i18n="labelTipoNota">Tipo de nota de credito</label>
                 <div class="note-type" role="group" aria-label="Tipo de nota de credito">
@@ -105,21 +129,6 @@
                 <div class="field-hint" data-i18n="tipoNotaHint">
                   Selecciona productos para ajustar cantidades o dinero para registrar un monto directo.
                 </div>
-              </div>
-              <div class="col-lg-6">
-                <label class="form-label" for="codigo_paquete" data-i18n="labelFactura">Factura / Paquete llegado</label>
-                <div class="typeahead" id="paqueteTypeahead">
-                  <input
-                    id="codigo_paquete"
-                    type="text"
-                    class="form-control"
-                    autocomplete="off"
-                    placeholder="Buscar factura..."
-                    required
-                  />
-                  <div class="typeahead-menu" id="paqueteMenu"></div>
-                </div>
-                <div class="field-hint" id="paqueteDetalle">-</div>
               </div>
               <div class="col-lg-6">
                 <label class="form-label" for="fecha_actualizado" data-i18n="labelFechaActualizado">Fecha actualizado</label>
@@ -157,7 +166,7 @@
             </div>
           </section>
 
-          <section class="step-view d-none" data-step="2">
+          <section class="step-view d-none" data-step="3">
             <div class="step-note" data-i18n="step2Note">
               Ajusta las cantidades para emitir una nota de credito parcial.
             </div>
@@ -180,7 +189,7 @@
             </div>
           </section>
 
-          <section class="step-view d-none" data-step="3">
+          <section class="step-view d-none" data-step="4">
             <div class="row g-4">
               <div class="col-lg-6">
                 <label class="form-label" for="monto_dinero" data-i18n="labelMontoDinero">
@@ -201,7 +210,7 @@
             </div>
           </section>
 
-          <section class="step-view d-none" data-step="4">
+          <section class="step-view d-none" data-step="5">
             <div class="summary-grid">
               <div class="summary-card">
                 <div class="summary-title" data-i18n="summaryHeader">Resumen cabecera</div>

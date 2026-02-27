@@ -19,24 +19,32 @@ function formatDateOnly(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function normalizeSqlDate(value) {
+function formatDateTime(date) {
+  return `${formatDateOnly(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function normalizeSqlDateTime(value) {
   if (!value) {
     return null;
   }
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return formatDateOnly(value);
+    return formatDateTime(value);
   }
   if (typeof value === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      return value;
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return `${trimmed} 00:00:00`;
     }
-    const isoMatch = value.match(/^(\d{4}-\d{2}-\d{2})T/);
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
     if (isoMatch) {
-      return isoMatch[1];
+      return `${isoMatch[1]} ${isoMatch[2]}`;
     }
-    const parsed = new Date(value);
+    const parsed = new Date(trimmed);
     if (!Number.isNaN(parsed.getTime())) {
-      return formatDateOnly(parsed);
+      return formatDateTime(parsed);
     }
   }
   return null;
@@ -205,8 +213,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -347,6 +355,7 @@ app.get('/api/remito-meta', async (req, res) => {
       ok: true,
       vTipo_documento_compra_remito,
       vNum_documento_compra_remito,
+      vFecha_inicio: timestamp(),
       vOrdinal
     });
   } catch (error) {
@@ -388,7 +397,7 @@ app.post('/api/detalle-compra', async (req, res) => {
 app.post('/api/registrar-remito', async (req, res) => {
   const payload = req.body || {};
   const vFechaRaw = payload.vFecha;
-  const vFecha = normalizeSqlDate(vFechaRaw);
+  const vFecha = normalizeSqlDateTime(vFechaRaw);
   const vCodigo_base = payload.vCodigo_base;
   const vTipo_documento_compra_origen = payload.vTipo_documento_compra_origen;
   const vNum_documento_compra_origen = payload.vNum_documento_compra_origen;
@@ -443,10 +452,23 @@ app.post('/api/registrar-remito', async (req, res) => {
 
     await runQuery(
       conn,
-      'INSERT INTO mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto, saldo) VALUES (?, ?, ?, ?, 0, 0)',
+      `INSERT INTO mov_contable_prov (
+        tipo_documento_compra,
+        num_documento_compra,
+        codigo_provedor,
+        tipo_documento_compra_origen,
+        num_documento_compra_origen,
+        codigo_provedor_origen,
+        fecha,
+        monto,
+        saldo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)`,
       [
         vTipo_documento_compra_remito,
         vNum_documento_compra_remito,
+        vCodigo_provedor,
+        vTipo_documento_compra_origen,
+        vNum_documento_compra_origen,
         vCodigo_provedor,
         vFecha
       ]

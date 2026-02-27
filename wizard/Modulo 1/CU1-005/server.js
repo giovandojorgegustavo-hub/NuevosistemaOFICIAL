@@ -134,7 +134,7 @@ function unwrapRows(result) {
   return result;
 }
 
-function pickResultset(result, predicate) {
+function pickResultset(result, predicate, fallback = []) {
   const rows = result?.[0] ?? [];
   if (!Array.isArray(rows)) return [];
   if (!rows.length) return rows;
@@ -144,7 +144,7 @@ function pickResultset(result, predicate) {
       return set;
     }
   }
-  return rows[0] || [];
+  return fallback;
 }
 
 function getClientIp(req) {
@@ -199,8 +199,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -549,7 +549,11 @@ app.post('/api/bases-candidatas', async (req, res) => {
     const conn = await dbState.pool.getConnection();
     try {
       const result = await runQuery(conn, 'CALL get_bases_candidatas(?, ?)', [payload, fechaP]);
-      const rows = pickResultset(result, (row) => 'latitud' in row || 'longitud' in row || 'LATITUD' in row);
+      const rows = pickResultset(
+        result,
+        (row) => 'latitud' in row || 'longitud' in row || 'LATITUD' in row || 'LONGITUD' in row,
+        []
+      );
       res.json({ ok: true, rows });
     } finally {
       conn.release();

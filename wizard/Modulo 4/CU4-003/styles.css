@@ -146,6 +146,83 @@ body {
   margin-bottom: 20px;
 }
 
+.factura-list {
+  display: grid;
+  gap: 12px;
+}
+
+.factura-item {
+  width: 100%;
+  border: 1px solid rgba(106, 193, 255, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(16, 27, 53, 0.95), rgba(10, 18, 36, 0.95));
+  color: var(--white);
+  padding: 14px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.factura-item:hover,
+.factura-item:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(106, 193, 255, 0.85);
+  box-shadow: 0 10px 30px rgba(2, 12, 27, 0.35), 0 0 0 1px rgba(30, 136, 255, 0.3);
+}
+
+.factura-item:focus-visible {
+  outline: none;
+}
+
+.factura-item.is-selected {
+  border-color: rgba(23, 211, 165, 0.85);
+  box-shadow: 0 0 0 1px rgba(23, 211, 165, 0.35), 0 10px 30px rgba(2, 12, 27, 0.35);
+}
+
+.factura-main {
+  min-width: 0;
+}
+
+.factura-name {
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.factura-meta {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.factura-side {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.factura-date {
+  font-size: 1.03rem;
+  font-weight: 700;
+}
+
+.factura-cta {
+  margin-top: 4px;
+  color: #7dd9ff;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.factura-empty {
+  border: 1px dashed rgba(154, 164, 178, 0.35);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: var(--muted);
+}
+
 .table {
   border-collapse: separate;
   border-spacing: 0 8px;
@@ -218,6 +295,17 @@ body {
 .form-control:focus {
   border-color: var(--primary);
   box-shadow: var(--shadow-glow);
+}
+
+.remito-meta-input.form-control[readonly] {
+  background: rgba(9, 14, 28, 0.95) !important;
+  color: var(--white) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+.remito-meta-input.form-control[readonly]:focus {
+  border-color: rgba(106, 193, 255, 0.7) !important;
+  box-shadow: var(--shadow-glow) !important;
 }
 
 .section-title {
@@ -304,4 +392,32 @@ body {
   .hero h1 {
     font-size: 1.9rem;
   }
+}
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */
+
+#tipoRemito.remito-meta-input.form-control[readonly],
+#numRemito.remito-meta-input.form-control[readonly],
+#fechaInicioRemito.remito-meta-input.form-control[readonly] {
+  background: rgba(9, 14, 28, 0.95) !important;
+  color: var(--white) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
 }

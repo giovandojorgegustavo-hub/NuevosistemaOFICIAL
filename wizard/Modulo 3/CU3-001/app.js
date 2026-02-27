@@ -133,7 +133,7 @@ class FormWizard {
       proveedorMode: 'existente',
       proveedorNuevoCodigo: null,
       proveedorNuevoNombre: '',
-      fecha: this.today(),
+      fecha: this.nowLocalDateTime(),
       tipoDocumento: 'FCC',
       numeroDocumento: '',
       detalle: [],
@@ -162,12 +162,15 @@ class FormWizard {
     return lang.startsWith('es') ? 'es' : 'en';
   }
 
-  today() {
+  nowLocalDateTime() {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mi = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
   }
 
   t(key) {
@@ -193,13 +196,8 @@ class FormWizard {
       proveedoresCount: document.getElementById('proveedoresCount'),
       proveedorCodigoNuevo: document.getElementById('proveedorCodigoNuevo'),
       proveedorNombreNuevo: document.getElementById('proveedorNombreNuevo'),
-      tipoDocumento: document.getElementById('tipoDocumento'),
-      numeroDocumento: document.getElementById('numeroDocumento'),
       totalCompra: document.getElementById('totalCompra'),
       saldoFavorTotal: document.getElementById('saldoFavorTotal'),
-      saldoFavorNCC: document.getElementById('saldoFavorNCC'),
-      saldoFavorRCC: document.getElementById('saldoFavorRCC'),
-      saldoFavorUsado: document.getElementById('saldoFavorUsado'),
       usarSaldoFavorCheck: document.getElementById('usarSaldoFavorCheck'),
       addRowBtn: document.getElementById('addRowBtn'),
       detalleCount: document.getElementById('detalleCount'),
@@ -271,7 +269,6 @@ class FormWizard {
 
   async init() {
     this.dom.fechaInput.value = this.state.fecha;
-    this.dom.tipoDocumento.value = this.state.tipoDocumento;
 
     this.setLoading(true, this.t('loading'));
     try {
@@ -326,7 +323,6 @@ class FormWizard {
       throw new Error('NEXT_DOCUMENTO_ERROR');
     }
     this.state.numeroDocumento = data.next;
-    this.dom.numeroDocumento.value = data.next;
   }
 
   handleProveedorMode(mode) {
@@ -438,9 +434,6 @@ class FormWizard {
     this.state.saldoFavor.usado = usado;
 
     this.dom.saldoFavorTotal.value = totalFavor.toFixed(2);
-    this.dom.saldoFavorNCC.value = (Number(this.state.saldoFavor.ncc) || 0).toFixed(2);
-    this.dom.saldoFavorRCC.value = (Number(this.state.saldoFavor.rcc) || 0).toFixed(2);
-    this.dom.saldoFavorUsado.value = usado.toFixed(2);
     this.dom.usarSaldoFavorCheck.disabled = totalFavor <= 0 || this.state.proveedorMode !== 'existente';
   }
 
@@ -703,7 +696,7 @@ class FormWizard {
       ? this.state.selectedProveedor?.nombre || ''
       : this.state.proveedorNuevoNombre;
     this.dom.summaryProveedor.textContent = proveedorNombre || '-';
-    this.dom.summaryFecha.textContent = this.state.fecha;
+    this.dom.summaryFecha.textContent = this.state.fecha ? this.state.fecha.replace('T', ' ') : '-';
     this.dom.summaryTotal.textContent = this.state.total.toFixed(2);
 
     this.dom.summaryBody.innerHTML = this.state.detalle
@@ -771,7 +764,7 @@ class FormWizard {
 
   async resetWizard() {
     this.state.step = 1;
-    this.state.fecha = this.today();
+    this.state.fecha = this.nowLocalDateTime();
     this.dom.fechaInput.value = this.state.fecha;
     this.dom.confirmCheck.checked = false;
 

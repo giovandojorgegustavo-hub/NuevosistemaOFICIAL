@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
 const { getUseCasePort } = require('../../port-config');
@@ -10,6 +11,9 @@ const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_PREFIX = 'CU1-001';
 const PORT = Number(process.env.PORT || getUseCasePort('CU1-001'));
+const SESSION_COOKIE_NAME = 'cu1001_session';
+const SESSION_TTL_SECONDS = 60 * 30;
+const sessionStore = new Map();
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -60,6 +64,50 @@ function logError(error, context) {
   const detail = error && error.stack ? error.stack : String(error);
   const message = context ? `${context} | ${detail}` : detail;
   logLine(message, 'ERROR');
+}
+
+function parseCookies(cookieHeader) {
+  const out = {};
+  if (!cookieHeader) return out;
+  cookieHeader.split(';').forEach((part) => {
+    const idx = part.indexOf('=');
+    if (idx <= 0) return;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    out[key] = decodeURIComponent(value);
+  });
+  return out;
+}
+
+function createSession(codigoUsuario) {
+  const token = crypto.randomBytes(24).toString('hex');
+  sessionStore.set(token, {
+    codigoUsuario,
+    expiresAt: Date.now() + SESSION_TTL_SECONDS * 1000
+  });
+  return token;
+}
+
+function getSessionFromRequest(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies[SESSION_COOKIE_NAME];
+  if (!token) return null;
+  const session = sessionStore.get(token);
+  if (!session) return null;
+  if (session.expiresAt <= Date.now()) {
+    sessionStore.delete(token);
+    return null;
+  }
+  return { token, ...session };
+}
+
+function requireApiSession(req, res, next) {
+  const session = getSessionFromRequest(req);
+  if (!session) {
+    return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+  }
+  req.auth = { codigo_usuario: session.codigoUsuario, token: session.token };
+  next();
 }
 
 function parseDsn(dsn) {
@@ -135,7 +183,7 @@ function unwrapRows(result) {
   return rows;
 }
 
-function pickResultset(result, predicate) {
+function pickResultset(result, predicate, fallback = []) {
   const rows = result?.[0] ?? [];
   if (!Array.isArray(rows)) return [];
   if (!rows.length) return rows;
@@ -145,7 +193,7 @@ function pickResultset(result, predicate) {
       return set;
     }
   }
-  return rows[0] || [];
+  return fallback;
 }
 
 // OTP_GATE_ENABLED_START
@@ -196,8 +244,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -245,6 +293,11 @@ async function authorizeAndServeIndex(req, res) {
       res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
       return;
     }
+    const token = createSession(codigoUsuario);
+    res.setHeader(
+      'Set-Cookie',
+      `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`
+    );
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(ROOT_DIR, 'index.html'));
   } catch (error) {
@@ -256,14 +309,14 @@ async function authorizeAndServeIndex(req, res) {
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
-app.get('/', authorizeAndServeIndex);
-app.get('/index.html', authorizeAndServeIndex);
-app.use(express.static(ROOT_DIR, { index: false }));
-
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path}`);
   next();
 });
+app.get('/', authorizeAndServeIndex);
+app.get('/index.html', authorizeAndServeIndex);
+app.use(express.static(ROOT_DIR, { index: false }));
+app.use('/api', requireApiSession);
 
 app.get('/api/config', (req, res) => {
   const { googleMaps } = app.locals.db;
@@ -443,7 +496,11 @@ app.post('/api/bases-candidatas', async (req, res) => {
     const conn = await pool.getConnection();
     try {
       const result = await runQuery(conn, 'CALL get_bases_candidatas(?, ?)', [payload, fechaFactura]);
-      const rows = pickResultset(result, (row) => 'latitud' in row || 'longitud' in row || 'LATITUD' in row);
+      const rows = pickResultset(
+        result,
+        (row) => 'latitud' in row || 'longitud' in row || 'LATITUD' in row || 'LONGITUD' in row,
+        []
+      );
       res.json({ ok: true, rows });
     } finally {
       conn.release();
@@ -644,18 +701,61 @@ app.get('/api/saldo-favor', async (req, res) => {
 app.post('/api/emitir', async (req, res) => {
   const payload = req.body || {};
   const cliente = payload.cliente || {};
-  const pedido = payload.pedido || {};
+  const pedidoPayload = payload.pedido || {};
   const factura = payload.factura || {};
   const entrega = payload.entrega || {};
   const recibe = payload.recibe || {};
-  const pagos = Array.isArray(payload.pagos) ? payload.pagos : [];
+  const pagosPayload = Array.isArray(payload.pagos) ? payload.pagos : [];
   const saldoFavorUsado = Number(factura.saldo_favor_usado || 0) || 0;
   const base = payload.base || {};
   const codigoBase = Number(base.codigo);
-  const fechaReferenciaHorario = String(factura.fecha || pedido.fecha || '').trim();
+  const fechaReferenciaHorario = String(factura.fecha || pedidoPayload.fecha || '').trim();
+  const pedidoItems = Array.isArray(pedidoPayload.items) ? pedidoPayload.items : [];
+  const facturaItems = Array.isArray(factura.items) ? factura.items : [];
 
   if (!Number.isFinite(codigoBase) || !fechaReferenciaHorario) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+  if (!pedidoItems.length || !facturaItems.length) {
+    return res.status(400).json({ ok: false, message: 'ITEMS_REQUIRED' });
+  }
+
+  const pedidoByProducto = new Map();
+  const facturaByProducto = new Map();
+
+  for (const item of pedidoItems) {
+    const codigoProducto = String(item.codigo_producto || '').trim();
+    const cantidad = Number(item.cantidad || 0);
+    if (!codigoProducto || !(cantidad > 0)) {
+      return res.status(400).json({ ok: false, message: 'PEDIDO_ITEM_INVALID' });
+    }
+    pedidoByProducto.set(codigoProducto, (pedidoByProducto.get(codigoProducto) || 0) + cantidad);
+  }
+
+  for (const item of facturaItems) {
+    const codigoProducto = String(item.codigo_producto || '').trim();
+    const cantidad = Number(item.cantidad || 0);
+    if (!codigoProducto || !(cantidad > 0)) {
+      return res.status(400).json({ ok: false, message: 'FACTURA_ITEM_INVALID' });
+    }
+    facturaByProducto.set(codigoProducto, (facturaByProducto.get(codigoProducto) || 0) + cantidad);
+  }
+
+  if (pedidoByProducto.size !== pedidoItems.length) {
+    return res.status(400).json({ ok: false, message: 'PEDIDO_PRODUCTO_DUPLICADO' });
+  }
+  if (facturaByProducto.size !== facturaItems.length) {
+    return res.status(400).json({ ok: false, message: 'FACTURA_PRODUCTO_DUPLICADO' });
+  }
+
+  for (const [codigoProducto, facturaQty] of facturaByProducto.entries()) {
+    const pedidoQty = pedidoByProducto.get(codigoProducto);
+    if (pedidoQty === undefined) {
+      return res.status(400).json({ ok: false, message: 'FACTURA_PRODUCTO_NO_PEDIDO' });
+    }
+    if (facturaQty > pedidoQty) {
+      return res.status(400).json({ ok: false, message: 'FACTURA_CANTIDAD_EXCEDE_PEDIDO' });
+    }
   }
 
   const { pool } = app.locals.db;
@@ -663,6 +763,28 @@ app.post('/api/emitir', async (req, res) => {
   try {
     logSql('BEGIN');
     await conn.beginTransaction();
+
+    const [[pedidoSeq]] = await runQuery(
+      conn,
+      'SELECT COALESCE(MAX(codigo_pedido), 0) + 1 AS next FROM pedidos FOR UPDATE'
+    );
+    const codigoPedido = Number(pedidoSeq?.next || 1);
+
+    const [[facturaSeq]] = await runQuery(
+      conn,
+      "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'FAC' FOR UPDATE"
+    );
+    const numeroFactura = Number(facturaSeq?.next || 1);
+
+    let nextRecibo = null;
+    if (pagosPayload.length) {
+      const [[reciboSeq]] = await runQuery(
+        conn,
+        "SELECT COALESCE(MAX(numero_documento), 0) + 1 AS next FROM mov_contable WHERE tipo_documento = 'RCP' FOR UPDATE"
+      );
+      nextRecibo = Number(reciboSeq?.next || 1);
+    }
+
     await runQuery(conn, 'CALL reservar_cupo_base_horario(?, ?)', [codigoBase, fechaReferenciaHorario]);
 
     if (cliente.tipo === 'nuevo') {
@@ -674,17 +796,17 @@ app.post('/api/emitir', async (req, res) => {
     }
 
     await runQuery(conn, 'INSERT INTO pedidos (codigo_pedido, codigo_cliente, fecha) VALUES (?, ?, ?)', [
-      pedido.codigo,
+      codigoPedido,
       cliente.codigo,
-      pedido.fecha
+      pedidoPayload.fecha
     ]);
 
-    for (const item of pedido.items || []) {
+    for (const item of pedidoItems) {
       await runQuery(
         conn,
         'INSERT INTO pedido_detalle (codigo_pedido, ordinal, codigo_producto, cantidad, precio_total, saldo) VALUES (?, ?, ?, ?, ?, ?)',
         [
-          pedido.codigo,
+          codigoPedido,
           item.ordinal,
           item.codigo_producto,
           item.cantidad,
@@ -764,13 +886,13 @@ app.post('/api/emitir', async (req, res) => {
       conn,
       'INSERT INTO mov_contable (codigo_pedido, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cliente, tipo_documento, numero_documento, codigo_base, codigo_cliente_numrecibe, ordinal_numrecibe, codigo_cliente_puntoentrega, codigo_puntoentrega, costoenvio, montodetalleproductos, monto, saldo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
-        pedido.codigo,
+        codigoPedido,
         factura.fecha,
         factura.fecha,
         factura.fecha,
         cliente.codigo,
         'FAC',
-        factura.numero,
+        numeroFactura,
         codigoBase,
         codigoClienteNumrecibe,
         ordinalNumrecibe,
@@ -783,13 +905,13 @@ app.post('/api/emitir', async (req, res) => {
       ]
     );
 
-    for (const item of factura.items || []) {
+    for (const item of facturaItems) {
       await runQuery(
         conn,
         'INSERT INTO mov_contable_detalle (tipo_documento, numero_documento, ordinal, codigo_producto, cantidad, saldo, precio_total) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
           'FAC',
-          factura.numero,
+          numeroFactura,
           item.ordinal,
           item.codigo_producto,
           item.cantidad,
@@ -802,14 +924,14 @@ app.post('/api/emitir', async (req, res) => {
     await runQuery(
       conn,
       'INSERT INTO paquete (codigo_paquete, tipo_documento, estado) VALUES (?, ?, ?)',
-      [factura.numero, 'FAC', 'pendiente empacar']
+      [numeroFactura, 'FAC', 'pendiente empacar']
     );
 
-    for (const item of factura.items || []) {
+    for (const item of facturaItems) {
       await runQuery(
         conn,
         'INSERT INTO paquetedetalle (codigo_paquete, tipo_documento, ordinal, estado) VALUES (?, ?, ?, ?)',
-        [factura.numero, 'FAC', item.ordinal, 'pendiente empacar']
+        [numeroFactura, 'FAC', item.ordinal, 'pendiente empacar']
       );
     }
 
@@ -818,20 +940,22 @@ app.post('/api/emitir', async (req, res) => {
     if (saldoFavorUsado > 0) {
       await runQuery(conn, 'CALL aplicar_saldo_favor_a_factura(?, ?, ?)', [
         cliente.codigo,
-        factura.numero,
+        numeroFactura,
         saldoFavorUsado
       ]);
     }
 
-    if (pagos.length) {
-      for (const pago of pagos) {
+    if (pagosPayload.length) {
+      for (const pago of pagosPayload) {
+        const numeroRecibo = nextRecibo;
+        nextRecibo += 1;
         await runQuery(
           conn,
           'INSERT INTO mov_contable (codigo_cliente, tipo_documento, numero_documento, fecha_emision, fecha_vencimiento, fecha_valor, codigo_cuentabancaria, monto, saldo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             cliente.codigo,
             'RCP',
-            pago.numdocumento,
+            numeroRecibo,
             factura.fecha,
             factura.fecha,
             factura.fecha,
@@ -840,16 +964,22 @@ app.post('/api/emitir', async (req, res) => {
             pago.monto
           ]
         );
-        await runQuery(conn, 'CALL aplicar_recibo_a_facturas(?, ?, ?)', [cliente.codigo, pago.numdocumento, pago.monto]);
+        await runQuery(conn, 'CALL aplicar_recibo_a_facturas(?, ?, ?)', [cliente.codigo, numeroRecibo, pago.monto]);
         await runQuery(conn, 'CALL actualizarsaldosclientes(?, ?, ?)', [cliente.codigo, 'RCP', pago.monto]);
       }
     }
 
-    await runQuery(conn, 'CALL salidaspedidos(?, ?)', ['FAC', factura.numero]);
+    await runQuery(conn, 'CALL salidaspedidos(?, ?)', ['FAC', numeroFactura]);
 
     logSql('COMMIT');
     await conn.commit();
-    res.json({ ok: true });
+    res.json({
+      ok: true,
+      correlativos: {
+        codigo_pedido: codigoPedido,
+        numero_factura: numeroFactura
+      }
+    });
   } catch (error) {
     logSql('ROLLBACK');
     await conn.rollback();

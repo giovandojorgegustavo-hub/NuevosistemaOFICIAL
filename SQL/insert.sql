@@ -2101,7 +2101,12 @@ INSERT INTO `productos` (`nombre`, `codigo_producto`, `created_at`) VALUES
   ('VAI 96', 6, '2026-01-12 22:30:22'),
   ('VAI 99', 7, '2026-01-12 22:30:22'),
   ('Mush Normal', 8, '2026-01-12 22:30:22'),
-  ('Mush Catalogo', 9, '2026-01-12 22:30:22');
+  ('Mush Catalogo', 9, '2026-01-12 22:30:22'),
+  ('gorilla', 11, NOW()),
+  ('G4', 12, NOW()),
+  ('HH', 13, NOW()),
+  ('PB1', 14, NOW()),
+  ('PB2', 15, NOW());
 -- Seed opcional: crea/actualiza saldo_stock (10) para todas las combinaciones base x producto
 -- Ajusta el multiplicador (1000000) si tus códigos de producto pueden ser >= 1,000,000.
 INSERT INTO saldo_stock

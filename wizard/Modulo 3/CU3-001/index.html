@@ -47,7 +47,7 @@
             <div class="row g-3 align-items-end">
               <div class="col-md-4">
                 <label class="form-label" data-i18n="fechaLabel">Fecha</label>
-                <input type="date" class="form-control" id="fechaInput" readonly />
+                <input type="datetime-local" class="form-control" id="fechaInput" step="1" readonly />
               </div>
               <div class="col-md-8">
                 <label class="form-label" data-i18n="proveedorModo">Modo de proveedor</label>
@@ -91,37 +91,17 @@
             </div>
 
             <div class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label" data-i18n="tipoDocumento">Tipo documento</label>
-                <input type="text" class="form-control" id="tipoDocumento" readonly />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label" data-i18n="numeroDocumento">Numero documento</label>
-                <input type="text" class="form-control" id="numeroDocumento" readonly />
-              </div>
-              <div class="col-md-4">
+              <div class="col-md-4 col-lg-3">
                 <label class="form-label" data-i18n="totalLabel">Total compra</label>
-                <input type="text" class="form-control" id="totalCompra" readonly />
+                <input type="text" class="form-control system-input system-total" id="totalCompra" readonly />
               </div>
             </div>
 
             <div class="saldo-favor-panel mt-3">
               <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-4 col-lg-3">
                   <label class="form-label" data-i18n="saldoFavorTotalLabel">Saldo favor total</label>
-                  <input type="text" class="form-control" id="saldoFavorTotal" readonly />
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label" data-i18n="saldoFavorNCCLabel">Saldo favor NCC</label>
-                  <input type="text" class="form-control" id="saldoFavorNCC" readonly />
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label" data-i18n="saldoFavorRCCLabel">Saldo favor RCC</label>
-                  <input type="text" class="form-control" id="saldoFavorRCC" readonly />
-                </div>
-                <div class="col-md-3">
-                  <label class="form-label" data-i18n="saldoFavorUsadoLabel">Saldo favor a usar</label>
-                  <input type="text" class="form-control" id="saldoFavorUsado" readonly />
+                  <input type="text" class="form-control system-input" id="saldoFavorTotal" readonly />
                 </div>
               </div>
               <div class="form-check mt-2">

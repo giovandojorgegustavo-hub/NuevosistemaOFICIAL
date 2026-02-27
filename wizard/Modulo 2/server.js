@@ -349,11 +349,71 @@ async function vValidarOtp(vLogger, vConn, vCodigoUsuario, vOTP) {
   return vExtractFirstInteger(vRows);
 }
 
+async function vResolveApiAuth(vReq, vRes, vPayload, vConfig) {
+  const vSession = vGetSessionFromRequest(vReq, vConfig.vSessionStore, vConfig.vSessionCookieName);
+  if (vSession?.vCodigoUsuario) {
+    return {
+      ok: true,
+      vCodigoUsuario: vSession.vCodigoUsuario
+    };
+  }
+
+  const { vCodigoUsuario, vOTP } = vExtractAuthParams(vPayload || {});
+  if (!vHasValidAuthFormat(vCodigoUsuario, vOTP)) {
+    return {
+      ok: false,
+      vStatus: 403
+    };
+  }
+
+  try {
+    const vPool = await vGetPool(vConfig.vLogger);
+    const vConn = await vPool.getConnection();
+
+    try {
+      const vResultado = await vValidarOtp(vConfig.vLogger, vConn, vCodigoUsuario, vOTP);
+      if (vResultado !== 1) {
+        return {
+          ok: false,
+          vStatus: 403
+        };
+      }
+    } finally {
+      vConn.release();
+    }
+
+    const vSessionToken = vCreateSession(vReq, vCodigoUsuario, vConfig.vSessionStore);
+    vAttachSessionCookie(vRes, vSessionToken, vConfig.vSessionCookieName);
+    return {
+      ok: true,
+      vCodigoUsuario
+    };
+  } catch (vError) {
+    vConfig.vLogger.error(vError, 'API_AUTH_ERROR');
+    return {
+      ok: false,
+      vStatus: 500
+    };
+  }
+}
+
 function vMapPrivRow(vRow) {
   const vValues = Object.values(vRow || {});
-  const vBase = vRow?.codigo_base ?? vRow?.base ?? vValues[0] ?? '';
-  const vPriv = vRow?.privilegio ?? vRow?.priv ?? vValues[1] ?? '';
-  const vBaseAux = vRow?.base_aux ?? vRow?.auxiliar ?? vValues[2] ?? '';
+  const vBase =
+    vRow?.codigo_base ??
+    vRow?.base ??
+    vRow?.['@v_codigo_base'] ??
+    vValues[1] ??
+    vValues[0] ??
+    '';
+  const vPriv =
+    vRow?.privilegio ??
+    vRow?.priv ??
+    vRow?.['@v_priv_bases'] ??
+    vValues[2] ??
+    vValues[1] ??
+    '';
+  const vBaseAux = vRow?.base_aux ?? vRow?.auxiliar ?? vValues[3] ?? '';
 
   return {
     vBase: String(vBase ?? '').trim(),
@@ -804,7 +864,7 @@ async function vLoadWizardState(vLogger, vInput) {
     const vBaseAux = vPrivData.vBaseAux;
     let vBases = [];
 
-    if (vPriv === 'ALL') {
+    if (vPriv !== 'ONE') {
       const [vBasesResult] = await vRunQuery(vLogger, vConn, 'CALL get_bases()', []);
       vBases = vUnwrapRows(vBasesResult).map(vMapBaseRow);
 
@@ -986,17 +1046,24 @@ startModuleServer({
       const { vParametrosRaw } = vExtractAuthParams(vPayload);
       const vParametros = vParseOptionalParametros(vParametrosRaw);
       const vRequestedBaseCode = vNormalizeBaseCode(vParametros?.codigo_base);
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore005, vSessionCookie005Name);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger005,
+        vSessionStore: vSessionStore005,
+        vSessionCookieName: vSessionCookie005Name
+      });
 
-      vLogger005.info(`ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} base_param=${vRequestedBaseCode || '-'}`);
+      vLogger005.info(`ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} base_param=${vRequestedBaseCode || '-'}`);
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'INIT_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadWizardState(vLogger005, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vRequestedBaseCode
         });
 
@@ -1020,18 +1087,25 @@ startModuleServer({
 
     app.post('/api/cu2-005/stock', express.json({ limit: '1mb' }), async (vReq, vRes) => {
       const vPayload = vReq.body || {};
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore005, vSessionCookie005Name);
       const vRequestedBaseCode = vNormalizeBaseCode(vPayload?.codigo_base);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger005,
+        vSessionStore: vSessionStore005,
+        vSessionCookieName: vSessionCookie005Name
+      });
 
-      vLogger005.info(`ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} base=${vRequestedBaseCode || '-'}`);
+      vLogger005.info(`ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} base=${vRequestedBaseCode || '-'}`);
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'STOCK_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadWizardState(vLogger005, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vRequestedBaseCode
         });
 
@@ -1063,19 +1137,26 @@ startModuleServer({
       const vPayload = vReq.body || {};
       const { vParametrosRaw } = vExtractAuthParams(vPayload);
       const vParametros = vParseOptionalParametros(vParametrosRaw);
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore006, vSessionCookie006Name);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger006,
+        vSessionStore: vSessionStore006,
+        vSessionCookieName: vSessionCookie006Name
+      });
 
       vLogger006.info(
-        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha_desde=${String(vParametros?.fecha_desde || '') || '-'} fecha_hasta=${String(vParametros?.fecha_hasta || '') || '-'}`
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} fecha_desde=${String(vParametros?.fecha_desde || '') || '-'} fecha_hasta=${String(vParametros?.fecha_hasta || '') || '-'}`
       );
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'INIT_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadCu2006State(vLogger006, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vFecha_desde: vParametros?.fecha_desde,
           vFecha_hasta: vParametros?.fecha_hasta,
           vCodigo_producto: vParametros?.codigo_producto,
@@ -1106,19 +1187,26 @@ startModuleServer({
 
     app.post('/api/cu2-006/consultar', express.json({ limit: '1mb' }), async (vReq, vRes) => {
       const vPayload = vReq.body || {};
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore006, vSessionCookie006Name);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger006,
+        vSessionStore: vSessionStore006,
+        vSessionCookieName: vSessionCookie006Name
+      });
 
       vLogger006.info(
-        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha_desde=${String(vPayload?.vFecha_desde || '') || '-'} fecha_hasta=${String(vPayload?.vFecha_hasta || '') || '-'} producto=${String(vPayload?.vCodigo_producto || '') || '-'} base=${String(vPayload?.vCodigo_base || '') || '-'}`
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} fecha_desde=${String(vPayload?.vFecha_desde || '') || '-'} fecha_hasta=${String(vPayload?.vFecha_hasta || '') || '-'} producto=${String(vPayload?.vCodigo_producto || '') || '-'} base=${String(vPayload?.vCodigo_base || '') || '-'}`
       );
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'QUERY_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadCu2006State(vLogger006, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vFecha_desde: vPayload?.vFecha_desde,
           vFecha_hasta: vPayload?.vFecha_hasta,
           vCodigo_producto: vPayload?.vCodigo_producto,
@@ -1151,19 +1239,26 @@ startModuleServer({
       const vPayload = vReq.body || {};
       const { vParametrosRaw } = vExtractAuthParams(vPayload);
       const vParametros = vParseOptionalParametros(vParametrosRaw);
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore007, vSessionCookie007Name);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger007,
+        vSessionStore: vSessionStore007,
+        vSessionCookieName: vSessionCookie007Name
+      });
 
       vLogger007.info(
-        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha=${String(vParametros?.fecha_consulta || '') || '-'} base=${String(vParametros?.codigo_base || '') || '-'}`
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} fecha=${String(vParametros?.fecha_consulta || '') || '-'} base=${String(vParametros?.codigo_base || '') || '-'}`
       );
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'INIT_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadCu2007State(vLogger007, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vFecha_consulta: vParametros?.fecha_consulta,
           vCodigo_base: vParametros?.codigo_base,
           vStrictDate: false
@@ -1192,19 +1287,26 @@ startModuleServer({
 
     app.post('/api/cu2-007/consultar', express.json({ limit: '1mb' }), async (vReq, vRes) => {
       const vPayload = vReq.body || {};
-      const vSession = vGetSessionFromRequest(vReq, vSessionStore007, vSessionCookie007Name);
+      const vAuth = await vResolveApiAuth(vReq, vRes, vPayload, {
+        vLogger: vLogger007,
+        vSessionStore: vSessionStore007,
+        vSessionCookieName: vSessionCookie007Name
+      });
 
       vLogger007.info(
-        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vSession?.vCodigoUsuario || '-'} fecha=${String(vPayload?.vFecha_consulta || '') || '-'} base=${String(vPayload?.vCodigo_base || '') || '-'}`
+        `ENDPOINT: ${vReq.method} ${vReq.path} usuario=${vAuth?.vCodigoUsuario || '-'} fecha=${String(vPayload?.vFecha_consulta || '') || '-'} base=${String(vPayload?.vCodigo_base || '') || '-'}`
       );
 
-      if (!vSession || !vSession.vCodigoUsuario) {
+      if (!vAuth.ok) {
+        if (vAuth.vStatus === 500) {
+          return vRes.status(500).json({ ok: false, message: 'QUERY_ERROR' });
+        }
         return vSendUnauthorizedJson(vRes);
       }
 
       try {
         const vResult = await vLoadCu2007State(vLogger007, {
-          vCodigoUsuario: vSession.vCodigoUsuario,
+          vCodigoUsuario: vAuth.vCodigoUsuario,
           vFecha_consulta: vPayload?.vFecha_consulta,
           vCodigo_base: vPayload?.vCodigo_base,
           vStrictDate: true

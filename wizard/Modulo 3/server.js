@@ -6,6 +6,7 @@ startModuleServer({
   cuDefs: [
     { id: 'CU3-001', dir: 'CU3-001' },
     { id: 'CU3-002', dir: 'CU3-002' },
-    { id: 'CU3-003', dir: 'CU3-003' }
+    { id: 'CU3-003', dir: 'CU3-003' },
+    { id: 'CU3-004', dir: 'CU3-004' }
   ]
 });

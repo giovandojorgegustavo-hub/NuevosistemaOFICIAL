@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 const yaml = require('yaml');
 const { getUseCasePort } = require('../../port-config');
@@ -10,6 +11,9 @@ const ERP_CONFIG = path.join(ROOT_DIR, '..', '..', '..', 'erp.yml');
 const LOG_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_PREFIX = 'CU4-001';
 const PORT = Number(process.env.PORT || getUseCasePort('CU4-001'));
+const API_SESSION_COOKIE = 'cu4_001_session';
+const API_SESSION_TTL_MS = 15 * 60 * 1000;
+const apiSessions = new Map();
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -143,6 +147,24 @@ function getCurrentDate() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+function normalizeFechaForDb(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return timestamp();
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const timePart = timestamp().split(' ')[1];
+    return `${raw} ${timePart}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/.test(raw)) {
+    return raw.replace('T', ' ') + ':00';
+  }
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}$/.test(raw)) {
+    return raw.replace('T', ' ');
+  }
+  return null;
+}
+
 // OTP_GATE_ENABLED_START
 function extractFirstInteger(value) {
   if (value === null || value === undefined) return null;
@@ -173,6 +195,54 @@ function extractAuthParams(source) {
   return { codigoUsuario, otp };
 }
 
+function parseCookies(req) {
+  const header = req.headers?.cookie || '';
+  const pairs = header.split(';');
+  const cookies = {};
+  for (const pair of pairs) {
+    const idx = pair.indexOf('=');
+    if (idx === -1) continue;
+    const key = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    if (!key) continue;
+    cookies[key] = decodeURIComponent(value);
+  }
+  return cookies;
+}
+
+function createApiSession(codigoUsuario) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const expiresAt = Date.now() + API_SESSION_TTL_MS;
+  apiSessions.set(token, { codigoUsuario: String(codigoUsuario || ''), expiresAt });
+  return token;
+}
+
+function getValidApiSession(token) {
+  if (!token) return null;
+  const found = apiSessions.get(token);
+  if (!found) return null;
+  if (found.expiresAt < Date.now()) {
+    apiSessions.delete(token);
+    return null;
+  }
+  return found;
+}
+
+function extractAuthParamsFromRequest(req) {
+  const fromHeaders = extractAuthParams({
+    vUsuario: req.get('x-codigo-usuario'),
+    vOTP: req.get('x-otp')
+  });
+  if (fromHeaders.codigoUsuario && fromHeaders.otp) {
+    return fromHeaders;
+  }
+  const fromQuery = extractAuthParams(req.query || {});
+  if (fromQuery.codigoUsuario && fromQuery.otp) {
+    return fromQuery;
+  }
+  return extractAuthParams(req.body || {});
+}
+
 function hasValidAuthFormat(codigoUsuario, otp) {
   if (!codigoUsuario || !otp) {
     return false;
@@ -191,8 +261,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -222,7 +292,7 @@ async function validarOtp(poolRef, codigoUsuario, otp) {
   }
 }
 async function authorizeAndServeIndex(req, res) {
-  const { codigoUsuario, otp } = extractAuthParams(req.query || {});
+  const { codigoUsuario, otp } = extractAuthParamsFromRequest(req);
   if (!hasValidAuthFormat(codigoUsuario, otp)) {
     res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
     return;
@@ -240,6 +310,13 @@ async function authorizeAndServeIndex(req, res) {
       res.status(403).set('Cache-Control', 'no-store').type('html').send(unauthorizedHtml());
       return;
     }
+    const sessionToken = createApiSession(codigoUsuario);
+    res.cookie(API_SESSION_COOKIE, sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: API_SESSION_TTL_MS,
+      path: '/'
+    });
     res.set('Cache-Control', 'no-store');
     res.sendFile(path.join(ROOT_DIR, 'index.html'));
   } catch (error) {
@@ -249,11 +326,168 @@ async function authorizeAndServeIndex(req, res) {
 }
 // OTP_GATE_ENABLED_END
 
+class AppError extends Error {
+  constructor(message, status = 400, code = message) {
+    super(message);
+    this.name = 'AppError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+function toFiniteNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeDetalle(rawItems) {
+  if (!Array.isArray(rawItems) || !rawItems.length) {
+    throw new AppError('DATA_REQUIRED', 400, 'DATA_REQUIRED');
+  }
+  const normalized = rawItems.map((item) => {
+    const codigoProducto = String(item?.vcodigo_producto || '').trim();
+    const cantidad = toFiniteNumber(item?.Vcantidad);
+    if (!codigoProducto) {
+      throw new AppError('ITEM_PRODUCT_REQUIRED', 422, 'ITEM_INVALID');
+    }
+    if (cantidad === null || cantidad <= 0) {
+      throw new AppError('ITEM_QUANTITY_INVALID', 422, 'ITEM_INVALID');
+    }
+    return { codigoProducto, cantidad };
+  });
+  return normalized;
+}
+
+async function getNextDocumentoWithLock(conn, tipodocumento) {
+  const lockName = `CU4_001_NUMDOC_${tipodocumento}`;
+  const [[lockRow]] = await runQuery(conn, 'SELECT GET_LOCK(?, 10) AS acquired', [lockName]);
+  const acquired = Number(lockRow?.acquired || 0);
+  if (acquired !== 1) {
+    throw new AppError('DOC_NUMBER_LOCK_TIMEOUT', 409, 'DOC_NUMBER_CONFLICT');
+  }
+  const [[row]] = await runQuery(
+    conn,
+    'SELECT numdocumentostock FROM movimiento_stock WHERE tipodocumentostock = ? ORDER BY numdocumentostock DESC LIMIT 1 FOR UPDATE',
+    [tipodocumento]
+  );
+  const last = Number(row?.numdocumentostock || 0);
+  return { value: last + 1, lockName };
+}
+
+async function releaseNamedLock(conn, lockName) {
+  if (!lockName) return;
+  try {
+    await runQuery(conn, 'SELECT RELEASE_LOCK(?)', [lockName]);
+  } catch (error) {
+    logError(error, `RELEASE_LOCK ERROR (${lockName})`);
+  }
+}
+
+async function getStockDisponible(conn, codigoBase, codigoProducto) {
+  try {
+    const [[row]] = await runQuery(conn, 'SELECT erp.get_stock_disponible(?, ?) AS stock_disponible', [
+      codigoBase,
+      codigoProducto
+    ]);
+    return Number(row?.stock_disponible || 0);
+  } catch (error) {
+    const denied =
+      error &&
+      (error.code === 'ER_PROCACCESS_DENIED_ERROR' ||
+        error.code === 'ER_SPECIFIC_ACCESS_DENIED_ERROR' ||
+        String(error.message || '').toLowerCase().includes('denied'));
+    if (!denied) {
+      throw error;
+    }
+    logLine(
+      `WARN: sin permisos para erp.get_stock_disponible, aplicando fallback saldo_stock para base=${codigoBase} producto=${codigoProducto}`,
+      'WARN'
+    );
+    const [[fallbackRow]] = await runQuery(
+      conn,
+      'SELECT COALESCE(saldo_actual, 0) AS stock_disponible FROM saldo_stock WHERE codigo_base = ? AND codigo_producto = ?',
+      [codigoBase, codigoProducto]
+    );
+    return Number(fallbackRow?.stock_disponible || 0);
+  }
+}
+
+async function validateStockDisponible(conn, codigoBase, detalle) {
+  const requiredByProduct = new Map();
+  for (const item of detalle) {
+    const current = requiredByProduct.get(item.codigoProducto) || 0;
+    requiredByProduct.set(item.codigoProducto, current + item.cantidad);
+  }
+  for (const [codigoProducto, cantidadRequerida] of requiredByProduct.entries()) {
+    await runQuery(
+      conn,
+      'SELECT saldo_actual FROM saldo_stock WHERE codigo_base = ? AND codigo_producto = ? FOR UPDATE',
+      [codigoBase, codigoProducto]
+    );
+    const stockDisponible = await getStockDisponible(conn, codigoBase, codigoProducto);
+    if (stockDisponible < cantidadRequerida) {
+      throw new AppError('STOCK_INSUFICIENTE', 409, 'STOCK_INSUFICIENTE');
+    }
+  }
+}
+
+function mapDatabaseError(error) {
+  if (!error) return null;
+  if (error instanceof AppError) {
+    return error;
+  }
+  if (error.code === 'ER_DUP_ENTRY') {
+    return new AppError('DOC_NUMBER_CONFLICT', 409, 'DOC_NUMBER_CONFLICT');
+  }
+  if (error.code === 'ER_NO_REFERENCED_ROW_2' || error.code === 'ER_ROW_IS_REFERENCED_2') {
+    return new AppError('FK_CONSTRAINT_ERROR', 422, 'FK_CONSTRAINT_ERROR');
+  }
+  if (error.code === 'ER_SIGNAL_EXCEPTION' && String(error.sqlMessage || '').includes('Tipo de documento no soportado')) {
+    return new AppError('TIPO_DOCUMENTO_INVALIDO', 422, 'TIPO_DOCUMENTO_INVALIDO');
+  }
+  return null;
+}
+
+async function requireApiAuthorization(req, res, next) {
+  const sessionToken = parseCookies(req)[API_SESSION_COOKIE];
+  const session = getValidApiSession(sessionToken);
+  if (session) {
+    return next();
+  }
+
+  const { codigoUsuario, otp } = extractAuthParamsFromRequest(req);
+  if (!hasValidAuthFormat(codigoUsuario, otp)) {
+    return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+  }
+  const poolRef = resolvePoolReference();
+  if (!poolRef) {
+    return res.status(503).json({ ok: false, message: 'AUTH_SERVICE_UNAVAILABLE' });
+  }
+  try {
+    const resultado = await validarOtp(poolRef, codigoUsuario, otp);
+    if (resultado !== 1) {
+      return res.status(403).json({ ok: false, message: 'UNAUTHORIZED' });
+    }
+    const newToken = createApiSession(codigoUsuario);
+    res.cookie(API_SESSION_COOKIE, newToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: API_SESSION_TTL_MS,
+      path: '/'
+    });
+    next();
+  } catch (error) {
+    logError(error, 'API OTP VALIDATION ERROR');
+    return res.status(500).json({ ok: false, message: 'AUTH_ERROR' });
+  }
+}
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.get('/', authorizeAndServeIndex);
 app.get('/index.html', authorizeAndServeIndex);
 app.use(express.static(ROOT_DIR, { index: false }));
+app.use('/api', requireApiAuthorization);
 
 app.use((req, res, next) => {
   logLine(`ENDPOINT: ${req.method} ${req.path}`);
@@ -329,43 +563,59 @@ app.get('/api/productos', async (req, res) => {
 app.post('/api/transferencias', async (req, res) => {
   const payload = req.body || {};
   const vFecha = payload.vFecha;
-  const vTipodocumentostockSalida = payload.vTipodocumentostockSalida;
-  const vTipodocumentostockEntrada = payload.vTipodocumentostockEntrada;
-  const vNumdocumentostockSalida = Number(payload.vNumdocumentostockSalida);
-  const vNumdocumentostockEntrada = Number(payload.vNumdocumentostockEntrada);
+  const vTipodocumentostockSalida = 'TRS';
+  const vTipodocumentostockEntrada = 'TRE';
   const vCodigo_base = payload.vCodigo_base;
   const vCodigo_basedestino = payload.vCodigo_basedestino;
-  const vDetalleTransferencia = Array.isArray(payload.vDetalleTransferencia) ? payload.vDetalleTransferencia : [];
+  let vDetalleTransferencia = [];
 
-  if (
-    !vFecha ||
-    !vTipodocumentostockSalida ||
-    !vTipodocumentostockEntrada ||
-    !vNumdocumentostockSalida ||
-    !vNumdocumentostockEntrada ||
-    !vCodigo_base ||
-    !vCodigo_basedestino ||
-    !vDetalleTransferencia.length
-  ) {
+  if (!vFecha || !vCodigo_base || !vCodigo_basedestino) {
     return res.status(400).json({ ok: false, message: 'DATA_REQUIRED' });
+  }
+  const vFechaDb = normalizeFechaForDb(vFecha);
+  if (!vFechaDb) {
+    return res.status(422).json({ ok: false, message: 'FECHA_INVALIDA' });
+  }
+  if (String(vCodigo_base) === String(vCodigo_basedestino)) {
+    return res.status(422).json({ ok: false, message: 'BASES_IGUALES' });
+  }
+  try {
+    vDetalleTransferencia = normalizeDetalle(payload.vDetalleTransferencia);
+  } catch (error) {
+    const known = mapDatabaseError(error) || error;
+    const status = known.status || 400;
+    return res.status(status).json({ ok: false, message: known.code || 'ITEM_INVALID' });
   }
 
   const pool = app.locals.pool;
   const conn = await pool.getConnection();
+  let lockSalida = null;
+  let lockEntrada = null;
   try {
     logSql('BEGIN');
     await conn.beginTransaction();
+    const nextSalida = await getNextDocumentoWithLock(conn, vTipodocumentostockSalida);
+    lockSalida = nextSalida.lockName;
+    const vNumdocumentostockSalida = nextSalida.value;
+    const vNumdocumentostockEntrada = vNumdocumentostockSalida + 1;
+    const nextEntrada = await getNextDocumentoWithLock(conn, vTipodocumentostockEntrada);
+    lockEntrada = nextEntrada.lockName;
+
+    if (vNumdocumentostockEntrada < Number(nextEntrada.value || 0)) {
+      throw new AppError('DOC_NUMBER_CONFLICT', 409, 'DOC_NUMBER_CONFLICT');
+    }
+    await validateStockDisponible(conn, vCodigo_base, vDetalleTransferencia);
 
     await runQuery(
       conn,
       'INSERT INTO movimiento_stock (tipodocumentostock, numdocumentostock, fecha, codigo_base, codigo_basedestino) VALUES (?, ?, ?, ?, ?)',
-      [vTipodocumentostockSalida, vNumdocumentostockSalida, vFecha, vCodigo_base, vCodigo_basedestino]
+      [vTipodocumentostockSalida, vNumdocumentostockSalida, vFechaDb, vCodigo_base, vCodigo_basedestino]
     );
 
     await runQuery(
       conn,
       'INSERT INTO movimiento_stock (tipodocumentostock, numdocumentostock, fecha, codigo_base, codigo_basedestino) VALUES (?, ?, ?, ?, ?)',
-      [vTipodocumentostockEntrada, vNumdocumentostockEntrada, vFecha, vCodigo_basedestino, vCodigo_base]
+      [vTipodocumentostockEntrada, vNumdocumentostockEntrada, vFechaDb, vCodigo_basedestino, vCodigo_base]
     );
 
     const [[rowSalida]] = await runQuery(
@@ -384,11 +634,8 @@ app.post('/api/transferencias', async (req, res) => {
     let ordinalEntrada = Number(rowEntrada?.next || 1);
 
     for (const item of vDetalleTransferencia) {
-      const codigoProducto = item.vcodigo_producto;
-      const cantidad = Number(item.Vcantidad);
-      if (!codigoProducto || Number.isNaN(cantidad)) {
-        throw new Error('ITEM_INVALID');
-      }
+      const codigoProducto = item.codigoProducto;
+      const cantidad = item.cantidad;
 
       await runQuery(
         conn,
@@ -422,13 +669,27 @@ app.post('/api/transferencias', async (req, res) => {
 
     logSql('COMMIT');
     await conn.commit();
-    res.json({ ok: true });
+    res.json({
+      ok: true,
+      data: {
+        vTipodocumentostockSalida,
+        vTipodocumentostockEntrada,
+        vNumdocumentostockSalida,
+        vNumdocumentostockEntrada
+      }
+    });
   } catch (error) {
     logSql('ROLLBACK');
     await conn.rollback();
     logError(error, 'TRANSFERENCIA ERROR');
+    const knownError = mapDatabaseError(error);
+    if (knownError) {
+      return res.status(knownError.status).json({ ok: false, message: knownError.code });
+    }
     res.status(500).json({ ok: false, message: 'TRANSFERENCIA_ERROR' });
   } finally {
+    await releaseNamedLock(conn, lockEntrada);
+    await releaseNamedLock(conn, lockSalida);
     conn.release();
   }
 });

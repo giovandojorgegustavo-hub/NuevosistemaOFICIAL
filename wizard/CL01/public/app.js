@@ -2,6 +2,7 @@
   const STORAGE_TOKEN_KEY = 'cl01_token';
   const STORAGE_USER_KEY = 'cl01_user';
   const STORAGE_SHORTCUTS_KEY = 'cl01_shortcuts';
+  const AUTO_RESTORE_SESSION = false;
 
   const I18N = {
     es: {
@@ -317,6 +318,12 @@
   }
 
   async function tryRestoreSession() {
+    if (!AUTO_RESTORE_SESSION) {
+      localStorage.removeItem(STORAGE_TOKEN_KEY);
+      localStorage.removeItem(STORAGE_USER_KEY);
+      return false;
+    }
+
     const savedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
     const savedUser = localStorage.getItem(STORAGE_USER_KEY);
     if (!savedToken) return false;

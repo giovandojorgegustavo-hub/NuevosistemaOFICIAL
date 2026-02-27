@@ -21,13 +21,16 @@ function startCuServices(moduleDir, moduleCode, cuDefs, config) {
     if (!fs.existsSync(cuServer)) {
       throw new Error(`No existe ${cuServer}`);
     }
+    const cuLogsDir =
+      moduleCode === 'M2' && String(cu.id).toUpperCase() === 'CU2-004' ? path.join(cuDir, 'logs') : logsDir;
+    if (!fs.existsSync(cuLogsDir)) fs.mkdirSync(cuLogsDir, { recursive: true });
 
     cuMap[cu.id.toUpperCase()] = {
       id: cu.id.toUpperCase(),
       rawId: cu.id,
       internalPort: getUseCasePort(cu.id, config),
       cuDir,
-      logsDir,
+      logsDir: cuLogsDir,
       moduleCode,
       child: null,
       out: null,
@@ -104,6 +107,9 @@ function resolveCuFromRequest(req, cuMap) {
 
 async function ensureCuStarted(cu) {
   if (isAlive(cu.child)) return;
+  // Si el puerto ya responde, probablemente hay una instancia previa/orfana
+  // atendiendo este CU. Evitamos levantar un segundo proceso en el mismo puerto.
+  if (await canConnect(cu.internalPort)) return;
   if (cu.startPromise) {
     await cu.startPromise;
     return;
@@ -112,6 +118,11 @@ async function ensureCuStarted(cu) {
   cu.startPromise = (async () => {
     const outPath = path.join(cu.logsDir, `${cu.moduleCode}-${cu.rawId}.log`);
     const out = fs.createWriteStream(outPath, { flags: 'a' });
+    out.on('error', (error) => {
+      console.error(
+        `[${new Date().toISOString()}] [${cu.rawId}] LOG_STREAM_ERROR ${error && error.message ? error.message : error}`
+      );
+    });
     cu.out = out;
     writeLine(out, `[${cu.rawId}] START requested on port ${cu.internalPort}`);
 

@@ -52,7 +52,9 @@ class FormWizard {
     this.alertBox = document.getElementById('alertBox');
     this.loadingOverlay = document.getElementById('loadingOverlay');
 
-    this.facturasTableBody = document.querySelector('#facturasTable tbody');
+    this.facturasList = document.getElementById('facturasList');
+    this.facturasCount = document.getElementById('facturasCount');
+    this.facturaSearch = document.getElementById('facturaSearch');
     this.detalleTableBody = document.querySelector('#detalleTable tbody');
     this.confirmTableBody = document.querySelector('#confirmTable tbody');
 
@@ -66,13 +68,15 @@ class FormWizard {
     this.state = {
       step: 0,
       facturas: [],
+      filteredFacturas: [],
       bases: [],
       selectedFactura: null,
       selectedBase: null,
       detalle: [],
       remito: {
         tipo: 'REM',
-        numero: ''
+        numero: '',
+        fecha: ''
       }
     };
 
@@ -94,6 +98,7 @@ class FormWizard {
     this.confirmCheck.addEventListener('change', () => {
       this.confirmBtn.disabled = !this.confirmCheck.checked;
     });
+    this.facturaSearch.addEventListener('input', (event) => this.filterFacturas(event.target.value));
 
     this.baseInput.addEventListener('input', (event) => this.filterBases(event.target.value));
     this.baseInput.addEventListener('focus', (event) => this.filterBases(event.target.value));
@@ -131,7 +136,9 @@ class FormWizard {
         thSaldo: 'Saldo',
         lblTipoRemito: 'Tipo Documento Remito',
         lblNumRemito: 'Numero Remito',
+        lblFechaInicio: 'Fecha inicio',
         lblBase: 'Base destino',
+        searchFactura: 'Buscar factura',
         basePlaceholder: 'Buscar base',
         baseHelp: 'Escriba para filtrar miles de registros.',
         detalleTitle: 'Detalle de Remito',
@@ -146,6 +153,8 @@ class FormWizard {
         loading: 'Procesando...',
         stepLabel: 'Paso {current} de {total}',
         noFacturas: 'Sin facturas pendientes.',
+        facturasLoaded: '{count} facturas cargadas',
+        selectAction: 'SELECCIONAR',
         pickFactura: 'Seleccione una factura.',
         pickFacturaContinue: 'Seleccione una factura para continuar.',
         pickBase: 'Seleccione una base destino.',
@@ -176,7 +185,9 @@ class FormWizard {
         thSaldo: 'Balance',
         lblTipoRemito: 'Delivery Note Type',
         lblNumRemito: 'Delivery Note Number',
+        lblFechaInicio: 'Start date',
         lblBase: 'Destination Base',
+        searchFactura: 'Search invoice',
         basePlaceholder: 'Search base',
         baseHelp: 'Type to filter thousands of records.',
         detalleTitle: 'Delivery Note Details',
@@ -191,6 +202,8 @@ class FormWizard {
         loading: 'Processing...',
         stepLabel: 'Step {current} of {total}',
         noFacturas: 'No pending invoices.',
+        facturasLoaded: '{count} invoices loaded',
+        selectAction: 'SELECT',
         pickFactura: 'Select an invoice.',
         pickFacturaContinue: 'Select an invoice to continue.',
         pickBase: 'Select a destination base.',
@@ -229,6 +242,7 @@ class FormWizard {
         throw new Error(data.message || 'FACTURAS_ERROR');
       }
       this.state.facturas = data.facturas || [];
+      this.state.filteredFacturas = [...this.state.facturas];
       this.renderFacturas();
     } catch (error) {
       this.showAlert(error.message, 'danger');
@@ -250,36 +264,62 @@ class FormWizard {
     }
   }
 
+  filterFacturas(search) {
+    const query = (search || '').toLowerCase().trim();
+    this.state.filteredFacturas = this.state.facturas.filter((factura) => {
+      const bucket = [
+        factura.tipo_documento_compra,
+        factura.num_documento_compra,
+        factura.nombre_provedor,
+        this.formatDate(factura.fecha)
+      ].join(' ').toLowerCase();
+      return bucket.includes(query);
+    });
+    this.renderFacturas();
+  }
+
   renderFacturas() {
-    this.facturasTableBody.innerHTML = '';
-    if (!this.state.facturas.length) {
-      this.facturasTableBody.innerHTML = `<tr><td colspan="5">${this.t('noFacturas')}</td></tr>`;
+    this.facturasList.innerHTML = '';
+    this.facturasCount.textContent = this.t('facturasLoaded', { count: this.state.filteredFacturas.length });
+
+    if (!this.state.filteredFacturas.length) {
+      this.facturasList.innerHTML = `<div class="factura-empty">${this.t('noFacturas')}</div>`;
       return;
     }
 
-    this.state.facturas.forEach((factura) => {
-      const row = document.createElement('tr');
+    this.state.filteredFacturas.forEach((factura) => {
+      const item = document.createElement('button');
       const selected = this.state.selectedFactura &&
         this.state.selectedFactura.num_documento_compra === factura.num_documento_compra &&
         this.state.selectedFactura.codigo_provedor === factura.codigo_provedor;
 
-      row.innerHTML = `
-        <td>
-          <input type="radio" name="facturaSelect" ${selected ? 'checked' : ''} />
-        </td>
-        <td>${factura.tipo_documento_compra}</td>
-        <td>${factura.num_documento_compra}</td>
-        <td>${factura.nombre_provedor}</td>
-        <td>${this.formatDate(factura.fecha)}</td>
+      item.type = 'button';
+      item.className = 'factura-item';
+      item.innerHTML = `
+        <div class="factura-main">
+          <div class="factura-name">${factura.nombre_provedor}</div>
+          <div class="factura-meta">${factura.tipo_documento_compra} - ${factura.num_documento_compra}</div>
+        </div>
+        <div class="factura-side">
+          <div class="factura-date">${this.formatDate(factura.fecha)}</div>
+          <div class="factura-cta">${this.t('selectAction')}</div>
+        </div>
       `;
 
-      row.addEventListener('click', () => {
+      if (selected) {
+        item.classList.add('is-selected');
+      }
+
+      item.addEventListener('click', () => {
         this.state.selectedFactura = factura;
         this.renderFacturas();
         this.showAlert(null);
+        if (this.state.step === 0) {
+          this.next();
+        }
       });
 
-      this.facturasTableBody.appendChild(row);
+      this.facturasList.appendChild(item);
     });
   }
 
@@ -341,8 +381,12 @@ class FormWizard {
         throw new Error(detalleData.message || 'DETALLE_ERROR');
       }
 
+      this.state.remito.tipo = remitoData.vTipo_documento_compra_remito || 'REM';
       this.state.remito.numero = remitoData.vNum_documento_compra_remito;
+      this.state.remito.fecha = remitoData.vFecha_inicio || '';
+      document.getElementById('tipoRemito').value = this.state.remito.tipo;
       document.getElementById('numRemito').value = remitoData.vNum_documento_compra_remito;
+      document.getElementById('fechaInicioRemito').value = remitoData.vFecha_inicio || '';
 
       this.state.detalle = (detalleData.detalle || []).map((item) => {
         const disponible = Number(item.cantidad) - Number(item.cantidad_entregada);
@@ -516,7 +560,7 @@ class FormWizard {
       const payload = {
         vTipo_documento_compra_remito: this.state.remito.tipo,
         vNum_documento_compra_remito: this.state.remito.numero,
-        vFecha: this.state.selectedFactura.fecha,
+        vFecha: this.state.remito.fecha || this.state.selectedFactura.fecha,
         vCodigo_base: this.state.selectedBase.codigo_base,
         vTipo_documento_compra_origen: this.state.selectedFactura.tipo_documento_compra,
         vNum_documento_compra_origen: this.state.selectedFactura.num_documento_compra,
@@ -561,6 +605,9 @@ class FormWizard {
       : '-';
 
     this.remitoResumen.innerHTML = `${this.state.remito.tipo} ${this.state.remito.numero}`;
+    if (this.state.remito.fecha) {
+      this.remitoResumen.innerHTML += `<div>${this.formatDateTime(this.state.remito.fecha)}</div>`;
+    }
 
     this.confirmTableBody.innerHTML = '';
     this.state.detalle
@@ -578,13 +625,18 @@ class FormWizard {
     this.state.selectedBase = null;
     this.state.detalle = [];
     this.state.remito.numero = '';
+    this.state.remito.fecha = '';
 
     if (!keepAlert) {
       this.showAlert(null);
     }
 
     this.baseInput.value = '';
+    this.facturaSearch.value = '';
+    this.state.filteredFacturas = [...this.state.facturas];
+    document.getElementById('tipoRemito').value = this.state.remito.tipo;
     document.getElementById('numRemito').value = '';
+    document.getElementById('fechaInicioRemito').value = '';
     this.confirmCheck.checked = false;
     this.confirmBtn.disabled = true;
 
@@ -598,6 +650,8 @@ class FormWizard {
       es: {
         stepLabel: 'Paso {current} de {total}',
         noFacturas: 'Sin facturas pendientes.',
+        facturasLoaded: '{count} facturas cargadas',
+        selectAction: 'SELECCIONAR',
         pickFactura: 'Seleccione una factura.',
         pickFacturaContinue: 'Seleccione una factura para continuar.',
         pickBase: 'Seleccione una base destino.',
@@ -610,6 +664,8 @@ class FormWizard {
       en: {
         stepLabel: 'Step {current} of {total}',
         noFacturas: 'No pending invoices.',
+        facturasLoaded: '{count} invoices loaded',
+        selectAction: 'SELECT',
         pickFactura: 'Select an invoice.',
         pickFacturaContinue: 'Select an invoice to continue.',
         pickBase: 'Select a destination base.',
@@ -650,6 +706,16 @@ class FormWizard {
       return raw;
     }
     return date.toLocaleDateString();
+  }
+
+  formatDateTime(raw) {
+    if (!raw) return '';
+    const normalized = typeof raw === 'string' ? raw.replace(' ', 'T') : raw;
+    const date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) {
+      return raw;
+    }
+    return date.toLocaleString();
   }
 }
 

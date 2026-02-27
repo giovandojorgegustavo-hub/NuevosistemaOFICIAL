@@ -1,79 +1,3 @@
-/*
-vPaquetesStandby = Llamada SP: get_paquetes_por_estado(p_estado="standby") (devuelve campo_visible)
-Campos devueltos
-vcodigo_paquete
-vfecha_actualizado
-vcodigo_cliente
-vnombre_cliente
-vnum_cliente
-vcodigo_puntoentrega
-vcodigo_base
-vnombre_base
-vordinal_numrecibe
-vconcatenarpuntoentrega
-vRegion_Entrega
-vLatitud
-vLongitud
-vconcatenarnumrecibe
-Variables
-vcodigo_paquete visible no editable
-vfecha_actualizado visible no editable
-vcodigo_cliente no visible no editable
-vnombre_cliente visible no editable
-vnum_cliente visible no editable
-vcodigo_puntoentrega no visible no editable
-vcodigo_base no visible no editable
-vnombre_base visible no editable
-vordinal_numrecibe no visible no editable
-vconcatenarpuntoentrega visible no editable
-vRegion_Entrega no visible no editable
-vLatitud no visible no editable
-vLongitud no visible no editable
-vconcatenarnumrecibe visible no editable
-
-vViajeDocumento = Llamada SP: get_viaje_por_documento(p_numero_documento) (devuelve campo_visible)
-Campos devueltos
-vcodigoviaje
-vnombrebase
-vnombre_motorizado
-vnumero_wsp
-vnum_llamadas
-vnum_yape
-vlink
-vobservacion
-vfecha
-Variables
-vcodigoviaje no visible no editable
-vnombrebase visible no editable
-vnombre_motorizado visible no editable
-vnumero_wsp visible no editable
-vnum_llamadas visible no editable
-vnum_yape visible no editable
-vlink visible no editable
-vobservacion visible no editable
-vfecha visible no editable
-
-vDetalleDocumento = Llamada SP: get_mov_contable_detalle(p_tipo_documento, p_numero_documento) (devuelve campo_visible)
-Campos devueltos
-vtipo_documento
-vnumero_documento
-vordinal
-vcodigo_producto
-vnombre_producto
-vcantidad
-vsaldo
-vprecio_total
-Variables
-vtipo_documento no visible no editable
-vnumero_documento no visible no editable
-vordinal no visible no editable
-vcodigo_producto no visible no editable
-vnombre_producto visible no editable
-vcantidad visible no editable
-vsaldo no visible no editable
-vprecio_total no visible no editable
-*/
-
 const i18n = {
   en: {
     badge: 'IaaS & PaaS Ops',
@@ -84,20 +8,16 @@ const i18n = {
     step1: '1. Selection',
     step2: '2. Detail',
     step3: '3. Confirm',
-    step1Title: 'Select standby package',
-    step1Hint: 'Choose a package to review its full detail.',
+    step1Title: 'Search standby package',
+    step1Hint: 'Enter document type and package number to load detail.',
+    step1Hint2: 'Lookup fetches package, trip, and products.',
+    docTypeLabel: 'Document type',
+    packageCodeLabel: 'Package number',
+    search: 'Search package',
     step2Title: 'Package detail',
     step2Hint: 'Client, delivery, and trip data (read only).',
     step3Title: 'Confirm & save',
     step3Hint: 'Define the new state and confirm.',
-    colCodigo: 'Code',
-    colFecha: 'Updated',
-    colCliente: 'Client',
-    colNumero: 'Client number',
-    colBase: 'Base',
-    colPacking: 'Packing',
-    colEntrega: 'Delivery point',
-    colRecibe: 'Receiver',
     labelEntrega: 'Delivery point',
     labelRecibe: 'Receiver',
     labelPacking: 'Packing',
@@ -113,13 +33,11 @@ const i18n = {
     logsTitle: 'SQL logs',
     logsHint: 'Latest lines from the active log file.',
     refresh: 'Refresh',
-    confirmTitle: 'Confirm operation',
-    confirmBody: 'Do you want to save the new package state?',
-    cancel: 'Cancel',
     confirm: 'Confirm',
     confirmRequired: 'You must confirm that the data is correct.',
     successSaved: 'State updated successfully. Wizard reset.',
-    errorSelection: 'Select a package to continue.',
+    errorSelection: 'Enter a valid package number to continue.',
+    errorNotFound: 'Package not found in standby state.',
     errorEstado: 'Select a valid state before confirming.',
     errorServer: 'We could not complete your request. Try again.'
   },
@@ -132,20 +50,16 @@ const i18n = {
     step1: '1. Seleccion',
     step2: '2. Detalle',
     step3: '3. Confirmar',
-    step1Title: 'Seleccion de paquete en standby',
-    step1Hint: 'Selecciona un paquete para revisar su detalle completo.',
+    step1Title: 'Buscar paquete en standby',
+    step1Hint: 'Ingresa tipo documento y numero de paquete para cargar el detalle.',
+    step1Hint2: 'La busqueda trae paquete, viaje y productos.',
+    docTypeLabel: 'Tipo documento',
+    packageCodeLabel: 'Numero paquete',
+    search: 'Buscar paquete',
     step2Title: 'Detalle del paquete',
     step2Hint: 'Datos del cliente, entrega y viaje asociado (solo lectura).',
     step3Title: 'Confirmar y guardar',
     step3Hint: 'Define el nuevo estado y confirma la operacion.',
-    colCodigo: 'Codigo',
-    colFecha: 'Actualizado',
-    colCliente: 'Cliente',
-    colNumero: 'Numero cliente',
-    colBase: 'Base',
-    colPacking: 'Packing',
-    colEntrega: 'Punto entrega',
-    colRecibe: 'Num recibe',
     labelEntrega: 'Punto entrega',
     labelRecibe: 'Num recibe',
     labelPacking: 'Packing',
@@ -161,13 +75,11 @@ const i18n = {
     logsTitle: 'Logs SQL',
     logsHint: 'Ultimas lineas del log activo.',
     refresh: 'Actualizar',
-    confirmTitle: 'Confirmar operacion',
-    confirmBody: '¿Deseas guardar el nuevo estado del paquete?',
-    cancel: 'Cancelar',
     confirm: 'Confirmar',
     confirmRequired: 'Debes confirmar que los datos son correctos.',
     successSaved: 'Estado actualizado. Wizard reiniciado.',
-    errorSelection: 'Selecciona un paquete para continuar.',
+    errorSelection: 'Ingresa un numero de paquete valido para continuar.',
+    errorNotFound: 'No se encontro el paquete en estado standby.',
     errorEstado: 'Selecciona un estado valido antes de confirmar.',
     errorServer: 'No pudimos completar tu solicitud. Intenta de nuevo.'
   }
@@ -176,7 +88,7 @@ const i18n = {
 const state = {
   step: 1,
   lang: 'en',
-  paquetes: [],
+  preselectedCode: '',
   selected: null,
   viaje: null,
   detalles: [],
@@ -192,7 +104,8 @@ const elements = {
   step3: document.getElementById('step3'),
   alertBox: document.getElementById('alertBox'),
   successBox: document.getElementById('successBox'),
-  standbyTableBody: document.querySelector('#standbyTable tbody'),
+  tipoDocumentoInput: document.getElementById('tipoDocumentoInput'),
+  codigoPaqueteInput: document.getElementById('codigoPaqueteInput'),
   detalleTableBody: document.querySelector('#detalleTable tbody'),
   detalleEntrega: document.getElementById('detalleEntrega'),
   detalleRecibe: document.getElementById('detalleRecibe'),
@@ -206,7 +119,7 @@ const elements = {
   btnPrev: document.getElementById('btnPrev'),
   btnNext: document.getElementById('btnNext'),
   btnReset: document.getElementById('btnReset'),
-  loadingStandby: document.getElementById('loadingStandby'),
+  loadingSearch: document.getElementById('loadingSearch'),
   loadingDetalle: document.getElementById('loadingDetalle'),
   loadingGuardar: document.getElementById('loadingGuardar'),
   logsContent: document.getElementById('logsContent'),
@@ -289,8 +202,8 @@ function mapPaqueteRow(row) {
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload?.message || `HTTP ${res.status}`);
   }
   return res.json();
 }
@@ -300,7 +213,15 @@ function updateStepUI() {
   elements.step2.classList.toggle('d-none', state.step !== 2);
   elements.step3.classList.toggle('d-none', state.step !== 3);
   elements.btnPrev.disabled = state.step === 1;
-  elements.btnNext.textContent = state.step === 3 ? t('confirm') : t('next');
+
+  if (state.step === 1) {
+    elements.btnNext.textContent = t('search');
+  } else if (state.step === 3) {
+    elements.btnNext.textContent = t('confirm');
+  } else {
+    elements.btnNext.textContent = t('next');
+  }
+
   elements.btnNext.disabled = state.step === 3 && !elements.confirmCheck.checked;
   const progress = (state.step / 3) * 100;
   elements.progressBar.style.width = `${progress}%`;
@@ -310,33 +231,47 @@ function updateStepUI() {
   });
 }
 
-function selectRow(row, paquete) {
-  document.querySelectorAll('#standbyTable tbody tr').forEach((tr) => tr.classList.remove('active'));
-  row.classList.add('active');
-  state.selected = paquete;
+function getSearchPayload() {
+  const tipoDocumento = String(elements.tipoDocumentoInput.value || 'FAC').trim().toUpperCase();
+  const codigoPaquete = String(elements.codigoPaqueteInput.value || '').trim();
+  if (!/^[0-9]+$/.test(codigoPaquete)) {
+    return null;
+  }
+  return { tipoDocumento, codigoPaquete };
 }
 
-function renderStandbyTable() {
-  elements.standbyTableBody.innerHTML = '';
-  state.paquetes.forEach((paquete) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${paquete.codigo_paquete ?? ''}</td>
-      <td>${paquete.fecha_actualizado ?? ''}</td>
-      <td>${paquete.nombre_cliente ?? ''}</td>
-      <td>${paquete.num_cliente ?? ''}</td>
-      <td>${paquete.nombre_base ?? ''}</td>
-      <td>${paquete.nombre_packing || paquete.codigo_packing || '-'}</td>
-      <td>${paquete.concatenarpuntoentrega ?? ''}</td>
-      <td>${paquete.concatenarnumrecibe ?? ''}</td>
-    `;
-    row.addEventListener('click', () => {
-      selectRow(row, paquete);
-      clearAlert();
-      goToStep(2);
+async function loadPaqueteByCodigo() {
+  clearAlert();
+  const payload = getSearchPayload();
+  if (!payload) {
+    setAlert(t('errorSelection'));
+    return;
+  }
+
+  elements.loadingSearch.classList.remove('d-none');
+  try {
+    const params = new URLSearchParams({
+      tipo_documento: payload.tipoDocumento,
+      codigo_paquete: payload.codigoPaquete,
+      estado: 'standby'
     });
-    elements.standbyTableBody.appendChild(row);
-  });
+    const data = await fetchJson(`./api/paquete?${params.toString()}`);
+    if (!data?.row) {
+      setAlert(t('errorNotFound'));
+      return;
+    }
+
+    state.selected = mapPaqueteRow(data.row);
+    goToStep(2);
+  } catch (error) {
+    if (String(error?.message || '').toUpperCase() === 'PAQUETE_NOT_FOUND') {
+      setAlert(t('errorNotFound'));
+    } else {
+      setAlert(t('errorServer'));
+    }
+  } finally {
+    elements.loadingSearch.classList.add('d-none');
+  }
 }
 
 function renderViajeInfo() {
@@ -429,19 +364,6 @@ function renderResumen() {
     card.appendChild(value);
     elements.resumenInfo.appendChild(card);
   });
-}
-
-async function loadStandby() {
-  elements.loadingStandby.classList.remove('d-none');
-  try {
-    const data = await fetchJson('./api/paquetes-standby');
-    state.paquetes = (data.rows || []).map(mapPaqueteRow);
-    renderStandbyTable();
-  } catch (error) {
-    setAlert(t('errorServer'));
-  } finally {
-    elements.loadingStandby.classList.add('d-none');
-  }
 }
 
 function parseLatLng(paquete) {
@@ -583,7 +505,6 @@ async function guardarEstado() {
     });
     setSuccess(t('successSaved'));
     resetWizard();
-    await loadStandby();
   } catch (error) {
     setAlert(t('errorServer'));
   } finally {
@@ -605,7 +526,8 @@ function resetWizard() {
   elements.detalleTableBody.innerHTML = '';
   elements.resumenInfo.innerHTML = '';
   elements.mapSection.classList.add('d-none');
-  document.querySelectorAll('#standbyTable tbody tr').forEach((tr) => tr.classList.remove('active'));
+  elements.codigoPaqueteInput.value = '';
+  elements.tipoDocumentoInput.value = 'FAC';
   updateStepUI();
 }
 
@@ -618,14 +540,30 @@ async function loadLogs() {
   }
 }
 
+function resolvePreselectedCode() {
+  const params = new URLSearchParams(window.location.search || '');
+  return String(params.get('codigo_paquete') || params.get('numero_documento') || '').trim();
+}
+
+function resolvePreselectedType() {
+  const params = new URLSearchParams(window.location.search || '');
+  return String(params.get('tipo_documento') || 'FAC').trim().toUpperCase();
+}
+
 class FormWizard {
   init() {
     state.lang = detectLanguage();
+    state.preselectedCode = resolvePreselectedCode();
     applyTranslations();
     updateStepUI();
     this.bindEvents();
-    loadStandby();
     loadLogs();
+
+    if (state.preselectedCode) {
+      elements.codigoPaqueteInput.value = state.preselectedCode;
+      elements.tipoDocumentoInput.value = resolvePreselectedType();
+      loadPaqueteByCodigo();
+    }
   }
 
   bindEvents() {
@@ -637,11 +575,15 @@ class FormWizard {
     });
 
     elements.btnNext.addEventListener('click', () => {
-      if (state.step < 3) {
+      if (state.step === 1) {
+        loadPaqueteByCodigo();
+        return;
+      }
+      if (state.step === 2) {
         if (!validateStep()) {
           return;
         }
-        goToStep(state.step + 1);
+        goToStep(3);
         return;
       }
       if (!validateStep()) {
@@ -659,6 +601,16 @@ class FormWizard {
         elements.btnNext.disabled = !elements.confirmCheck.checked;
       }
     });
+
+    elements.codigoPaqueteInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (state.step === 1) {
+          loadPaqueteByCodigo();
+        }
+      }
+    });
+
     elements.btnRefreshLogs.addEventListener('click', loadLogs);
   }
 }

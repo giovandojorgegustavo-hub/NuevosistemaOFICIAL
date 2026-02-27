@@ -511,6 +511,19 @@ function registerSession(userId, nombre, ip) {
   return token;
 }
 
+function revokeSessionsByUser(userId) {
+  const target = sanitizeText(userId, 36);
+  if (!target) return 0;
+  let revoked = 0;
+  for (const [token, session] of sessions.entries()) {
+    if (String(session?.userId || '') === target) {
+      sessions.delete(token);
+      revoked += 1;
+    }
+  }
+  return revoked;
+}
+
 async function createServer() {
   const config = loadErpConfig();
   const parsedDsn = parseDsn(config.connection.dsn);
@@ -580,6 +593,11 @@ async function createServer() {
           errorKey: validation.code === 1 ? 'USER_NOT_FOUND' : 'PASSWORD_INVALID',
           message
         });
+      }
+
+      const revokedAtLogin = revokeSessionsByUser(validation.codigo_usuario);
+      if (revokedAtLogin > 0) {
+        logInfo(`LOGIN_REVOKE_OLD_SESSIONS usuario=${validation.codigo_usuario} revocadas=${revokedAtLogin}`);
       }
 
       await logSessionStart(validation.codigo_usuario, ip);
@@ -688,11 +706,11 @@ async function createServer() {
 
   app.post('/api/logout', requireSession, async (req, res) => {
     const locale = normalizeLocale(req.headers['accept-language']);
-    const { token, session } = req.auth;
+    const { session } = req.auth;
     try {
       await logSessionLogout(session.userId, session.ip);
-      sessions.delete(token);
-      logInfo(`LOGOUT usuario=${session.userId} ip=${session.ip}`);
+      const revokedAtLogout = revokeSessionsByUser(session.userId);
+      logInfo(`LOGOUT usuario=${session.userId} ip=${session.ip} revocadas=${revokedAtLogout}`);
       return res.json({
         ok: true,
         message: t(locale, 'logout_ok')

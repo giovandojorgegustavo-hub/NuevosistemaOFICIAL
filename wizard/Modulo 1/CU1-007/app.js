@@ -96,7 +96,9 @@ class FormWizard {
       clienteMenu: document.getElementById('clienteMenu'),
       clienteNombre: document.getElementById('clienteNombre'),
       codigoPaquete: document.getElementById('codigo_paquete'),
-      paqueteMenu: document.getElementById('paqueteMenu'),
+      paqueteFiltro: document.getElementById('paquete_filtro'),
+      paquetesTableBody: document.getElementById('paquetesTableBody'),
+      paquetesEmpty: document.getElementById('paquetesEmpty'),
       paqueteDetalle: document.getElementById('paqueteDetalle'),
       fechaActualizado: document.getElementById('fecha_actualizado'),
       fechaFactura: document.getElementById('fecha_factura'),
@@ -141,7 +143,9 @@ class FormWizard {
   init() {
     this.applyI18n();
     this.setToday();
-    this.elements.docTypeValue.textContent = this.state.vTipo_documento;
+    if (this.elements.docTypeValue) {
+      this.elements.docTypeValue.textContent = this.state.vTipo_documento;
+    }
     this.bindEvents();
     this.updateStepUI();
     this.loadInitialData();
@@ -162,7 +166,7 @@ class FormWizard {
         metaDocNumber: 'Numero',
         labelFecha: 'Fecha emision',
         labelCliente: 'Cliente',
-        labelFactura: 'Factura / Paquete llegado',
+        labelFactura: 'Seleccionar factura',
         labelFechaActualizado: 'Fecha actualizado',
         labelFechaFactura: 'Fecha factura',
         labelLugarEntrega: 'Lugar entrega',
@@ -212,7 +216,7 @@ class FormWizard {
         metaDocNumber: 'Number',
         labelFecha: 'Issue date',
         labelCliente: 'Client',
-        labelFactura: 'Invoice / Arrived package',
+        labelFactura: 'Select invoice',
         labelFechaActualizado: 'Updated date',
         labelFechaFactura: 'Invoice date',
         labelLugarEntrega: 'Delivery location',
@@ -340,38 +344,6 @@ class FormWizard {
       }
     );
 
-    this.setupTypeahead(
-      this.elements.codigoPaquete,
-      this.elements.paqueteMenu,
-      () => this.state.filteredPaquetes || [],
-      (item) => `${item.codigo_paquete} - ${item.nombre_cliente} - ${item.nombre_packing || item.codigo_packing || ''}`,
-      (item) => {
-        this.state.vCodigo_paquete = item.codigo_paquete;
-        this.state.vFecha_actualizado = item.fecha_actualizado;
-        this.state.vFecha_emision_factura = '';
-        this.state.vLugar_entrega = item.concatenarpuntoentrega || '';
-        this.state.vLatitud = item.latitud || '';
-        this.state.vLongitud = item.longitud || '';
-        this.state.vRegion_mapa = item.region_entrega || '';
-        this.state.vCodigo_base = item.codigo_base;
-        this.state.vCodigo_packing = item.codigo_packing || '';
-        this.state.vNombre_packing = item.nombre_packing || '';
-        const baseName = item.nombre_base || item.region_entrega;
-        this.state.vRegion_entrega = baseName;
-        this.elements.codigoPaquete.value = item.codigo_paquete;
-        this.elements.paqueteDetalle.textContent = `${item.nombre_cliente} | ${item.concatenarpuntoentrega} | ${item.nombre_packing || item.codigo_packing || '-'}`;
-        this.elements.fechaActualizado.value = this.formatDateTime(item.fecha_actualizado);
-        this.elements.fechaFactura.value = '';
-        this.elements.lugarEntrega.value = this.state.vLugar_entrega || '-';
-        this.elements.codigoBase.value = this.formatBase(item.codigo_base, baseName);
-        this.elements.nombrePacking.value = item.nombre_packing || item.codigo_packing || '';
-        this.elements.regionEntrega.textContent = baseName || '-';
-        this.loadFacturaCabecera();
-        this.loadDetalleFactura();
-        this.updateMapForSelection();
-      }
-    );
-
     this.elements.nombreCliente.addEventListener('input', () => {
       this.state.vCodigo_cliente = '';
       this.state.vNombreCliente = '';
@@ -380,25 +352,9 @@ class FormWizard {
       this.filterPaquetes();
     });
 
-    this.elements.codigoPaquete.addEventListener('input', () => {
-      this.state.vCodigo_paquete = '';
-      this.state.vFecha_actualizado = '';
-      this.state.vFecha_emision_factura = '';
-      this.state.vLugar_entrega = '';
-      this.state.vLatitud = '';
-      this.state.vLongitud = '';
-      this.state.vRegion_mapa = '';
-      this.state.vCodigo_packing = '';
-      this.state.vNombre_packing = '';
-      this.elements.paqueteDetalle.textContent = '-';
-      this.elements.fechaActualizado.value = '';
-      this.elements.fechaFactura.value = '';
-      this.elements.lugarEntrega.value = '';
-      this.elements.nombrePacking.value = '';
-      this.state.vDetalleFactura = [];
-      this.renderDetalle();
-      this.resetMapView();
-    });
+    if (this.elements.paqueteFiltro) {
+      this.elements.paqueteFiltro.addEventListener('input', () => this.renderPaquetesTable());
+    }
   }
 
   async loadInitialData() {
@@ -426,7 +382,9 @@ class FormWizard {
 
       const nextData = await nextDoc.json();
       this.state.vNumero_documento = String(nextData.next || '');
-      this.elements.docNumberValue.textContent = this.state.vNumero_documento || '-';
+      if (this.elements.docNumberValue) {
+        this.elements.docNumberValue.textContent = this.state.vNumero_documento || '-';
+      }
 
       if (mapsConfig.ok) {
         const mapsData = await mapsConfig.json();
@@ -450,9 +408,17 @@ class FormWizard {
 
   filterPaquetes() {
     const codigoCliente = this.state.vCodigo_cliente;
-    this.state.filteredPaquetes = this.state.vPaquetesLlegados.filter(
-      (item) => String(item.codigo_cliente) === String(codigoCliente)
-    );
+    this.state.filteredPaquetes = (this.state.vPaquetesLlegados || []).filter((item) => {
+      if (!codigoCliente) {
+        return true;
+      }
+      return String(item.codigo_cliente) === String(codigoCliente);
+    });
+    this.clearPaqueteSelection();
+    this.renderPaquetesTable();
+  }
+
+  clearPaqueteSelection() {
     this.state.vCodigo_paquete = '';
     this.state.vFecha_actualizado = '';
     this.state.vFecha_emision_factura = '';
@@ -460,14 +426,104 @@ class FormWizard {
     this.state.vLatitud = '';
     this.state.vLongitud = '';
     this.state.vRegion_mapa = '';
+    this.state.vCodigo_base = '';
     this.elements.codigoPaquete.value = '';
     this.elements.paqueteDetalle.textContent = '-';
     this.elements.fechaActualizado.value = '';
     this.elements.fechaFactura.value = '';
     this.elements.lugarEntrega.value = '';
+    this.elements.codigoBase.value = '';
+    this.elements.regionEntrega.textContent = '-';
+    this.elements.nombrePacking.value = '';
     this.state.vDetalleFactura = [];
     this.renderDetalle();
     this.resetMapView();
+  }
+
+  renderPaquetesTable() {
+    if (!this.elements.paquetesTableBody) {
+      return;
+    }
+    const query = String(this.elements.paqueteFiltro?.value || '')
+      .trim()
+      .toLowerCase();
+    const rows = (this.state.filteredPaquetes || []).filter((item) => {
+      if (!query) return true;
+      const label = [
+        item.codigo_paquete,
+        item.nombre_cliente,
+        item.concatenarpuntoentrega,
+        item.nombre_packing,
+        item.codigo_packing
+      ]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+      return label.includes(query);
+    });
+
+    this.elements.paquetesTableBody.innerHTML = '';
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="4" class="text-center text-muted">Sin resultados</td>';
+      this.elements.paquetesTableBody.appendChild(tr);
+      if (this.elements.paquetesEmpty) {
+        this.elements.paquetesEmpty.textContent = 'Sin facturas disponibles.';
+      }
+      return;
+    }
+
+    rows.forEach((item) => {
+      const tr = document.createElement('tr');
+      if (String(item.codigo_paquete) === String(this.state.vCodigo_paquete)) {
+        tr.classList.add('is-selected');
+      }
+      tr.innerHTML = `
+        <td>${item.codigo_paquete || '-'}</td>
+        <td>${item.nombre_cliente || '-'}</td>
+        <td>${item.concatenarpuntoentrega || '-'}</td>
+        <td>${item.nombre_packing || item.codigo_packing || '-'}</td>
+      `;
+      tr.addEventListener('click', () => this.selectPaquete(item));
+      this.elements.paquetesTableBody.appendChild(tr);
+    });
+
+    if (this.elements.paquetesEmpty) {
+      this.elements.paquetesEmpty.textContent = `${rows.length} facturas visibles.`;
+    }
+  }
+
+  selectPaquete(item) {
+    this.state.vCodigo_paquete = item.codigo_paquete;
+    this.state.vFecha_actualizado = item.fecha_actualizado;
+    this.state.vFecha_emision_factura = '';
+    this.state.vLugar_entrega = item.concatenarpuntoentrega || '';
+    this.state.vLatitud = item.latitud || '';
+    this.state.vLongitud = item.longitud || '';
+    this.state.vRegion_mapa = item.region_entrega || '';
+    this.state.vCodigo_base = item.codigo_base || '';
+    this.state.vCodigo_packing = item.codigo_packing || '';
+    this.state.vNombre_packing = item.nombre_packing || '';
+    const baseName = item.nombre_base || item.region_entrega;
+    this.state.vRegion_entrega = baseName || '';
+
+    this.elements.codigoPaquete.value = item.codigo_paquete || '';
+    this.elements.paqueteDetalle.textContent = `${item.nombre_cliente || '-'} | ${item.concatenarpuntoentrega || '-'} | ${item.nombre_packing || item.codigo_packing || '-'}`;
+    this.elements.fechaActualizado.value = this.formatDateTime(item.fecha_actualizado);
+    this.elements.fechaFactura.value = '';
+    this.elements.lugarEntrega.value = this.state.vLugar_entrega || '-';
+    this.elements.codigoBase.value = this.formatBase(item.codigo_base, baseName);
+    this.elements.nombrePacking.value = item.nombre_packing || item.codigo_packing || '';
+    this.elements.regionEntrega.textContent = baseName || '-';
+
+    this.loadFacturaCabecera();
+    this.loadDetalleFactura();
+    this.updateMapForSelection();
+    this.renderPaquetesTable();
+
+    if (this.currentStep === 1 && this.validateStep(1)) {
+      this.currentStep = 2;
+      this.updateStepUI();
+    }
   }
 
   async loadFacturaCabecera() {
@@ -721,12 +777,12 @@ class FormWizard {
 
   getStepSequence() {
     if (this.state.vTipo_nota === 'DINERO') {
-      return [1, 3, 4];
+      return [1, 2, 4, 5];
     }
     if (this.state.vTipo_nota === 'PRODUCTO') {
-      return [1, 2, 4];
+      return [1, 2, 3, 5];
     }
-    return [1, 2, 3, 4];
+    return [1, 2, 3, 4, 5];
   }
 
   nextStep() {
@@ -739,7 +795,7 @@ class FormWizard {
       return;
     }
     this.currentStep = sequence[index + 1];
-    if (this.currentStep === 4) {
+    if (this.currentStep === 5) {
       this.refreshSummary();
     }
     this.updateStepUI();
@@ -756,18 +812,20 @@ class FormWizard {
   }
 
   updateStepUI() {
+    const sequence = this.getStepSequence();
     this.elements.steps.forEach((step) => {
       step.classList.toggle('d-none', Number(step.dataset.step) !== this.currentStep);
     });
     this.elements.stepChips.forEach((chip) => {
-      chip.classList.toggle('active', Number(chip.dataset.step) === this.currentStep);
+      const stepNumber = Number(chip.dataset.step);
+      chip.classList.toggle('active', stepNumber === this.currentStep);
+      chip.classList.toggle('d-none', !sequence.includes(stepNumber));
     });
     this.elements.prevBtn.classList.toggle('d-none', this.currentStep === 1);
-    this.elements.nextBtn.classList.toggle('d-none', this.currentStep === 4);
-    this.elements.emitBtn.classList.toggle('d-none', this.currentStep !== 4);
-    this.elements.emitBtn.disabled = this.currentStep !== 4 || !this.elements.confirmCheck.checked;
+    this.elements.nextBtn.classList.toggle('d-none', this.currentStep === 5);
+    this.elements.emitBtn.classList.toggle('d-none', this.currentStep !== 5);
+    this.elements.emitBtn.disabled = this.currentStep !== 5 || !this.elements.confirmCheck.checked;
 
-    const sequence = this.getStepSequence();
     const index = sequence.indexOf(this.currentStep);
     const progress = index >= 0 ? ((index + 1) / sequence.length) * 100 : 0;
     this.elements.progress.style.width = `${progress}%`;
@@ -776,10 +834,6 @@ class FormWizard {
   validateStep(step) {
     this.showAlert('', 'd-none');
     if (step === 1) {
-      if (!this.state.vTipo_nota) {
-        this.showAlert('Selecciona el tipo de nota de credito.', 'alert-warning');
-        return false;
-      }
       if (!this.state.vCodigo_cliente) {
         this.showAlert('Selecciona un cliente.', 'alert-warning');
         return false;
@@ -795,6 +849,13 @@ class FormWizard {
       return true;
     }
     if (step === 2) {
+      if (!this.state.vTipo_nota) {
+        this.showAlert('Selecciona el tipo de nota de credito.', 'alert-warning');
+        return false;
+      }
+      return true;
+    }
+    if (step === 3) {
       if (this.state.vTipo_nota !== 'PRODUCTO') {
         return true;
       }
@@ -805,7 +866,7 @@ class FormWizard {
       }
       return true;
     }
-    if (step === 3) {
+    if (step === 4) {
       if (this.state.vTipo_nota !== 'DINERO') {
         return true;
       }
@@ -815,7 +876,7 @@ class FormWizard {
       }
       return true;
     }
-    if (step === 4) {
+    if (step === 5) {
       if (!this.elements.confirmCheck.checked) {
         this.showAlert('Confirma la operacion para continuar.', 'alert-warning');
         return false;
@@ -826,7 +887,7 @@ class FormWizard {
   }
 
   async emitNota() {
-    if (!this.validateStep(4)) {
+    if (!this.validateStep(5)) {
       return;
     }
     try {
@@ -894,6 +955,7 @@ class FormWizard {
     this.elements.nombreCliente.value = '';
     this.elements.clienteNombre.textContent = '-';
     this.elements.codigoPaquete.value = '';
+    if (this.elements.paqueteFiltro) this.elements.paqueteFiltro.value = '';
     this.elements.paqueteDetalle.textContent = '-';
     this.elements.fechaActualizado.value = '';
     this.elements.fechaFactura.value = '';

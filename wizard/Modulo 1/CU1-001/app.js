@@ -174,6 +174,7 @@ const state = {
   pago: {
     tipo: 'RCP',
     numeroBase: null,
+    nextNumeroDocumento: null,
     monto: '',
     pendiente: 0,
     cuentaCodigo: null,
@@ -869,9 +870,11 @@ function renderPagos() {
 function renderBasesCandidatas() {
   el.basesCandidatasTable.innerHTML = '';
   state.data.basesCandidatas.forEach((base) => {
+    const baseInfo = state.data.bases.find((item) => String(item.codigo_base) === String(base.codigo_base));
+    const baseLabel = baseInfo?.nombre || base.codigo_base;
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${base.codigo_base}</td>
+      <td>${baseLabel}</td>
       <td>${base.latitud || ''}</td>
       <td>${base.longitud || ''}</td>
     `;
@@ -887,9 +890,11 @@ function renderBasesEta() {
   }
   el.basesEtaEmpty.classList.add('d-none');
   state.data.basesEta.forEach((base) => {
+    const baseInfo = state.data.bases.find((item) => String(item.codigo_base) === String(base.codigo_base));
+    const baseLabel = baseInfo?.nombre || base.codigo_base;
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${base.codigo_base}</td>
+      <td>${baseLabel}</td>
       <td>${base.eta}</td>
     `;
     el.basesEtaTable.appendChild(row);
@@ -937,7 +942,8 @@ async function enterStep(step) {
   if (step === 6) {
     const next = await fetchJSON('./api/next/recibo');
     state.pago.numeroBase = Number(next.next || 0);
-    el.numeroDocumentoPago.value = state.pago.numeroBase || '';
+    state.pago.nextNumeroDocumento = state.pago.numeroBase;
+    el.numeroDocumentoPago.value = state.pago.nextNumeroDocumento || '';
     recalcPendiente();
     if (el.montoPago) {
       el.montoPago.value = toFixed2(state.pago.pendiente);
@@ -1164,6 +1170,11 @@ function toggleEntregaPanels(tipo) {
   state.entrega.tipo = tipo;
   el.entregaExistePanel.classList.toggle('d-none', tipo !== 'existe');
   el.entregaNuevoPanel.classList.toggle('d-none', tipo !== 'nuevo');
+  if (tipo === 'nuevo') {
+    state.entrega.codigoPunto = null;
+    state.entrega.concatenado = '';
+    el.entregaExisteInfo.innerHTML = '';
+  }
 }
 
 function toggleRecibePanels(tipo) {
@@ -1509,6 +1520,8 @@ function resetWizard() {
   };
   state.recibe = { tipo: 'existe', ordinal: null, numero: '', nombre: '', concatenado: '' };
   state.pagos = [];
+  state.pago.numeroBase = null;
+  state.pago.nextNumeroDocumento = null;
   state.pago.monto = '';
   state.pago.pendiente = 0;
   state.pago.cuentaCodigo = null;
@@ -1959,7 +1972,12 @@ function registerEvents(wizard) {
       showAlert('Selecciona una cuenta bancaria.');
       return;
     }
-    const numdocumento = Number(state.pago.numeroBase || 0) + state.pagos.length;
+    if (!Number.isFinite(Number(state.pago.nextNumeroDocumento))) {
+      showAlert('No se pudo generar numero de recibo.');
+      return;
+    }
+    const numdocumento = Number(state.pago.nextNumeroDocumento);
+    state.pago.nextNumeroDocumento = numdocumento + 1;
     state.pagos.push({
       numdocumento,
       monto,
@@ -1967,6 +1985,7 @@ function registerEvents(wizard) {
       cuentaNombre: state.pago.cuentaNombre
     });
     renderPagos();
+    el.numeroDocumentoPago.value = state.pago.nextNumeroDocumento || '';
     el.montoPago.value = toFixed2(state.pago.pendiente);
   });
 

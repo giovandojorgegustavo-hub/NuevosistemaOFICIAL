@@ -284,6 +284,24 @@ body {
   background: rgba(30, 136, 255, 0.2);
 }
 
+.paquete-table {
+  margin-top: 10px;
+}
+
+.paquete-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.paquete-table tbody tr:hover {
+  background: rgba(30, 136, 255, 0.15);
+}
+
+.paquete-table tbody tr.is-selected {
+  background: rgba(23, 211, 165, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(23, 211, 165, 0.35);
+}
+
 .map-section {
   margin-top: 8px;
   border: 1px solid rgba(106, 193, 255, 0.2);
@@ -428,3 +446,23 @@ body {
     align-items: stretch;
   }
 }
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */

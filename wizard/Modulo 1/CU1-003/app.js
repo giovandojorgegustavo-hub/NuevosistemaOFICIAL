@@ -1,110 +1,25 @@
-/*
-SPs DE LECTURA
-vPaquetesEnCamino = Llamada SP: get_paquetes_por_estado(p_estado="en camino") (devuelve campo_visible)
-Campos devueltos
-codigo_paquete
-fecha_actualizado
-codigo_cliente
-nombre_cliente
-num_cliente
-codigo_puntoentrega
-codigo_base
-ordinal_numrecibe
-concatenarpuntoentrega
-region_entrega
-latitud
-longitud
-concatenarnumrecibe
-Variables
-vcodigo_paquete visible no editable
-vfecha_actualizado visible no editable
-vcodigo_cliente no visible no editable
-vnombre_cliente visible no editable
-vnum_cliente visible no editable
-vcodigo_puntoentrega no visible no editable
-vcodigo_base no visible no editable
-vordinal_numrecibe no visible no editable
-vconcatenarpuntoentrega visible no editable
-vRegion_Entrega no visible no editable
-vLatitud no visible no editable
-vLongitud no visible no editable
-vconcatenarnumrecibe visible no editable
-
-vViajeDocumento = Llamada SP: get_viaje_por_documento(p_numero_documento = vcodigo_paquete) (devuelve campo_visible)
-Campos devueltos
-codigoviaje
-nombrebase
-nombre_motorizado
-numero_wsp
-num_llamadas
-num_yape
-link
-observacion
-fecha
-Variables
-vcodigoviaje no visible no editable
-vnombrebase visible no editable
-vnombre_motorizado visible no editable
-vnumero_wsp visible no editable
-vnum_llamadas visible no editable
-vnum_yape visible no editable
-vlink visible no editable
-vobservacion visible no editable
-vfecha visible no editable
-
-vDetalleDocumento = Llamada SP: get_mov_contable_detalle(p_tipo_documento="FAC", p_numero_documento = vcodigo_paquete) (devuelve campo_visible)
-Campos devueltos
-tipo_documento
-numero_documento
-ordinal
-codigo_producto
-nombre_producto
-cantidad
-saldo
-precio_total
-Variables
-vtipo_documento no visible no editable
-vnumero_documento no visible no editable
-vordinal no visible no editable
-vcodigo_producto no visible no editable
-vnombre_producto visible no editable
-vcantidad visible no editable
-vsaldo no visible no editable
-vprecio_total no visible no editable
-*/
-
 const i18n = {
   en: {
     title: 'Packages in transit',
     subtitle: 'Global IaaS & PaaS Operations',
     wizardTitle: 'Manage in-transit packages',
-    wizardHint: 'Select packages, review details, and confirm the new status.',
-    step1Title: 'Select packages in transit',
-    step1Hint: 'Choose one or more packages to update their status.',
+    wizardHint: 'Type a package number, review details, and confirm the new status.',
+    step1Title: 'Search package by document',
+    step1Hint: 'Enter document type and package number to load the detail.',
+    step1Hint2: 'Search loads trip, products, and map when available.',
+    docTypeLabel: 'Document type',
+    packageCodeLabel: 'Package number',
+    search: 'Search package',
     step2Title: 'Package detail',
     step2Products: 'Products in invoice',
     step3Title: 'Confirm and save',
     step3TitleDevuelto: 'Confirm and cancel invoice',
-    refresh: 'Refresh',
     next: 'Next',
     prev: 'Back',
     confirm: 'Confirm and save',
     confirmDevuelto: 'Confirm and cancel',
-    confirmTitle: 'Confirm operation',
-    confirmBody: 'Do you want to save the new status for the selected packages?',
-    cancel: 'Cancel',
     viewLogs: 'View SQL logs',
     logsTitle: 'SQL logs',
-    selectionNone: 'No selection',
-    bulkAction: 'Bulk action',
-    colCodigo: 'Code',
-    colFecha: 'Updated',
-    colCliente: 'Client',
-    colNumero: 'Client number',
-    colBase: 'Base',
-    colPacking: 'Packing',
-    colEntrega: 'Delivery point',
-    colRecibe: 'Receiver',
     colProducto: 'Product',
     colCantidad: 'Quantity',
     labelEntrega: 'Delivery point',
@@ -123,7 +38,8 @@ const i18n = {
     labelEstado: 'New status',
     estadoHint: 'Only authorized status values are accepted: robado, standby, llegado, devuelto.',
     loading: 'Processing...',
-    errorSelection: 'Select at least one package to continue.',
+    errorSelection: 'Enter a valid package number to continue.',
+    packageNotFound: 'Package not found for selected status.',
     confirmRequired: 'You must confirm that the data is correct.',
     errorEstado: 'State must be: robado, standby, llegado, or devuelto.',
     saveOk: 'Status updated successfully.',
@@ -138,33 +54,23 @@ const i18n = {
     title: 'Paquetes en camino',
     subtitle: 'Operaciones Globales IaaS & PaaS',
     wizardTitle: 'Gestionar paquetes en camino',
-    wizardHint: 'Selecciona paquetes, valida detalle y confirma el nuevo estado.',
-    step1Title: 'Seleccion de paquete en camino',
-    step1Hint: 'Elige uno o varios paquetes para actualizar su estado.',
+    wizardHint: 'Ingresa un numero de paquete, valida detalle y confirma el nuevo estado.',
+    step1Title: 'Buscar paquete por documento',
+    step1Hint: 'Ingresa tipo documento y numero de paquete para cargar el detalle.',
+    step1Hint2: 'Al buscar se cargan viaje, productos y mapa si aplica.',
+    docTypeLabel: 'Tipo documento',
+    packageCodeLabel: 'Numero paquete',
+    search: 'Buscar paquete',
     step2Title: 'Detalle del paquete',
     step2Products: 'Productos en factura',
     step3Title: 'Confirmar y guardar',
     step3TitleDevuelto: 'Confirmar y anular factura',
-    refresh: 'Actualizar',
     next: 'Siguiente',
     prev: 'Anterior',
     confirm: 'Confirmar y guardar',
     confirmDevuelto: 'Confirmar y anular',
-    confirmTitle: 'Confirmar operacion',
-    confirmBody: '¿Deseas guardar el nuevo estado para los paquetes seleccionados?',
-    cancel: 'Cancelar',
     viewLogs: 'Ver logs SQL',
     logsTitle: 'Logs SQL',
-    selectionNone: 'Sin seleccion',
-    bulkAction: 'Accion masiva',
-    colCodigo: 'Codigo',
-    colFecha: 'Actualizado',
-    colCliente: 'Cliente',
-    colNumero: 'Numero',
-    colBase: 'Base',
-    colPacking: 'Packing',
-    colEntrega: 'Punto entrega',
-    colRecibe: 'Recibe',
     colProducto: 'Producto',
     colCantidad: 'Cantidad',
     labelEntrega: 'Punto entrega',
@@ -183,7 +89,8 @@ const i18n = {
     labelEstado: 'Nuevo estado',
     estadoHint: 'Solo se aceptan estados autorizados: robado, standby, llegado, devuelto.',
     loading: 'Procesando...',
-    errorSelection: 'Selecciona al menos un paquete para continuar.',
+    errorSelection: 'Ingresa un numero de paquete valido para continuar.',
+    packageNotFound: 'No se encontro el paquete para el estado seleccionado.',
     confirmRequired: 'Debes confirmar que los datos son correctos.',
     errorEstado: 'El estado debe ser: robado, standby, llegado o devuelto.',
     saveOk: 'Estado actualizado correctamente.',
@@ -196,15 +103,9 @@ const i18n = {
   }
 };
 
-const selectionLabels = {
-  en: (count) => `${count} ${count === 1 ? 'package' : 'packages'} selected`,
-  es: (count) => `${count} ${count === 1 ? 'paquete' : 'paquetes'} seleccionado(s)`
-};
-
 const state = {
   lang: 'es',
-  paquetes: [],
-  selected: [],
+  selected: null,
   viaje: null,
   detalle: [],
   config: null,
@@ -212,23 +113,20 @@ const state = {
   devueltoPreview: {
     loading: false,
     error: '',
-    byCode: {}
+    cabecera: null,
+    detalle: []
   }
 };
 
 const elements = {
-  wizardForm: document.getElementById('wizardForm'),
   steps: document.querySelectorAll('.wizard-step'),
   progressBar: document.getElementById('progressBar'),
-  stepIndicators: document.getElementById('stepIndicators'),
   errorAlert: document.getElementById('errorAlert'),
   successAlert: document.getElementById('successAlert'),
-  packagesTable: document.getElementById('packagesTable').querySelector('tbody'),
+  tipoDocumentoInput: document.getElementById('tipoDocumentoInput'),
+  codigoPaqueteInput: document.getElementById('codigoPaqueteInput'),
+  searchBtn: document.getElementById('searchBtn'),
   detalleTable: document.getElementById('detalleTable').querySelector('tbody'),
-  selectionCount: document.getElementById('selectionCount'),
-  refreshBtn: document.getElementById('refreshBtn'),
-  nextBtn: document.getElementById('nextBtn'),
-  bulkBtn: document.getElementById('bulkBtn'),
   prevBtn: document.getElementById('prevBtn'),
   nextBtn2: document.getElementById('nextBtn2'),
   prevBtn2: document.getElementById('prevBtn2'),
@@ -421,75 +319,55 @@ async function loadConfig() {
   state.config = await apiFetch('./api/config');
 }
 
-async function loadPaquetes() {
+function getSearchPayload() {
+  const tipoDocumento = String(elements.tipoDocumentoInput.value || 'FAC').trim().toUpperCase();
+  const codigo = String(elements.codigoPaqueteInput.value || '').trim();
+  if (!/^[0-9]+$/.test(codigo)) {
+    return null;
+  }
+  return { tipoDocumento, codigo };
+}
+
+async function buscarPaquete() {
   clearError();
+  const payload = getSearchPayload();
+  if (!payload) {
+    setError(t('errorSelection'));
+    return false;
+  }
+
   setLoading(true);
   try {
-    const data = await apiFetch('./api/paquetes?estado=en%20camino');
-    state.paquetes = data.rows.map(mapPaqueteRow);
-    renderPaquetes();
+    const params = new URLSearchParams({
+      estado: 'en camino',
+      tipo_documento: payload.tipoDocumento,
+      codigo_paquete: payload.codigo
+    });
+    const data = await apiFetch(`./api/paquete?${params.toString()}`);
+    if (!data?.row) {
+      setError(t('packageNotFound'));
+      return false;
+    }
+
+    state.selected = mapPaqueteRow(data.row);
+    await loadDetalleForSelection();
+    wizard.showStep(2);
+    return true;
   } catch (error) {
     console.error(error);
     setError(t('saveFail'));
+    return false;
   } finally {
     setLoading(false);
   }
 }
 
-function renderPaquetes() {
-  elements.packagesTable.innerHTML = '';
-  state.selected = [];
-  updateSelectionState();
-
-  if (!state.paquetes.length) {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="9" class="text-center muted">-</td>`;
-    elements.packagesTable.appendChild(row);
-    return;
-  }
-
-  state.paquetes.forEach((pkg) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td><input class="form-check-input" type="checkbox" data-code="${pkg.vcodigo_paquete}" /></td>
-      <td>${pkg.vcodigo_paquete ?? ''}</td>
-      <td>${pkg.vfecha_actualizado ?? ''}</td>
-      <td>${pkg.vnombre_cliente ?? ''}</td>
-      <td>${pkg.vnum_cliente ?? ''}</td>
-      <td>${pkg.vnombre_base ?? ''}</td>
-      <td>${pkg.vnombre_packing || pkg.vcodigo_packing || '-'}</td>
-      <td>${pkg.vconcatenarpuntoentrega ?? ''}</td>
-      <td>${pkg.vconcatenarnumrecibe ?? ''}</td>
-    `;
-    row.querySelector('input').addEventListener('change', (event) => {
-      handleSelection(pkg, event.target.checked);
-    });
-    elements.packagesTable.appendChild(row);
-  });
-}
-
-function handleSelection(pkg, checked) {
-  if (checked) {
-    state.selected.push(pkg);
-  } else {
-    state.selected = state.selected.filter((item) => item.vcodigo_paquete !== pkg.vcodigo_paquete);
-  }
-  updateSelectionState();
-}
-
-function updateSelectionState() {
-  const count = state.selected.length;
-  elements.selectionCount.textContent = count ? selectionLabels[state.lang](count) : t('selectionNone');
-  elements.bulkBtn.disabled = count <= 1;
-  elements.nextBtn.disabled = count !== 1;
-  elements.nextBtn.classList.toggle('disabled', count !== 1);
-}
-
 async function loadDetalleForSelection() {
-  const pkg = state.selected[0];
+  const pkg = state.selected;
   if (!pkg) {
     return;
   }
+
   setLoading(true);
   clearError();
   try {
@@ -531,7 +409,7 @@ function renderDetalle(pkg) {
   elements.detalleTable.innerHTML = '';
   if (!state.detalle.length) {
     const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="2" class="text-center muted">-</td>`;
+    row.innerHTML = '<td colspan="2" class="text-center muted">-</td>';
     elements.detalleTable.appendChild(row);
   } else {
     state.detalle.forEach((item) => {
@@ -556,6 +434,7 @@ async function loadMap(pkg) {
   if (!state.config) {
     await loadConfig();
   }
+
   const lat = Number(pkg.vLatitud) || state.config.google_maps.default_center.lat;
   const lng = Number(pkg.vLongitud) || state.config.google_maps.default_center.lng;
   const zoom = Number(state.config.google_maps.default_zoom || 12);
@@ -581,7 +460,7 @@ async function loadMap(pkg) {
     return;
   }
 
-  return new Promise((resolve) => {
+  await new Promise((resolve) => {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${state.config.google_maps.api_key}`;
     script.async = true;
@@ -596,11 +475,13 @@ async function loadMap(pkg) {
 
 function renderSummary() {
   elements.summaryGrid.innerHTML = '';
-  if (!state.selected.length) {
+  if (!state.selected) {
     return;
   }
 
+  const pkg = state.selected;
   const selectedEstado = getEstadoInputValue();
+
   if (selectedEstado === 'devuelto') {
     if (state.devueltoPreview.loading) {
       const loading = document.createElement('div');
@@ -618,65 +499,60 @@ function renderSummary() {
       return;
     }
 
-    state.selected.forEach((pkg) => {
-      const preview = state.devueltoPreview.byCode[String(pkg.vcodigo_paquete)] || {};
-      const cabecera = preview.cabecera || {};
-      const detalle = Array.isArray(preview.detalle) ? preview.detalle : [];
-      const fallbackTotal = detalle.reduce((sum, row) => sum + (Number(row.precio_total) || 0), 0);
-      const totalFactura = Number(cabecera.monto || 0) || fallbackTotal;
+    const cabecera = state.devueltoPreview.cabecera || {};
+    const detalle = Array.isArray(state.devueltoPreview.detalle) ? state.devueltoPreview.detalle : [];
+    const fallbackTotal = detalle.reduce((sum, row) => sum + (Number(row.precio_total) || 0), 0);
+    const totalFactura = Number(cabecera.monto || 0) || fallbackTotal;
 
-      const card = document.createElement('div');
-      card.className = 'summary-card';
-      card.innerHTML = `
-        <div><strong>FAC-${pkg.vcodigo_paquete}</strong></div>
-        <div class="muted">Cliente: ${cabecera.codigo_cliente ?? pkg.vcodigo_cliente ?? '-'}</div>
-        <div class="muted">Base: ${cabecera.codigo_base ?? pkg.vcodigo_base ?? '-'}</div>
-        <div class="muted">Fecha emision: ${formatDateTime(cabecera.fecha_emision)}</div>
-        <div class="muted">Monto: ${formatAmount(totalFactura)}</div>
-        <div class="muted">Estado factura: ${cabecera.estado ?? '-'}</div>
-      `;
-
-      const detailTitle = document.createElement('div');
-      detailTitle.className = 'mt-2';
-      detailTitle.innerHTML = '<strong>Detalle:</strong>';
-      card.appendChild(detailTitle);
-
-      if (!detalle.length) {
-        const empty = document.createElement('div');
-        empty.className = 'muted';
-        empty.textContent = '-';
-        card.appendChild(empty);
-      } else {
-        const list = document.createElement('ul');
-        list.className = 'mb-0 ps-3';
-        detalle.forEach((item) => {
-          const li = document.createElement('li');
-          li.textContent = `${item.nombre_producto || item.codigo_producto || '-'} x ${item.cantidad || 0}`;
-          list.appendChild(li);
-        });
-        card.appendChild(list);
-      }
-
-      elements.summaryGrid.appendChild(card);
-    });
-    return;
-  }
-
-  state.selected.forEach((pkg) => {
     const card = document.createElement('div');
     card.className = 'summary-card';
     card.innerHTML = `
-      <div><strong>${pkg.vcodigo_paquete}</strong></div>
-      <div class="muted">${pkg.vnombre_cliente ?? ''} · ${pkg.vconcatenarpuntoentrega ?? ''}</div>
-      <div class="muted">${pkg.vconcatenarnumrecibe ?? ''}</div>
-      ${state.viaje && state.selected.length === 1 ? `<div class="muted">${state.viaje.vlink ?? ''}</div>` : ''}
+      <div><strong>FAC-${pkg.vcodigo_paquete}</strong></div>
+      <div class="muted">Cliente: ${cabecera.codigo_cliente ?? pkg.vcodigo_cliente ?? '-'}</div>
+      <div class="muted">Base: ${cabecera.codigo_base ?? pkg.vcodigo_base ?? '-'}</div>
+      <div class="muted">Fecha emision: ${formatDateTime(cabecera.fecha_emision)}</div>
+      <div class="muted">Monto: ${formatAmount(totalFactura)}</div>
+      <div class="muted">Estado factura: ${cabecera.estado ?? '-'}</div>
     `;
+
+    const detailTitle = document.createElement('div');
+    detailTitle.className = 'mt-2';
+    detailTitle.innerHTML = '<strong>Detalle:</strong>';
+    card.appendChild(detailTitle);
+
+    if (!detalle.length) {
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.textContent = '-';
+      card.appendChild(empty);
+    } else {
+      const list = document.createElement('ul');
+      list.className = 'mb-0 ps-3';
+      detalle.forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = `${item.nombre_producto || item.codigo_producto || '-'} x ${item.cantidad || 0}`;
+        list.appendChild(li);
+      });
+      card.appendChild(list);
+    }
+
     elements.summaryGrid.appendChild(card);
-  });
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'summary-card';
+  card.innerHTML = `
+    <div><strong>${pkg.vcodigo_paquete}</strong></div>
+    <div class="muted">${pkg.vnombre_cliente ?? ''} · ${pkg.vconcatenarpuntoentrega ?? ''}</div>
+    <div class="muted">${pkg.vconcatenarnumrecibe ?? ''}</div>
+    ${state.viaje ? `<div class="muted">${state.viaje.vlink ?? ''}</div>` : ''}
+  `;
+  elements.summaryGrid.appendChild(card);
 }
 
 async function loadDevueltoPreview() {
-  if (!state.selected.length) {
+  if (!state.selected) {
     return;
   }
 
@@ -685,23 +561,14 @@ async function loadDevueltoPreview() {
   renderSummary();
 
   try {
-    const data = await Promise.all(
-      state.selected.map(async (pkg) => {
-        const codigo = String(pkg.vcodigo_paquete);
-        const response = await apiFetch(`./api/factura-resumen/${encodeURIComponent(codigo)}`);
-        return [
-          codigo,
-          {
-            cabecera: response.cabecera || null,
-            detalle: Array.isArray(response.detalle) ? response.detalle : []
-          }
-        ];
-      })
-    );
-    state.devueltoPreview.byCode = Object.fromEntries(data);
+    const codigo = String(state.selected.vcodigo_paquete);
+    const response = await apiFetch(`./api/factura-resumen/${encodeURIComponent(codigo)}`);
+    state.devueltoPreview.cabecera = response.cabecera || null;
+    state.devueltoPreview.detalle = Array.isArray(response.detalle) ? response.detalle : [];
   } catch (error) {
     console.error(error);
-    state.devueltoPreview.byCode = {};
+    state.devueltoPreview.cabecera = null;
+    state.devueltoPreview.detalle = [];
     state.devueltoPreview.error = t('devueltoError');
   } finally {
     state.devueltoPreview.loading = false;
@@ -720,47 +587,9 @@ function updateStep3Mode() {
   } else {
     state.devueltoPreview.loading = false;
     state.devueltoPreview.error = '';
-    state.devueltoPreview.byCode = {};
+    state.devueltoPreview.cabecera = null;
+    state.devueltoPreview.detalle = [];
     renderSummary();
-  }
-}
-
-async function handleNextFromStep1() {
-  clearError();
-  if (!state.selected.length) {
-    setError(t('errorSelection'));
-    return;
-  }
-  if (state.selected.length > 1) {
-    wizard.showStep(3);
-    renderSummary();
-    updateStep3Mode();
-    return;
-  }
-  await loadDetalleForSelection();
-  wizard.showStep(2);
-}
-
-function handleBulkAction() {
-  clearError();
-  if (state.selected.length <= 1) {
-    setError(t('errorSelection'));
-    return;
-  }
-  wizard.showStep(3);
-  renderSummary();
-  updateStep3Mode();
-}
-
-function handleBack() {
-  wizard.showStep(1);
-}
-
-function handleBackFromStep3() {
-  if (state.selected.length > 1) {
-    wizard.showStep(1);
-  } else {
-    wizard.showStep(2);
   }
 }
 
@@ -776,15 +605,23 @@ function validateEstado() {
 async function confirmSave() {
   clearError();
   clearSuccess();
+
+  if (!state.selected) {
+    setError(t('errorSelection'));
+    return;
+  }
+
   if (!elements.confirmCheck.checked) {
     setError(t('confirmRequired'));
     return;
   }
+
   const estado = validateEstado();
   if (!estado) {
     setError(t('errorEstado'));
     return;
   }
+
   setLoading(true);
   try {
     await apiFetch('./api/confirmar', {
@@ -792,9 +629,10 @@ async function confirmSave() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         estado,
-        paquetes: state.selected.map((pkg) => pkg.vcodigo_paquete)
+        paquetes: [state.selected.vcodigo_paquete]
       })
     });
+
     setSuccess(estado === 'devuelto' ? t('saveOkDevuelto') : t('saveOk'));
     resetWizard();
   } catch (error) {
@@ -809,13 +647,28 @@ function resetWizard() {
   elements.estadoInput.value = '';
   elements.confirmCheck.checked = false;
   elements.confirmBtn.disabled = true;
-  state.selected = [];
+  state.selected = null;
   state.viaje = null;
   state.detalle = [];
-  state.devueltoPreview = { loading: false, error: '', byCode: {} };
+  state.devueltoPreview = { loading: false, error: '', cabecera: null, detalle: [] };
+
+  elements.detalleEntrega.textContent = '-';
+  elements.detalleRecibe.textContent = '-';
+  elements.detalleBase.textContent = '-';
+  elements.detallePacking.textContent = '-';
+  elements.detalleMotorizado.textContent = '-';
+  elements.detalleWsp.textContent = '-';
+  elements.detalleLlamadas.textContent = '-';
+  elements.detalleYape.textContent = '-';
+  elements.detalleFecha.textContent = '-';
+  elements.detalleObs.textContent = '-';
+  elements.detalleLink.textContent = '-';
+  elements.detalleLink.removeAttribute('href');
+  elements.detalleTable.innerHTML = '';
+  elements.summaryGrid.innerHTML = '';
+
   updateStep3Mode();
   wizard.reset();
-  loadPaquetes();
 }
 
 async function openLogs() {
@@ -830,32 +683,66 @@ async function openLogs() {
 }
 
 function bindEvents() {
-  elements.refreshBtn.addEventListener('click', loadPaquetes);
-  elements.nextBtn.addEventListener('click', handleNextFromStep1);
-  elements.bulkBtn.addEventListener('click', handleBulkAction);
-  elements.prevBtn.addEventListener('click', handleBack);
+  elements.searchBtn.addEventListener('click', () => {
+    buscarPaquete();
+  });
+
+  elements.codigoPaqueteInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      buscarPaquete();
+    }
+  });
+
+  elements.prevBtn.addEventListener('click', () => {
+    wizard.showStep(1);
+  });
+
   elements.nextBtn2.addEventListener('click', () => {
+    if (!state.selected) {
+      setError(t('errorSelection'));
+      return;
+    }
     wizard.showStep(3);
     renderSummary();
     updateStep3Mode();
   });
-  elements.prevBtn2.addEventListener('click', handleBackFromStep3);
+
+  elements.prevBtn2.addEventListener('click', () => {
+    wizard.showStep(2);
+  });
+
   elements.confirmCheck.addEventListener('change', () => {
     elements.confirmBtn.disabled = !elements.confirmCheck.checked;
   });
+
   elements.estadoInput.addEventListener('input', updateStep3Mode);
   elements.estadoInput.addEventListener('change', updateStep3Mode);
   elements.confirmBtn.addEventListener('click', confirmSave);
   elements.logsBtn.addEventListener('click', openLogs);
 }
 
-async function init() {
+function loadFromQueryString() {
+  const params = new URLSearchParams(window.location.search || '');
+  const codigo = String(params.get('codigo_paquete') || params.get('numero_documento') || '').trim();
+  const tipo = String(params.get('tipo_documento') || 'FAC').trim().toUpperCase();
+
+  if (!codigo) {
+    return;
+  }
+
+  elements.codigoPaqueteInput.value = codigo;
+  elements.tipoDocumentoInput.value = tipo || 'FAC';
+  buscarPaquete();
+}
+
+function init() {
   state.lang = detectLanguage();
   applyTranslations();
   wizard.showStep(1);
   bindEvents();
   updateStep3Mode();
-  await loadPaquetes();
+  loadFromQueryString();
 }
 
 init();

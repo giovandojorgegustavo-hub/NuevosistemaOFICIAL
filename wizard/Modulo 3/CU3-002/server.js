@@ -24,6 +24,27 @@ function timestamp() {
   )}:${pad(now.getSeconds())}`;
 }
 
+function normalizeDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!match) return '';
+  const [, datePart, hh = '00', mm = '00', ss = '00'] = match;
+  return `${datePart} ${hh}:${mm}:${ss}`;
+}
+
+function parsePositiveInt(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
+function parsePositiveDecimal(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Number(n.toFixed(2));
+}
+
 function createLogFile(dir, prefix) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -183,8 +204,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -291,17 +312,26 @@ app.get('/api/next-numero-documento', async (req, res) => {
 
 app.post('/api/recibos-proveedor', async (req, res) => {
   const {
-    codigo_provedor,
-    fecha,
-    tipo_documento,
-    numero_documento,
-    codigo_cuentabancaria,
-    monto,
+    codigo_provedor: codigoProvedorRaw,
+    fecha: fechaRaw,
+    tipo_documento: tipoDocumentoRaw,
+    numero_documento: numeroDocumentoRaw,
+    codigo_cuentabancaria: codigoCuentaRaw,
+    monto: montoRaw,
     descripcion
   } = req.body || {};
+  const codigo_provedor = parsePositiveInt(codigoProvedorRaw);
+  const tipo_documento = String(tipoDocumentoRaw || '').trim().toUpperCase();
+  let numero_documento = parsePositiveInt(numeroDocumentoRaw);
+  const codigo_cuentabancaria = parsePositiveInt(codigoCuentaRaw);
+  const monto = parsePositiveDecimal(montoRaw);
+  const fecha = normalizeDateTime(fechaRaw);
 
   if (!codigo_provedor || !fecha || !tipo_documento || !numero_documento || !codigo_cuentabancaria || !monto) {
     return res.status(400).json({ ok: false, message: 'DATOS_INCOMPLETOS' });
+  }
+  if (tipo_documento !== 'RCC') {
+    return res.status(400).json({ ok: false, message: 'TIPO_DOCUMENTO_INVALIDO' });
   }
 
   const conn = await pool.getConnection();
@@ -320,15 +350,35 @@ app.post('/api/recibos-proveedor', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await runQuery(conn, insertSql, [
-      tipo_documento,
-      numero_documento,
-      codigo_provedor,
-      codigo_cuentabancaria,
-      monto,
-      monto,
-      fecha
-    ]);
+    let inserted = false;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        await runQuery(conn, insertSql, [
+          tipo_documento,
+          numero_documento,
+          codigo_provedor,
+          codigo_cuentabancaria,
+          monto,
+          monto,
+          fecha
+        ]);
+        inserted = true;
+        break;
+      } catch (insertError) {
+        if (insertError?.code !== 'ER_DUP_ENTRY' || attempt === 5) {
+          throw insertError;
+        }
+        const [nextRows] = await runQuery(
+          conn,
+          'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
+          [tipo_documento]
+        );
+        numero_documento = parsePositiveInt(nextRows?.[0]?.next) || numero_documento + 1;
+      }
+    }
+    if (!inserted) {
+      throw new Error('NUM_DOCUMENTO_CONFLICT');
+    }
 
     await runQuery(conn, 'CALL aplicar_recibo_a_facturas_prov(?, ?, ?)', [
       codigo_provedor,
@@ -339,7 +389,7 @@ app.post('/api/recibos-proveedor', async (req, res) => {
     await runQuery(conn, 'CALL actualizarsaldosprovedores(?, ?, ?)', [codigo_provedor, tipo_documento, monto]);
 
     await conn.commit();
-    res.json({ ok: true });
+    res.json({ ok: true, data: { num_documento_compra: numero_documento } });
   } catch (error) {
     await conn.rollback();
     logError(error, 'Error registrando recibo proveedor');

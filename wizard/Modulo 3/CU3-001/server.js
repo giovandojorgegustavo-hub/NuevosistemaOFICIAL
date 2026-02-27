@@ -24,6 +24,27 @@ function timestamp() {
   )}:${pad(now.getSeconds())}`;
 }
 
+function normalizeDateTime(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (!match) return '';
+  const [, datePart, hh = '00', mm = '00', ss = '00'] = match;
+  return `${datePart} ${hh}:${mm}:${ss}`;
+}
+
+function parsePositiveInt(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
+}
+
+function parsePositiveDecimal(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Number(n.toFixed(2));
+}
+
 function createLogFile(dir, prefix) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -183,8 +204,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -318,26 +339,29 @@ app.get('/api/next-documento', async (req, res) => {
 
 app.post('/api/facturar-compra', async (req, res) => {
   const payload = req.body || {};
-  const vFecha = payload.vFecha;
-  const vTipoDocumento = payload.vTipo_documento_compra || 'FCC';
-  const vNumDocumento = payload.vNum_documento_compra;
-  const vCodigoProvedor = payload.vCodigo_provedor;
+  const vFecha = normalizeDateTime(payload.vFecha);
+  const vTipoDocumento = String(payload.vTipo_documento_compra || 'FCC').trim().toUpperCase();
+  const vNumDocumento = parsePositiveInt(payload.vNum_documento_compra);
+  const vCodigoProvedor = parsePositiveInt(payload.vCodigo_provedor);
   const vNombreProvedor = payload.vNombreProvedor || '';
   const vDetalleCompra = Array.isArray(payload.vDetalleCompra) ? payload.vDetalleCompra : [];
-  const vTotalCompra = payload.vTotal_compra;
+  const vTotalCompra = parsePositiveDecimal(payload.vTotal_compra);
   const vSaldoFavorUsarRaw = Number(payload.vSaldoFavorUsar || 0);
   const proveedorNuevo = Boolean(payload.proveedorNuevo);
 
-  const totalCompra = Number(vTotalCompra);
+  const totalCompra = vTotalCompra;
   const saldoFavorUsar = Number.isFinite(vSaldoFavorUsarRaw) && vSaldoFavorUsarRaw > 0 ? Math.min(vSaldoFavorUsarRaw, totalCompra) : 0;
 
   if (!vFecha || !vTipoDocumento || !vNumDocumento || !vCodigoProvedor || !vDetalleCompra.length) {
     return res.status(400).json({ ok: false, message: 'DATOS_INCOMPLETOS' });
   }
+  if (vTipoDocumento !== 'FCC') {
+    return res.status(400).json({ ok: false, message: 'TIPO_DOCUMENTO_INVALIDO' });
+  }
   if (proveedorNuevo && !vNombreProvedor) {
     return res.status(400).json({ ok: false, message: 'PROVEEDOR_NOMBRE_REQUIRED' });
   }
-  if (!Number.isFinite(totalCompra) || totalCompra <= 0) {
+  if (!totalCompra) {
     return res.status(400).json({ ok: false, message: 'TOTAL_INVALIDO' });
   }
   if (!Number.isFinite(vSaldoFavorUsarRaw) || vSaldoFavorUsarRaw < 0) {
@@ -360,6 +384,7 @@ app.post('/api/facturar-compra', async (req, res) => {
   }
 
   const conn = await pool.getConnection();
+  let vNumDocumentoFinal = vNumDocumento;
   try {
     logSql('BEGIN');
     await conn.beginTransaction();
@@ -372,11 +397,31 @@ app.post('/api/facturar-compra', async (req, res) => {
       );
     }
 
-    await runQuery(
-      conn,
-      'INSERT INTO mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto, saldo) VALUES (?, ?, ?, ?, ?, ?)',
-      [vTipoDocumento, vNumDocumento, vCodigoProvedor, vFecha, totalCompra, totalCompra]
-    );
+    let inserted = false;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      try {
+        await runQuery(
+          conn,
+          'INSERT INTO mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, fecha, monto, saldo) VALUES (?, ?, ?, ?, ?, ?)',
+          [vTipoDocumento, vNumDocumentoFinal, vCodigoProvedor, vFecha, totalCompra, totalCompra]
+        );
+        inserted = true;
+        break;
+      } catch (insertError) {
+        if (insertError?.code !== 'ER_DUP_ENTRY' || attempt === 5) {
+          throw insertError;
+        }
+        const [nextRows] = await runQuery(
+          conn,
+          'SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = ?',
+          [vTipoDocumento]
+        );
+        vNumDocumentoFinal = parsePositiveInt(nextRows?.[0]?.next) || vNumDocumentoFinal + 1;
+      }
+    }
+    if (!inserted) {
+      throw new Error('NUM_DOCUMENTO_CONFLICT');
+    }
 
     for (let i = 0; i < detalleValidado.length; i += 1) {
       const item = detalleValidado[i];
@@ -386,7 +431,7 @@ app.post('/api/facturar-compra', async (req, res) => {
         'INSERT INTO detalle_mov_contable_prov (tipo_documento_compra, num_documento_compra, codigo_provedor, codigo_base, ordinal, codigo_producto, cantidad, cantidad_entregada, saldo, monto) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?)',
         [
           vTipoDocumento,
-          vNumDocumento,
+          vNumDocumentoFinal,
           vCodigoProvedor,
           null,
           ordinal,
@@ -400,13 +445,13 @@ app.post('/api/facturar-compra', async (req, res) => {
     await runQuery(conn, 'CALL actualizarsaldosprovedores(?, ?, ?)', [vCodigoProvedor, vTipoDocumento, totalCompra]);
 
     if (saldoFavorUsar > 0) {
-      await runQuery(conn, 'CALL aplicar_saldo_favor_a_factura_prov(?, ?, ?)', [vCodigoProvedor, vNumDocumento, saldoFavorUsar]);
+      await runQuery(conn, 'CALL aplicar_saldo_favor_a_factura_prov(?, ?, ?)', [vCodigoProvedor, vNumDocumentoFinal, saldoFavorUsar]);
     }
 
     logSql('COMMIT');
     await conn.commit();
 
-    res.json({ ok: true });
+    res.json({ ok: true, data: { num_documento_compra: vNumDocumentoFinal } });
   } catch (error) {
     logSql('ROLLBACK');
     await conn.rollback();

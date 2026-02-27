@@ -382,12 +382,19 @@ CREATE TABLE `mov_contable_prov` (
   `tipo_documento_compra` varchar(3) NOT NULL,
   `num_documento_compra` numeric(12,0) NOT NULL,
   `codigo_provedor` numeric(12,0) NOT NULL,
+  `tipo_documento_compra_origen` varchar(3) DEFAULT NULL,
+  `num_documento_compra_origen` numeric(12,0) DEFAULT NULL,
+  `codigo_provedor_origen` numeric(12,0) DEFAULT NULL,
   `codigo_cuentabancaria` numeric(12,0) DEFAULT NULL,
   `monto` numeric(12,2) NOT NULL DEFAULT 0,
   `saldo` numeric(12,2) NOT NULL DEFAULT 0,
   `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`),
-  FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`)
+  KEY `idx_mov_contable_prov_origen` (`tipo_documento_compra_origen`, `num_documento_compra_origen`, `codigo_provedor_origen`),
+  FOREIGN KEY (`codigo_cuentabancaria`) REFERENCES `cuentas_bancarias` (`codigo_cuentabancaria`),
+  CONSTRAINT `fk_mov_contable_prov_origen`
+    FOREIGN KEY (`tipo_documento_compra_origen`, `num_documento_compra_origen`, `codigo_provedor_origen`)
+    REFERENCES `mov_contable_prov` (`tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`)
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS `detalle_mov_contable_prov`;
@@ -620,6 +627,33 @@ CREATE TABLE IF NOT EXISTS errores_app (
   detalle text,
   created_at datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (codigo_error)
+) ENGINE=InnoDB;
+
+-- Modulo 6 - Soporte Usuarios
+DROP TABLE IF EXISTS `ticketsoporte_imagenes`;
+DROP TABLE IF EXISTS `ticketsoporte`;
+
+CREATE TABLE `ticketsoporte` (
+  `id_ticket` int NOT NULL AUTO_INCREMENT,
+  `codigo_usuario` varchar(36) NOT NULL,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `asunto` varchar(255) NOT NULL,
+  `descripcion` varchar(4096) NOT NULL,
+  PRIMARY KEY (`id_ticket`),
+  KEY `fk_ticketsoporte_usuario` (`codigo_usuario`),
+  CONSTRAINT `fk_ticketsoporte_usuario`
+    FOREIGN KEY (`codigo_usuario`) REFERENCES `usuarios` (`codigo_usuario`)
+) ENGINE=InnoDB;
+
+CREATE TABLE `ticketsoporte_imagenes` (
+  `id_imagen` int NOT NULL AUTO_INCREMENT,
+  `id_ticket` int NOT NULL,
+  `imagen_binaria` LONGBLOB NOT NULL,
+  PRIMARY KEY (`id_imagen`),
+  KEY `fk_ticketsoporte_imagenes_ticket` (`id_ticket`),
+  CONSTRAINT `fk_ticketsoporte_imagenes_ticket`
+    FOREIGN KEY (`id_ticket`) REFERENCES `ticketsoporte` (`id_ticket`)
+      ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Modulo 2 - CU4004: Fabricacion (Gastos)

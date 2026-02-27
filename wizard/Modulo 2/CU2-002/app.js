@@ -64,8 +64,12 @@ const i18n = {
     step1: '1. Selection',
     step2: '2. Detail',
     step3: '3. Confirm',
-    step1Title: 'Select pending package',
-    step1Hint: 'Choose a pending package to continue.',
+    step1Title: 'Search pending package',
+    step1Hint: 'Enter document type and package number to load detail.',
+    step1Hint2: 'The lookup fetches package, items, and map when available.',
+    docTypeLabel: 'Document type',
+    packageCodeLabel: 'Package number',
+    search: 'Search package',
     step2Title: 'Document detail',
     step2Hint: 'Review delivery, receiver, and items.',
     step3Title: 'Confirm packaging',
@@ -93,7 +97,8 @@ const i18n = {
     errorPacking: 'Select a packing before continuing.',
     actionEmpacar: 'Pack',
     successSaved: 'Package registered as packed. Wizard reset.',
-    errorSelection: 'Select a package to continue.',
+    errorSelection: 'Enter a valid package number to continue.',
+    errorNotFound: 'Package not found in pending packing state.',
     errorServer: 'We could not complete your request. Try again.',
     emptyTable: 'No records found.'
   },
@@ -105,8 +110,12 @@ const i18n = {
     step1: '1. Seleccion',
     step2: '2. Detalle',
     step3: '3. Confirmar',
-    step1Title: 'Seleccionar paquete pendiente',
-    step1Hint: 'Elige un paquete pendiente de empaque para continuar.',
+    step1Title: 'Buscar paquete pendiente',
+    step1Hint: 'Ingresa tipo documento y numero de paquete para cargar el detalle.',
+    step1Hint2: 'La busqueda trae paquete, productos y mapa si aplica.',
+    docTypeLabel: 'Tipo documento',
+    packageCodeLabel: 'Numero paquete',
+    search: 'Buscar paquete',
     step2Title: 'Detalle del documento',
     step2Hint: 'Revision de entrega, receptor y productos.',
     step3Title: 'Confirmar empaque',
@@ -134,7 +143,8 @@ const i18n = {
     errorPacking: 'Selecciona un packing antes de continuar.',
     actionEmpacar: 'Empacar',
     successSaved: 'Paquete empacado. Wizard reiniciado.',
-    errorSelection: 'Selecciona un paquete para continuar.',
+    errorSelection: 'Ingresa un numero de paquete valido para continuar.',
+    errorNotFound: 'No se encontro el paquete en estado pendiente empacar.',
     errorServer: 'No pudimos completar tu solicitud. Intenta de nuevo.',
     emptyTable: 'No se encontraron registros.'
   }
@@ -146,6 +156,7 @@ class FormWizard {
       step: 1,
       lang: 'es',
       codigoUsuario: '',
+      preselectedCode: '',
       priv: '',
       paquetes: [],
       detalles: [],
@@ -166,7 +177,8 @@ class FormWizard {
       step3: document.getElementById('step3'),
       alertBox: document.getElementById('alertBox'),
       successBox: document.getElementById('successBox'),
-      pendientesTableBody: document.querySelector('#pendientesTable tbody'),
+      tipoDocumentoInput: document.getElementById('tipoDocumentoInput'),
+      codigoPaqueteInput: document.getElementById('codigoPaqueteInput'),
       detalleTableBody: document.querySelector('#detalleTable tbody'),
       detalleEntrega: document.getElementById('detalleEntrega'),
       detalleRecibe: document.getElementById('detalleRecibe'),
@@ -178,7 +190,7 @@ class FormWizard {
       btnNext: document.getElementById('btnNext'),
       btnReset: document.getElementById('btnReset'),
       confirmCheck: document.getElementById('confirmCheck'),
-      loadingPendientes: document.getElementById('loadingPendientes'),
+      loadingSearch: document.getElementById('loadingSearch'),
       loadingDetalle: document.getElementById('loadingDetalle'),
       loadingGuardar: document.getElementById('loadingGuardar')
     };
@@ -187,6 +199,7 @@ class FormWizard {
   init() {
     this.setLanguage();
     this.state.codigoUsuario = this.resolveCodigoUsuario();
+    this.state.preselectedCode = this.resolvePreselectedCode();
     this.bindEvents();
     this.setStep(1);
     if (!this.state.codigoUsuario) {
@@ -194,7 +207,7 @@ class FormWizard {
       this.elements.btnNext.disabled = true;
       return;
     }
-    this.loadPaquetes();
+    this.loadFromQueryString();
   }
 
   resolveCodigoUsuario() {
@@ -206,6 +219,16 @@ class FormWizard {
       params.get('vCodigo_usuario') ||
       '';
     return String(value).trim();
+  }
+
+  resolvePreselectedCode() {
+    const params = new URLSearchParams(window.location.search || '');
+    return String(params.get('codigo_paquete') || params.get('numero_documento') || '').trim();
+  }
+
+  resolvePreselectedType() {
+    const params = new URLSearchParams(window.location.search || '');
+    return String(params.get('tipo_documento') || 'FAC').trim().toUpperCase();
   }
 
   setLanguage() {
@@ -245,6 +268,12 @@ class FormWizard {
     this.elements.btnReset.addEventListener('click', () => this.resetWizard());
     this.elements.confirmCheck.addEventListener('change', () => this.updateConfirmState());
     this.elements.packingSelect.addEventListener('change', () => this.onPackingChange());
+    this.elements.codigoPaqueteInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        this.goNext();
+      }
+    });
   }
 
   async fetchJson(url, options) {
@@ -280,7 +309,13 @@ class FormWizard {
     });
 
     this.elements.btnPrev.disabled = step === 1;
-    this.elements.btnNext.textContent = step === 3 ? this.t('actionEmpacar') : this.t('next');
+    if (step === 1) {
+      this.elements.btnNext.textContent = this.t('search');
+    } else if (step === 3) {
+      this.elements.btnNext.textContent = this.t('actionEmpacar');
+    } else {
+      this.elements.btnNext.textContent = this.t('next');
+    }
     this.updateConfirmState();
   }
 
@@ -312,69 +347,51 @@ class FormWizard {
     target.classList.toggle('d-none', !isLoading);
   }
 
-  async loadPaquetes() {
+  getSearchPayload() {
+    const tipoDocumento = String(this.elements.tipoDocumentoInput.value || 'FAC').trim().toUpperCase();
+    const codigoPaquete = String(this.elements.codigoPaqueteInput.value || '').trim();
+    if (!/^[0-9]+$/.test(codigoPaquete)) {
+      return null;
+    }
+    return { tipoDocumento, codigoPaquete };
+  }
+
+  async loadPaqueteByCodigo() {
     this.clearMessages();
-    this.setLoading(this.elements.loadingPendientes, true);
+    const payload = this.getSearchPayload();
+    if (!payload) {
+      this.showAlert(this.t('errorSelection'));
+      return;
+    }
+
+    this.setLoading(this.elements.loadingSearch, true);
     try {
-      const params = new URLSearchParams({ codigo_usuario: this.state.codigoUsuario });
-      const data = await this.fetchJson(`./api/paquetes-pendientes?${params.toString()}`);
-      this.state.priv = String(data?.vPriv || '').trim().toUpperCase();
-      this.state.paquetes = data.rows || [];
-      this.renderPaquetes();
+      const params = new URLSearchParams({
+        codigo_usuario: this.state.codigoUsuario,
+        tipo_documento: payload.tipoDocumento,
+        codigo_paquete: payload.codigoPaquete
+      });
+      const data = await this.fetchJson(`./api/paquete?${params.toString()}`);
+      const row = data?.row || null;
+      if (!row) {
+        this.showAlert(this.t('errorNotFound'));
+        return;
+      }
+
+      this.state.selected = row;
+      this.setStep(2);
+      this.loadDetalle();
     } catch (error) {
       if (this.isAccessError(error)) {
         this.showAlert('Warning ACCESO NO AUTORIZADO !!!');
+      } else if (String(error?.message || '').toUpperCase() === 'PAQUETE_NOT_FOUND') {
+        this.showAlert(this.t('errorNotFound'));
       } else {
         this.showAlert(this.t('errorServer'));
       }
     } finally {
-      this.setLoading(this.elements.loadingPendientes, false);
+      this.setLoading(this.elements.loadingSearch, false);
     }
-  }
-
-  renderPaquetes() {
-    const tbody = this.elements.pendientesTableBody;
-    tbody.innerHTML = '';
-
-    if (!this.state.paquetes.length) {
-      const row = document.createElement('tr');
-      const cell = document.createElement('td');
-      cell.colSpan = 7;
-      cell.className = 'table-empty';
-      cell.textContent = this.t('emptyTable');
-      row.appendChild(cell);
-      tbody.appendChild(row);
-      return;
-    }
-
-    this.state.paquetes.forEach((row, index) => {
-      const tr = document.createElement('tr');
-      tr.dataset.index = String(index);
-      tr.innerHTML = `
-        <td>${row.codigo_paquete ?? ''}</td>
-        <td>${this.formatDate(row.fecha_actualizado)}</td>
-        <td>${row.nombre_cliente ?? ''}</td>
-        <td>${row.nombre_base ?? ''}</td>
-        <td>${row.num_cliente ?? ''}</td>
-        <td>${row.concatenarpuntoentrega ?? ''}</td>
-        <td>${row.concatenarnumrecibe ?? ''}</td>
-      `;
-      tr.addEventListener('click', () => this.selectPaquete(index));
-      tbody.appendChild(tr);
-    });
-  }
-
-  selectPaquete(index) {
-    const selected = this.state.paquetes[index];
-    if (!selected) {
-      return;
-    }
-    this.state.selected = selected;
-    this.elements.pendientesTableBody.querySelectorAll('tr').forEach((row) => {
-      row.classList.toggle('active', row.dataset.index === String(index));
-    });
-    this.setStep(2);
-    this.loadDetalle();
   }
 
   async loadDetalle() {
@@ -596,12 +613,7 @@ class FormWizard {
 
   goNext() {
     if (this.state.step === 1) {
-      if (!this.state.selected) {
-        this.showAlert(this.t('errorSelection'));
-        return;
-      }
-      this.setStep(2);
-      this.loadDetalle();
+      this.loadPaqueteByCodigo();
       return;
     }
 
@@ -682,11 +694,18 @@ class FormWizard {
     placeholder.selected = true;
     this.elements.packingSelect.appendChild(placeholder);
     this.elements.packingSelect.disabled = true;
+    this.elements.codigoPaqueteInput.value = '';
+    this.elements.tipoDocumentoInput.value = 'FAC';
     this.renderDetalle();
-    this.renderPaquetes();
     this.updateResumen();
     this.setStep(1);
-    this.loadPaquetes();
+  }
+
+  loadFromQueryString() {
+    if (!this.state.preselectedCode) return;
+    this.elements.codigoPaqueteInput.value = this.state.preselectedCode;
+    this.elements.tipoDocumentoInput.value = this.resolvePreselectedType();
+    this.loadPaqueteByCodigo();
   }
 }
 

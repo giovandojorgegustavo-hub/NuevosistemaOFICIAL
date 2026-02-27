@@ -45,7 +45,7 @@ const vTranslations = {
     step1Pill: '1. Stock por Base',
     step1Title: 'Paso 1. Stock por Base',
     baseActiveLabel: 'Base activa',
-    baseSelectorLabel: 'Cambiar base',
+    baseSelectorLabel: 'Base activa',
     baseSelectorPlaceholder: 'Escribe para filtrar por codigo o nombre',
     baseSelectorHelp: 'Typeahead habilitado para filtrar miles de registros.',
     refreshBtn: 'Actualizar Stock',
@@ -57,7 +57,6 @@ const vTranslations = {
     thProducto: 'Producto',
     thFecha: 'Fecha',
     thSaldoActual: 'Saldo Actual',
-    thCostoUnitario: 'Costo Unitario',
     thSaldoReservado: 'Saldo Reservado',
     thSaldoDisponible: 'Saldo Disponible',
     noRecords: 'Sin registros',
@@ -72,7 +71,7 @@ const vTranslations = {
     step1Pill: '1. Stock by Base',
     step1Title: 'Step 1. Stock by Base',
     baseActiveLabel: 'Active base',
-    baseSelectorLabel: 'Change base',
+    baseSelectorLabel: 'Active base',
     baseSelectorPlaceholder: 'Type to filter by code or name',
     baseSelectorHelp: 'Typeahead enabled to support large datasets.',
     refreshBtn: 'Refresh Stock',
@@ -84,7 +83,6 @@ const vTranslations = {
     thProducto: 'Product',
     thFecha: 'Date',
     thSaldoActual: 'Current Balance',
-    thCostoUnitario: 'Unit Cost',
     thSaldoReservado: 'Reserved Balance',
     thSaldoDisponible: 'Available Balance',
     noRecords: 'No records',
@@ -134,10 +132,7 @@ class FormWizard {
       vBase: document.getElementById('vBase'),
       vPriv: document.getElementById('vPriv'),
       vBaseAux: document.getElementById('vBaseAux'),
-      vBaseTexto: document.getElementById('vBaseTexto'),
-      vBaseSelectorWrap: document.getElementById('vBaseSelectorWrap'),
       vBaseSelector: document.getElementById('vBaseSelector'),
-      vBasesList: document.getElementById('vBasesList'),
       vBtnActualizarStock: document.getElementById('vBtnActualizarStock'),
       vFiltroRapido: document.getElementById('vFiltroRapido'),
       vRowsCount: document.getElementById('vRowsCount'),
@@ -155,15 +150,7 @@ class FormWizard {
       this.renderStockTable();
     });
 
-    this.vEl.vBaseSelector.addEventListener('input', () => {
-      this.filterBasesTypeahead();
-    });
-
     this.vEl.vBaseSelector.addEventListener('change', () => {
-      this.commitBaseChange();
-    });
-
-    this.vEl.vBaseSelector.addEventListener('blur', () => {
       this.commitBaseChange();
     });
 
@@ -261,7 +248,7 @@ class FormWizard {
 
     this.vEl.vBtnActualizarStock.disabled = vLoading;
     this.vEl.vFiltroRapido.disabled = vLoading;
-    this.vEl.vBaseSelector.disabled = vLoading || this.vState.vPriv !== 'ALL';
+    this.vEl.vBaseSelector.disabled = vLoading || this.vState.vPriv === 'ONE';
   }
 
   async fetchJson(vUrl, vOptions) {
@@ -326,18 +313,8 @@ class FormWizard {
     this.vEl.vBase.value = this.vState.vBase;
     this.vEl.vPriv.value = this.vState.vPriv;
     this.vEl.vBaseAux.value = this.vState.vBaseAux;
-    this.vEl.vBaseTexto.value = this.vState.vBaseTexto;
-
-    const vCanChangeBase = this.vState.vPriv === 'ALL';
-    this.vEl.vBaseSelectorWrap.classList.toggle('d-none', !vCanChangeBase);
-
-    if (vCanChangeBase) {
-      this.renderBaseOptions();
-      this.syncBaseSelectorText();
-    } else {
-      this.vEl.vBaseSelector.value = '';
-      this.vEl.vBasesList.innerHTML = '';
-    }
+    this.renderBaseOptions();
+    this.syncBaseSelectorText();
 
     if (!this.vState.vStockBase.length) {
       this.showInfo(this.t('noRecords'));
@@ -347,72 +324,68 @@ class FormWizard {
   }
 
   renderBaseOptions() {
-    this.vEl.vBasesList.innerHTML = '';
+    this.vEl.vBaseSelector.innerHTML = '';
+    const vCurrentCode = String(this.vState.vBase || '').trim();
+    const vCurrentText = String(this.vState.vBaseTexto || this.vState.vBase || '').trim();
 
-    this.vState.vBasesFiltradas.forEach((vRow) => {
+    const vAddOption = (vCode, vLabel) => {
       const vOption = document.createElement('option');
-      vOption.value = `${vRow.codigo_base} - ${vRow.nombre}`;
-      this.vEl.vBasesList.appendChild(vOption);
-    });
-  }
+      vOption.value = String(vCode || '').trim();
+      vOption.textContent = String(vLabel || '').trim();
+      this.vEl.vBaseSelector.appendChild(vOption);
+    };
 
-  filterBasesTypeahead() {
-    const vTerm = String(this.vEl.vBaseSelector.value || '').toLowerCase().trim();
-
-    if (!vTerm) {
-      this.vState.vBasesFiltradas = [...this.vState.vBases];
-      this.renderBaseOptions();
+    if (this.vState.vPriv === 'ONE') {
+      vAddOption(vCurrentCode, vCurrentText);
       return;
     }
 
-    this.vState.vBasesFiltradas = this.vState.vBases.filter((vBase) => {
-      const vLabel = `${vBase.codigo_base} - ${vBase.nombre}`.toLowerCase();
-      return vLabel.includes(vTerm);
+    const vBases = this.vState.vBases
+      .map((vRow) => ({
+        vCode: String(vRow?.codigo_base || '').trim(),
+        vName: String(vRow?.nombre || '').trim()
+      }))
+      .filter((vRow) => vRow.vCode);
+
+    vBases.forEach((vRow) => {
+      const vLabel = vRow.vName ? `${vRow.vCode} - ${vRow.vName}` : vRow.vCode;
+      vAddOption(vRow.vCode, vLabel);
     });
 
-    this.renderBaseOptions();
-  }
+    if (vCurrentCode && !vBases.some((vRow) => vRow.vCode === vCurrentCode)) {
+      vAddOption(vCurrentCode, vCurrentText || vCurrentCode);
+    }
 
-  resolveBaseSelection() {
-    const vRawValue = String(this.vEl.vBaseSelector.value || '').trim();
-    if (!vRawValue) return null;
-
-    const vNormalized = vRawValue.toLowerCase();
-
-    const vMatch = this.vState.vBases.find((vBase) => {
-      const vLabel = `${vBase.codigo_base} - ${vBase.nombre}`.toLowerCase();
-      return (
-        vLabel === vNormalized ||
-        String(vBase.codigo_base).toLowerCase() === vNormalized ||
-        String(vBase.nombre).toLowerCase() === vNormalized
-      );
-    });
-
-    return vMatch || null;
+    if (!this.vEl.vBaseSelector.options.length && vCurrentCode) {
+      vAddOption(vCurrentCode, vCurrentText || vCurrentCode);
+    }
   }
 
   syncBaseSelectorText() {
-    const vCurrent = this.vState.vBases.find((vBase) => String(vBase.codigo_base) === String(this.vState.vBase));
-    this.vEl.vBaseSelector.value = vCurrent ? `${vCurrent.codigo_base} - ${vCurrent.nombre}` : '';
+    if (this.vState.vPriv === 'ONE') {
+      this.vEl.vBaseSelector.value = this.vState.vBase;
+    } else {
+      this.vEl.vBaseSelector.value = String(this.vState.vBase || '');
+    }
   }
 
   async commitBaseChange() {
-    if (this.vState.vPriv !== 'ALL' || this.vState.vLoading) {
+    if (this.vState.vPriv === 'ONE' || this.vState.vLoading) {
       return;
     }
 
-    const vSelected = this.resolveBaseSelection();
-    if (!vSelected) {
+    const vSelectedCode = String(this.vEl.vBaseSelector.value || '').trim();
+    if (!this.vRegex.vCodigoBase.test(vSelectedCode)) {
       this.syncBaseSelectorText();
       return;
     }
 
-    if (String(vSelected.codigo_base) === String(this.vState.vBase)) {
+    if (vSelectedCode === String(this.vState.vBase)) {
       this.syncBaseSelectorText();
       return;
     }
 
-    await this.loadStock(String(vSelected.codigo_base));
+    await this.loadStock(vSelectedCode);
   }
 
   async loadStock(vCodigoBase) {
@@ -485,7 +458,7 @@ class FormWizard {
       const vAValue = vA[vSortKey];
       const vBValue = vB[vSortKey];
 
-      if (['saldo_actual', 'costo_unitario', 'saldo_reservado', 'saldo_disponible'].includes(vSortKey)) {
+      if (['saldo_actual', 'saldo_reservado', 'saldo_disponible'].includes(vSortKey)) {
         return (Number(vAValue) - Number(vBValue)) * vSortDir;
       }
 
@@ -509,7 +482,7 @@ class FormWizard {
 
     if (!vRows.length) {
       const vEmptyRow = document.createElement('tr');
-      vEmptyRow.innerHTML = `<td colspan="8" class="text-center py-4 text-muted">${this.t('noRecords')}</td>`;
+      vEmptyRow.innerHTML = `<td colspan="7" class="text-center py-4 text-muted">${this.t('noRecords')}</td>`;
       this.vEl.vStockTbody.appendChild(vEmptyRow);
       return;
     }
@@ -527,7 +500,6 @@ class FormWizard {
         <td>${this.escapeHtml(vRow.nombre_producto)}</td>
         <td>${this.escapeHtml(this.formatDate(vRow.fecha_saldoactual))}</td>
         <td class="text-end">${vNumberFormatter.format(Number(vRow.saldo_actual || 0))}</td>
-        <td class="text-end">${vNumberFormatter.format(Number(vRow.costo_unitario || 0))}</td>
         <td class="text-end">${vNumberFormatter.format(Number(vRow.saldo_reservado || 0))}</td>
         <td class="text-end">${vNumberFormatter.format(Number(vRow.saldo_disponible || 0))}</td>
       `;

@@ -49,6 +49,38 @@ is_running() {
   [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1
 }
 
+is_port_busy() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn "sport = :$port" 2>/dev/null | awk 'NR>1 {found=1} END {exit !found}'
+    return $?
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | awk -v p=":$port" '$4 ~ p"$" {found=1} END {exit !found}'
+    return $?
+  fi
+  return 1
+}
+
+ensure_port_4004_available() {
+  local port="4004"
+  if ! is_port_busy "$port"; then
+    return 0
+  fi
+
+  echo "INFO  wizard_ConsolaPaquetes puerto $port ocupado. Intentando liberar..."
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "$port"/tcp >/dev/null 2>&1 || true
+  fi
+
+  sleep 1
+  if is_port_busy "$port"; then
+    echo "ERROR wizard_ConsolaPaquetes no pudo liberar puerto $port. Libera el puerto y reintenta."
+    return 1
+  fi
+  return 0
+}
+
 start_service() {
   local server="$1"
   local id
@@ -64,6 +96,10 @@ start_service() {
       return 0
     fi
     rm -f "$pid_file"
+  fi
+
+  if [[ "$id" == "wizard_ConsolaPaquetes" ]]; then
+    ensure_port_4004_available
   fi
 
   local dir

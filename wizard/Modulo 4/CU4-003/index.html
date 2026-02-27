@@ -49,19 +49,18 @@
             </p>
           </div>
 
-          <div class="table-responsive">
-            <table class="table table-dark table-hover align-middle" id="facturasTable">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th data-i18n="thTipo">Tipo</th>
-                  <th data-i18n="thNumero">Numero</th>
-                  <th data-i18n="thProveedor">Proveedor</th>
-                  <th data-i18n="thFecha">Fecha</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <label class="form-label" data-i18n="searchFactura">Buscar factura</label>
+              <input type="text" class="form-control" id="facturaSearch" placeholder="Proveedor o numero" />
+            </div>
+            <div class="col-lg-6 d-flex align-items-end">
+              <div class="text-muted" id="facturasCount">0</div>
+            </div>
+          </div>
+
+          <div class="factura-list mt-3" id="facturasList">
+            <div class="factura-empty">-</div>
           </div>
         </section>
 
@@ -76,13 +75,17 @@
           <div class="row g-3">
             <div class="col-lg-4">
               <label class="form-label" data-i18n="lblTipoRemito">Tipo Documento Remito</label>
-              <input type="text" class="form-control" id="tipoRemito" value="REM" disabled />
+              <input type="text" class="form-control remito-meta-input" id="tipoRemito" value="REM" readonly />
             </div>
             <div class="col-lg-4">
               <label class="form-label" data-i18n="lblNumRemito">Numero Remito</label>
-              <input type="text" class="form-control" id="numRemito" disabled />
+              <input type="text" class="form-control remito-meta-input" id="numRemito" readonly />
             </div>
             <div class="col-lg-4">
+              <label class="form-label" data-i18n="lblFechaInicio">Fecha inicio</label>
+              <input type="text" class="form-control remito-meta-input" id="fechaInicioRemito" readonly />
+            </div>
+            <div class="col-lg-12">
               <label class="form-label" data-i18n="lblBase">Base destino</label>
               <div class="typeahead">
                 <input

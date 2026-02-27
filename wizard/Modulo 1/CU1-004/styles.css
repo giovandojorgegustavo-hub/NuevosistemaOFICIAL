@@ -253,3 +253,23 @@ body {
     align-items: stretch;
   }
 }
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */

@@ -622,7 +622,11 @@ class FormWizard {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(vValidation.vData)
+        body: JSON.stringify({
+          ...vValidation.vData,
+          Codigo_usuario: this.vState.vCodigo_usuario,
+          OTP: this.vState.vOTP
+        })
       });
 
       this.vApplyServerData({

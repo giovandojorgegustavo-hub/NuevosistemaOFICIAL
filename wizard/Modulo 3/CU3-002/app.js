@@ -130,7 +130,7 @@ class FormWizard {
       stepIndicator: document.getElementById('stepIndicator'),
       alertBox: document.getElementById('formAlert'),
       successBox: document.getElementById('formSuccess'),
-      proveedoresTable: document.querySelector('#proveedoresTable tbody'),
+      proveedoresList: document.getElementById('proveedoresList'),
       proveedoresCount: document.getElementById('proveedoresCount'),
       proveedorSearch: document.getElementById('proveedorSearch'),
       prevBtn: document.getElementById('prevBtn'),
@@ -160,6 +160,17 @@ class FormWizard {
   detectLanguage() {
     const browserLang = navigator.language || 'en';
     return browserLang.toLowerCase().startsWith('es') ? 'es' : 'en';
+  }
+
+  nowLocalDateTime() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mi = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
   }
 
   t(key) {
@@ -210,7 +221,7 @@ class FormWizard {
     });
 
     this.elements.prevBtn.disabled = step === 1;
-    this.elements.nextBtn.classList.toggle('d-none', step === 3);
+    this.elements.nextBtn.classList.toggle('d-none', step === 3 || step === 1);
     this.elements.submitBtn.classList.toggle('d-none', step !== 3);
     this.elements.submitBtn.disabled = step !== 3 || !this.elements.confirmOperacion.checked;
   }
@@ -241,7 +252,10 @@ class FormWizard {
           this.setAlert(this.t('requiredProveedor'));
           return;
         }
-        await this.preparePaso2();
+        const ready = await this.preparePaso2();
+        if (!ready) {
+          return;
+        }
       }
 
       if (this.state.step === 2) {
@@ -297,24 +311,35 @@ class FormWizard {
   }
 
   renderProveedores() {
-    const tbody = this.elements.proveedoresTable;
-    tbody.innerHTML = '';
+    const container = this.elements.proveedoresList;
+    container.innerHTML = '';
     this.elements.proveedoresCount.textContent = `${this.state.filteredProveedores.length}`;
 
+    if (!this.state.filteredProveedores.length) {
+      const empty = document.createElement('div');
+      empty.className = 'proveedor-empty';
+      empty.textContent = '-';
+      container.appendChild(empty);
+      return;
+    }
+
     this.state.filteredProveedores.forEach((prov) => {
-      const tr = document.createElement('tr');
+      const item = document.createElement('button');
       const saldo = this.formatCurrency(prov.saldo_final);
-
-      tr.innerHTML = `
-        <td>${prov.nombre || ''}</td>
-        <td>${saldo}</td>
-        <td><button type="button" class="btn btn-sm btn-outline-info">${this.t('colAction')}</button></td>
+      item.type = 'button';
+      item.className = 'proveedor-item';
+      item.innerHTML = `
+        <div class="proveedor-main">
+          <div class="proveedor-name">${prov.nombre || ''}</div>
+          <div class="proveedor-meta">${this.t('colSaldo')}</div>
+        </div>
+        <div class="proveedor-side">
+          <div class="proveedor-saldo">${saldo}</div>
+          <div class="proveedor-cta">${this.t('colAction')}</div>
+        </div>
       `;
-
-      const btn = tr.querySelector('button');
-      btn.addEventListener('click', () => this.selectProveedor(prov));
-
-      tbody.appendChild(tr);
+      item.addEventListener('click', () => this.selectProveedorAndContinue(prov));
+      container.appendChild(item);
     });
   }
 
@@ -328,17 +353,28 @@ class FormWizard {
     this.setSuccess('');
   }
 
+  async selectProveedorAndContinue(prov) {
+    this.selectProveedor(prov);
+    const ready = await this.preparePaso2();
+    if (!ready) {
+      return;
+    }
+    this.state.step = 2;
+    this.updateProgress();
+  }
+
   async preparePaso2() {
     this.setLoading(true);
     try {
       await Promise.all([this.loadCuentas(), this.loadNumeroDocumento()]);
-      const today = new Date();
-      this.elements.fechaPago.value = today.toISOString().split('T')[0];
+      this.elements.fechaPago.value = this.nowLocalDateTime();
       this.elements.tipoDocumento.value = 'RCC';
       this.elements.proveedorNombre.value = this.state.selectedProveedor?.nombre || '';
       this.elements.proveedorSaldo.value = this.formatCurrency(this.state.selectedProveedor?.saldo_final || 0);
+      return true;
     } catch (error) {
       this.setAlert(this.t('fetchError'));
+      return false;
     } finally {
       this.setLoading(false);
     }
@@ -429,7 +465,9 @@ class FormWizard {
     this.elements.summaryProveedor.textContent = this.state.selectedProveedor?.nombre || '-';
     this.elements.summarySaldo.textContent = this.formatCurrency(this.state.selectedProveedor?.saldo_final || 0);
     this.elements.summaryMonto.textContent = this.formatCurrency(montoNumeric);
-    this.elements.summaryFecha.textContent = this.elements.fechaPago.value || '-';
+    this.elements.summaryFecha.textContent = this.elements.fechaPago.value
+      ? this.elements.fechaPago.value.replace('T', ' ')
+      : '-';
     this.elements.summaryCuenta.textContent = this.elements.cuentaSearch.value || '-';
   }
 

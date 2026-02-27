@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consola Paquetes 3.0 | ERP</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <title>CL40 Consola Paquetes</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root {
       --kanban-bg: #f4f5f7;
@@ -55,6 +55,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     }
 
     .column-header h6 {
@@ -90,9 +91,27 @@
     }
 
     .card-id {
-      font-size: 0.75rem;
-      font-weight: bold;
+      font-size: 0.78rem;
+      font-weight: 700;
       color: #6c757d;
+    }
+
+    .card-date {
+      font-size: 0.8rem;
+      color: #4d5a66;
+      margin-top: 0.35rem;
+    }
+
+    .unauthorized-wrap {
+      min-height: 100vh;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .unauthorized-wrap.show {
+      display: flex;
     }
 
     ::-webkit-scrollbar {
@@ -105,7 +124,7 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #ccc;
+      background: #c7c7c7;
       border-radius: 10px;
     }
 
@@ -125,27 +144,24 @@
   </style>
 </head>
 <body>
-  <div class="kanban-wrapper">
+  <div id="unauthorized-wrap" class="unauthorized-wrap" aria-live="assertive">
+    <div class="alert alert-danger fs-5 fw-bold text-center shadow" role="alert" id="unauthorized-message"></div>
+  </div>
+
+  <div id="app-shell" class="kanban-wrapper">
     <nav class="navbar navbar-dark bg-dark">
       <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-          <i class="bi bi-box-seam me-2"></i>
-          <span id="titleText">Consola Paquetes <small class="text-muted">v3.0</small></span>
-        </a>
-        <div class="d-flex align-items-center gap-3">
-          <button id="btn-refresh" class="btn btn-sm btn-outline-light" type="button">
-            <i class="bi bi-arrow-clockwise"></i>
-            <span id="refreshText">Actualizar</span>
-          </button>
-          <span id="current-date" class="text-white-50 small"></span>
-        </div>
+        <span class="navbar-brand d-flex align-items-center gap-2 mb-0 h1">
+          <span>CL40 Consola Paquetes</span>
+        </span>
+        <button id="btn-refresh" class="btn btn-sm btn-outline-light" type="button"></button>
       </div>
     </nav>
 
     <main id="board" class="kanban-board">
       <div class="d-flex justify-content-center w-100 align-items-center">
         <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Cargando tablero...</span>
+          <span class="visually-hidden">Loading...</span>
         </div>
       </div>
     </main>
@@ -155,37 +171,38 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="packageModalLabel">Detalle del Paquete</h5>
+          <h5 class="modal-title" id="packageModalLabel"></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <div class="row mb-3">
-            <div class="col-md-6"><strong id="lblClient">Cliente:</strong> <span id="modal-client"></span></div>
-            <div class="col-md-6 text-md-end"><strong id="lblTime">Hora:</strong> <span id="modal-time"></span></div>
+          <div class="row gy-2 mb-3">
+            <div class="col-md-6"><strong id="lblHora"></strong> <span id="modalHora"></span></div>
+            <div class="col-md-6"><strong id="lblCliente"></strong> <span id="modalCliente"></span></div>
           </div>
-          <div class="mb-3"><strong id="lblAddress">Dirección de Entrega:</strong> <span id="modal-address"></span></div>
-          <h6 id="gridTitle">vGrid - Productos del Paquete</h6>
+          <div class="mb-3"><strong id="lblDireccion"></strong> <span id="modalDireccion"></span></div>
+
+          <h6 class="mb-2" id="lblGrid"></h6>
           <div class="table-responsive">
             <table class="table table-sm table-striped table-bordered align-middle mb-0">
               <thead class="table-light">
                 <tr>
                   <th style="width: 70px;">#</th>
-                  <th id="thProduct">Producto</th>
-                  <th id="thQty" class="text-end" style="width: 120px;">Cantidad</th>
+                  <th id="thProducto"></th>
+                  <th id="thCantidad" class="text-end" style="width: 120px;"></th>
                 </tr>
               </thead>
-              <tbody id="modal-grid-body"></tbody>
+              <tbody id="modalGridBody"></tbody>
             </table>
           </div>
         </div>
-        <div id="modal-footer-actions" class="modal-footer"></div>
+        <div class="modal-footer" id="modalActions"></div>
       </div>
     </div>
   </div>
 
-  <div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container"></div>
+  <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

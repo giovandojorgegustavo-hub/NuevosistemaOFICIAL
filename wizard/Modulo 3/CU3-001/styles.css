@@ -198,6 +198,37 @@ body {
   color: var(--white);
 }
 
+.step-panel[data-step="2"] #detalleTable .form-control {
+  background: rgba(7, 17, 36, 0.95);
+  border-color: rgba(23, 211, 165, 0.35);
+}
+
+.step-panel[data-step="2"] #detalleTable .form-control:focus {
+  box-shadow: 0 0 0 1px rgba(23, 211, 165, 0.35);
+  border-color: rgba(23, 211, 165, 0.6);
+}
+
+.system-input {
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  min-height: 26px;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: none;
+}
+
+.system-input:focus {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.system-total {
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
 .table {
   color: var(--white);
 }
@@ -368,3 +399,23 @@ body {
     width: 100%;
   }
 }
+
+/* SYSTEM_FIELDS_STANDARD_START */
+.system-input,
+.form-control[readonly],
+.form-select[readonly],
+input[readonly],
+textarea[readonly] {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.system-input:focus,
+.form-control[readonly]:focus,
+.form-select[readonly]:focus,
+input[readonly]:focus,
+textarea[readonly]:focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* SYSTEM_FIELDS_STANDARD_END */

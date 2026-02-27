@@ -128,6 +128,42 @@ async function runQuery(conn, sql, params) {
   return conn.query(sql, params);
 }
 
+function unwrapRows(result) {
+  if (Array.isArray(result) && Array.isArray(result[0])) return result[0];
+  return Array.isArray(result) ? result : [];
+}
+
+async function callPaqueteByCodigo(conn, codigoPaquete, tipoDocumento, estado) {
+  const candidates = [
+    { sql: 'CALL get_paquete_por_codigo(?, ?, ?)', params: [codigoPaquete, tipoDocumento, estado] },
+    { sql: 'CALL get_paquete_por_codigo(?, ?)', params: [codigoPaquete, tipoDocumento] },
+    { sql: 'CALL get_paquete_por_codigo(?)', params: [codigoPaquete] },
+    { sql: 'CALL get_paquete_numero(?, ?, ?)', params: [codigoPaquete, tipoDocumento, estado] },
+    { sql: 'CALL get_paquete_numero(?)', params: [codigoPaquete] }
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const [rows] = await runQuery(conn, candidate.sql, candidate.params);
+      const normalized = unwrapRows(rows);
+      if (normalized.length > 0) {
+        return normalized[0];
+      }
+      return null;
+    } catch (error) {
+      const code = String(error?.code || '');
+      if (code !== 'ER_SP_DOES_NOT_EXIST' && code !== 'ER_SP_WRONG_NO_OF_ARGS') {
+        throw error;
+      }
+    }
+  }
+
+  const [rows] = await runQuery(conn, 'CALL get_paquetes_por_estado(?)', [estado]);
+  const paquetes = unwrapRows(rows);
+  const codigo = String(codigoPaquete || '').trim();
+  return paquetes.find((item) => String(item?.codigo_paquete || '').trim() === codigo) || null;
+}
+
 async function revertirPagosFacturaCliente(conn, tipoDocumento, numeroDocumento) {
   try {
     await runQuery(conn, 'CALL revertir_pagos_factura_cliente(?, ?)', [tipoDocumento, numeroDocumento]);
@@ -267,8 +303,8 @@ function unauthorizedHtml() {
 }
 
 function resolvePoolReference() {
-  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.db && typeof app.locals.db.getConnection === 'function') return app.locals.db;
+  if (app.locals && app.locals.db && app.locals.db.pool) return app.locals.db.pool;
   if (app.locals && app.locals.pool && typeof app.locals.pool.getConnection === 'function') return app.locals.pool;
   if (typeof dbState !== 'undefined' && dbState && dbState.pool) return dbState.pool;
   if (typeof pool !== 'undefined' && pool && typeof pool.getConnection === 'function') return pool;
@@ -355,6 +391,30 @@ app.get('/api/paquetes', async (req, res) => {
   } catch (error) {
     logError(error, 'PAQUETES ERROR');
     res.status(500).json({ ok: false, message: 'PAQUETES_ERROR' });
+  }
+});
+
+app.get('/api/paquete', async (req, res) => {
+  const codigoPaquete = String(req.query.codigo_paquete || '').trim();
+  const tipoDocumento = String(req.query.tipo_documento || 'FAC').trim().toUpperCase();
+  const estado = String(req.query.estado || 'en camino').trim();
+
+  if (!codigoPaquete) {
+    return res.status(400).json({ ok: false, message: 'CODIGO_PAQUETE_REQUERIDO' });
+  }
+
+  try {
+    const { pool } = app.locals.db;
+    const conn = await pool.getConnection();
+    try {
+      const row = await callPaqueteByCodigo(conn, codigoPaquete, tipoDocumento, estado);
+      return res.json({ ok: true, row: row || null });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    logError(error, 'PAQUETE_POR_CODIGO_ERROR');
+    return res.status(500).json({ ok: false, message: 'PAQUETE_POR_CODIGO_ERROR' });
   }
 });
 

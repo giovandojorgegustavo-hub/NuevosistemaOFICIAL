@@ -37,11 +37,14 @@ VALUES
   ('CU3001', 'Compras Factura',             'http://167.99.173.100:4002/CU3-001'),
   ('CU3002', 'Recibo Provedor',             'http://167.99.173.100:4002/CU3-002'),
   ('CU3003', 'Nota Credito Provedor',       'http://167.99.173.100:4002/CU3-003'),
+  ('CU3004', 'Borrar FCC',                  'http://167.99.173.100:4002/CU3-004'),
   ('CU4001', 'Transferencias',              'http://167.99.173.100:4003/CU4-001'),
   ('CU4002', 'Ajuste Stock',                'http://167.99.173.100:4003/CU4-002'),
   ('CU4003', 'Gestion Compras',             'http://167.99.173.100:4003/CU4-003'),
   ('CU4004', 'Fabricacion',                 'http://167.99.173.100:4003/CU4-004'),
-  ('CU6001', 'Cambiar Contrasena',          'http://167.99.173.100:4005/CU6-001');
+  ('CU6001', 'Cambiar Contrasena',          'http://167.99.173.100:4005/CU6-001'),
+  ('CU6002', 'Tickets Soporte',             'http://167.99.173.100:4005/CU6-002'),
+  ('CU7001', 'Consola Paquetes',            'http://167.99.173.100:4004/CU7-001');
 
 -- Modulos
 INSERT INTO modulos (codigo_modulo, descripcion, caption)
@@ -50,7 +53,8 @@ VALUES
   ('VENTAS',      'Ventas',      'Ventas'),
   ('COMPRAS',     'Compras',     'Compras'),
   ('OPERACIONES', 'Operaciones', 'Operaciones'),
-  ('SEGURIDAD',   'Seguridad',   'Seguridad');
+  ('SEGURIDAD',   'Seguridad',   'Seguridad'),
+  ('M7',          'Modulo 7',    'Modulo 7');
 
 -- Vinculo modulo <-> usecases
 INSERT INTO modulo_usecases (codigo_modulo, codigo_usecase)
@@ -78,6 +82,7 @@ VALUES
   ('COMPRAS', 'CU3001'),
   ('COMPRAS', 'CU3002'),
   ('COMPRAS', 'CU3003'),
+  ('COMPRAS', 'CU3004'),
 
   -- OPERACIONES (Modulo 4)
   ('OPERACIONES', 'CU4001'),
@@ -86,17 +91,23 @@ VALUES
   ('OPERACIONES', 'CU4004'),
 
   -- SEGURIDAD (Modulo 6)
-  ('SEGURIDAD', 'CU6001');
+  ('SEGURIDAD', 'CU6001'),
+  ('SEGURIDAD', 'CU6002'),
 
--- Perfil Base -> usecases del modulo Base
+  -- MODULO 7
+  ('M7', 'CU7001');
+
+-- Perfil Base -> usecases del modulo Base + Seguridad (M6) + Modulo 7
 INSERT INTO perfiles_ucases (codigo_perfil, codigo_usecase)
 VALUES
   ('Base', 'CU2001'),
-  ('Base', 'CU2002'),
   ('Base', 'CU2003'),
   ('Base', 'CU2004'),
   ('Base', 'CU2006'),
-  ('Base', 'CU2007');
+  ('Base', 'CU2007'),
+  ('Base', 'CU6001'),
+  ('Base', 'CU6002'),
+  ('Base', 'CU7001');
 
 -- Perfil Ventas -> Ventas + Base + solo Stock/Historial de Operaciones
 INSERT INTO perfiles_ucases (codigo_perfil, codigo_usecase)
@@ -104,8 +115,6 @@ VALUES
   -- Ventas (Modulo 1)
   ('Ventas', 'CU001'),
   ('Ventas', 'CU002'),
-  ('Ventas', 'CU003'),
-  ('Ventas', 'CU004'),
   ('Ventas', 'CU005'),
   ('Ventas', 'CU006'),
   ('Ventas', 'CU007'),
@@ -114,7 +123,6 @@ VALUES
 
   -- Base (Modulo 2)
   ('Ventas', 'CU2001'),
-  ('Ventas', 'CU2002'),
   ('Ventas', 'CU2003'),
   ('Ventas', 'CU2004'),
   ('Ventas', 'CU2006'),
@@ -145,8 +153,11 @@ VALUES
   ('Administrador', 'CU3001'),
   ('Administrador', 'CU3002'),
   ('Administrador', 'CU3003'),
+  ('Administrador', 'CU3004'),
   ('Administrador', 'CU4001'),
   ('Administrador', 'CU4002'),
   ('Administrador', 'CU4003'),
   ('Administrador', 'CU4004'),
-  ('Administrador', 'CU6001');
+  ('Administrador', 'CU6001'),
+  ('Administrador', 'CU6002'),
+  ('Administrador', 'CU7001');

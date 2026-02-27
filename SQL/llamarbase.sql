@@ -129,7 +129,7 @@ BEGIN
     AND H.dia = WEEKDAY(vFechaPedido) + 1
     AND H.hr_apertura = get_hr_apertura(S.codigo_base, vFechaPedido)
     AND H.cantidad_pedidos < H.maximo_pedidos
-    AND H.estado = 'A'
+--    AND H.estado = 'A'
   WHERE S.saldo_actual - get_reserva(S.codigo_base, P.vFProducto)
     >= P.vFCantidadProducto
   GROUP BY

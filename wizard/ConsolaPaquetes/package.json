@@ -3,6 +3,11 @@
   "version": "1.0.1",
   "description": "Servidor Consola Paquetes",
   "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "prod": "NODE_ENV=production node server.js",
+    "check": "node --check server.js && node --check public/app.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "js-yaml": "^4.1.0",

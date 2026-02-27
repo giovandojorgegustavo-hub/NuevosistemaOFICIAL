@@ -82,16 +82,21 @@ Al finalizar (ultimo boton): limpiar datos y volver al paso 1 si el formulario t
 
 # **Pasos del formulario-multipaso.
 
-1. Crear Nota Credito Provedor.
-2. Confirmar y registrar Nota Credito.
+1. Seleccionar FCC.
+2. Editar detalle.
+3. Confirmar y registrar Nota Credito.
 
 # **Descripcion de los pasos del formulario de registro.
 
 Previo al formulario de captura, se debe establecer conexion con la DB, los datos de conexion se deben tomar del archivo erp.yml, la variable {dsn}, tiene los datos de conexion y se debe usar la DB especificada en la variable {name}.
 
-## Paso 1  Crear Nota Credito Provedor.
+## Bootstrap inicial (antes del paso 1)
 
-vFecha = Inicializar con la fecha del sistema.
+vFecha = fecha del sistema en formato `YYYY-MM-DD`.
+vFechaDisplay = fecha/hora del sistema para mostrar en resumen.
+vTipo_documento_compra = "NCC".
+vNum_documento_compra = calcular con SQL:
+`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = 'NCC'`.
 
 vProveedores = Llamada SP: `get_proveedores()` (devuelve campo_visible)
 Campos devueltos: `codigo_provedor`, `nombre`
@@ -99,12 +104,6 @@ Variables:
 vCodigo_provedor no visible editable
 vNombreProvedor visible editable
 
-vTipo_documento_compra = "NCC".
-
-vNum_documento_compra = calcular con SQL:
-`SELECT COALESCE(MAX(num_documento_compra), 0) + 1 AS next FROM mov_contable_prov WHERE tipo_documento_compra = vTipo_documento_compra` (si no hay filas, usar 1). No editable.
-
-Presentar un Grid editable llamado "vDetalleNotaCredito" que permita agregar, borrar y editar lineas.
 vProductos = Llamada SP: `get_productos()` (devuelve campo_visible)
 Campos devueltos: `codigo_producto`, `nombre`
 Variables:
@@ -117,70 +116,88 @@ Variables:
 vCodigo_base no visible editable
 vNombreBase visible editable
 
-El Grid debe tener las siguientes columnas: codigo_base, codigo_producto, cantidad, saldo, monto.
-vCantidad = es editable. si es visible. Acepta decimales con hasta 2 digitos.
-vSaldo = 0 no es visible
-vMonto = es editable. si es visible
+vFacturasFCC = consulta SQL de compras `FCC` con saldo pendiente > 0, ordenadas por fecha/numero.
 
-vOrdinal = regla sin ambiguedad:
-- Asignar ordinal secuencial por linea del grid (1,2,3...) para cada item de `vDetalleNotaCredito`.
+## Paso 1. Seleccionar FCC
 
-En la vista, cada campo debe usar el mismo nombre de variable definido arriba y registrar ese valor.
+vNombreProvedor visible editable con typeahead (filtra por nombre/codigo).
+vCodigo_provedor no visible editable (se completa al seleccionar proveedor o factura).
 
+Mostrar grilla de `vFacturasFCC` filtrable por proveedor/texto.
+Seleccionar una fila FCC es obligatorio para continuar.
 
-## Paso 2. Confirmar y registrar Nota Credito.
+Al seleccionar FCC:
+- Cargar detalle de la FCC via endpoint `POST /api/fcc-detalle`.
+- Obtener columnas por item: `ordinal`, `codigo_base`, `codigo_producto`, `nombre_producto`, `saldo_disponible`, `costo_unitario`, `monto_disponible`.
+- Avanzar al paso 2.
 
-Al terminar el formulario multipasos, cuando el usuario da click al boton "Registrar Nota Credito" el sistema debera realizar las siguientes transacciones sobre la DB:
+## Paso 2. Editar detalle
 
+vTipo_nota_credito visible editable con dos opciones:
+- `PRODUCTO`
+- `DINERO`
 
-- Guardar en la tabla `mov_contable_prov` con estos campos (una fila por campo):
-  - tipo_documento_compra = vTipo_documento_compra
-  - num_documento_compra = vNum_documento_compra
-  - codigo_provedor = vCodigo_provedor
-  - fecha = vFecha
-  - monto = vTotal_nota
-  - saldo = vTotal_nota
+Si `vTipo_nota_credito = DINERO`:
+- Mostrar solo `vMonto_dinero` (decimal positivo, max 2 decimales).
+- No capturar detalle de productos.
 
-- Guardar en la tabla `detalle_mov_contable_prov` los datos del grid "vDetalleNotaCredito" con ordinal correlativo por item, con estos campos (una fila por campo):
-  - tipo_documento_compra = vTipo_documento_compra
-  - num_documento_compra = vNum_documento_compra
-  - codigo_provedor = vCodigo_provedor
-  - codigo_base = vDetalleNotaCredito.codigo_base
-  - ordinal = vDetalleNotaCredito.ordinal
-  - codigo_producto = vDetalleNotaCredito.codigo_producto
-  - cantidad = vDetalleNotaCredito.cantidad
-  - cantidad_entregada = vDetalleNotaCredito.cantidad
-  - saldo = 0
-  - monto = vDetalleNotaCredito.monto
+Si `vTipo_nota_credito = PRODUCTO`:
+- Grilla `vDetalleNotaCredito` precargada desde la FCC seleccionada.
+- Columnas visibles:
+  - `vOrdinal` (no editable)
+  - Producto (nombre/codigo, no editable)
+  - `vCantidad` (editable, decimal positivo con max 2 decimales, no puede exceder `vSaldoMax`)
+  - `vMonto` (no editable en UI, se recalcula como `vCantidad * vCostoUnitario`)
 
-- Aplicar consumo de partidas de compra (proveedor), por cada item del grid:
-  - Ejecutar `CALL aplicar_nota_credito_partidas_prov(vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, vDetalleNotaCredito.codigo_producto, vDetalleNotaCredito.cantidad)`.
-  - Este procedimiento debe:
-    - Bajar `detalle_mov_contable_prov.saldo` de compras `FCC` (mismo proveedor y producto) en orden FIFO.
-    - Registrar cada aplicacion en `detalle_movs_partidas_prov` enlazando:
-      - Documento origen: `FCC` consumido.
-      - Documento destino: la `NCC` recien creada.
+Reglas:
+- `vOrdinal` secuencial por fila.
+- Si tipo = `PRODUCTO`: `vSaldo` se maneja internamente como `0` para payload y debe existir al menos una linea valida.
+- Si tipo = `DINERO`: no debe enviar lineas de detalle.
+- `vTotal_nota`:
+  - tipo `PRODUCTO`: `SUM(vDetalleNotaCredito.monto)` redondeado a 2 decimales.
+  - tipo `DINERO`: `vMonto_dinero`.
 
-- Actualizar stock por cada item del grid:
-  - Ejecutar `CALL upd_stock_bases(vDetalleNotaCredito.codigo_base, vDetalleNotaCredito.codigo_producto, vDetalleNotaCredito.cantidad, vTipo_documento_compra, vNum_documento_compra)`.
-  - Para `NCC`, el movimiento debe restar stock de la base seleccionada.
+## Paso 3. Confirmar y registrar Nota Credito
 
-- Aplicar nota de credito a facturas pendientes del proveedor:
-  - Ejecutar `CALL aplicar_nota_credito_a_facturas_prov(vCodigo_provedor, vNum_documento_compra, vTotal_nota)`.
-  - Debe consumir `mov_contable_prov.saldo` de documentos `FCC` y registrar lo aplicado en `Facturas_Pagadas_Prov` usando `tipo_documento_pago='NCC'`.
+Mostrar resumen de proveedor, fecha, documento y total.
+Mostrar detalle resumido (`ordinal`, `codigo_base`, `codigo_producto`, `cantidad`, `monto`).
+Requerir checkbox de confirmacion para habilitar el submit.
 
-- Actualizar el saldo del proveedor ejecutando el procedimiento:
-  - `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vTotal_nota)`
-  - vTotal_nota = SUM(vDetalleNotaCredito.cantidad * vDetalleNotaCredito.monto)
+Al hacer click en "Registrar Nota Credito", ejecutar transaccion DB:
 
-Orden transaccional obligatorio:
-1. INSERT en `mov_contable_prov` (NCC).
-2. INSERT en `detalle_mov_contable_prov` (NCC).
-3. `CALL aplicar_nota_credito_partidas_prov(...)` por cada item.
-4. `CALL upd_stock_bases(...)` por cada item.
-5. `CALL aplicar_nota_credito_a_facturas_prov(...)`.
-6. `CALL actualizarsaldosprovedores(...)`.
-7. COMMIT. Si falla algo: ROLLBACK.
+1. INSERT en `mov_contable_prov`:
+   - `tipo_documento_compra = vTipo_documento_compra`
+   - `num_documento_compra = vNum_documento_compra`
+   - `codigo_provedor = vCodigo_provedor`
+   - `fecha = vFecha`
+   - `monto = vTotal_nota`
+   - `saldo = vTotal_nota`
+
+2. Si `vTipo_nota_credito = PRODUCTO`, INSERT por cada item en `detalle_mov_contable_prov`:
+   - `tipo_documento_compra`, `num_documento_compra`, `codigo_provedor`
+   - `codigo_base` (si viene 0/null, guardar NULL)
+   - `ordinal`
+   - `codigo_producto`
+   - `cantidad`
+   - `cantidad_entregada = cantidad`
+   - `saldo = 0`
+   - `monto`
+
+3. Si `vTipo_nota_credito = PRODUCTO`, por cada item ejecutar:
+   - `CALL aplicar_nota_credito_partidas_prov(vTipo_documento_compra, vNum_documento_compra, vCodigo_provedor, codigo_producto, cantidad)`
+   - Debe consumir saldo de detalle FCC por FIFO y registrar trazabilidad en `detalle_movs_partidas_prov`.
+
+4. Si `vTipo_nota_credito = PRODUCTO`, por cada item con `codigo_base > 0`, ejecutar:
+   - `CALL upd_stock_bases(codigo_base, codigo_producto, cantidad, vTipo_documento_compra, vNum_documento_compra)`
+
+5. Ejecutar:
+   - `CALL aplicar_nota_credito_a_facturas_prov(vCodigo_provedor, vNum_documento_compra, vTotal_nota)`
+
+6. Ejecutar:
+   - `CALL actualizarsaldosprovedores(vCodigo_provedor, vTipo_documento_compra, vTotal_nota)`
+
+7. COMMIT.
+   - Si falla cualquier sentencia/SP: ROLLBACK y devolver `ERROR_REGISTRAR_NCC`.
 
 
 
