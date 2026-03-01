@@ -1,0 +1,9 @@
+No se pudo extraer el cuerpo con usuario erpuser (SHOW ROUTINE requerido):
+- PROCEDURE generar_otp_usuario
+- PROCEDURE get_asistencia
+- PROCEDURE get_priv_usuario
+- PROCEDURE get_priv_usuario_cp
+- PROCEDURE get_stock_xBase
+- PROCEDURE validar_otp_usuario
+- FUNCTION get_costo_producto
+- FUNCTION get_stock_disponible

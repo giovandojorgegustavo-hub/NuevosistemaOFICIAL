@@ -10,6 +10,56 @@ function writeLine(stream, line) {
   stream.write(`[${new Date().toISOString()}] ${line}\n`);
 }
 
+function discoverCuDefs(moduleDir) {
+  const entries = fs.readdirSync(moduleDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => /^CU\d+-\d{3}$/i.test(name))
+    .filter((name) => fs.existsSync(path.join(moduleDir, name, 'server.js')))
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ id: name.toUpperCase(), dir: name }));
+}
+
+function fallbackUseCasePort(cuId) {
+  const raw = String(cuId || '').trim().toUpperCase();
+  const dashed = raw.match(/^CU(\d+)-(\d{3})$/);
+  if (dashed) {
+    const moduleNum = Number(dashed[1]);
+    const sequence = Number(dashed[2]);
+    if (Number.isFinite(moduleNum) && Number.isFinite(sequence)) {
+      return 3000 + moduleNum * 100 + sequence;
+    }
+  }
+
+  const compact = raw.match(/^CU(\d)(\d{3})$/);
+  if (compact) {
+    const moduleNum = Number(compact[1]);
+    const sequence = Number(compact[2]);
+    if (Number.isFinite(moduleNum) && Number.isFinite(sequence)) {
+      return 3000 + moduleNum * 100 + sequence;
+    }
+  }
+
+  let hash = 0;
+  for (const ch of raw) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return 45000 + (hash % 10000);
+}
+
+function resolveUseCasePort(cuId, config) {
+  try {
+    return getUseCasePort(cuId, config);
+  } catch (error) {
+    const fallbackPort = fallbackUseCasePort(cuId);
+    console.warn(
+      `[${new Date().toISOString()}] [${String(cuId || '').toUpperCase()}] puerto interno no definido en erp.yml; usando fallback ${fallbackPort}`
+    );
+    return fallbackPort;
+  }
+}
+
 function startCuServices(moduleDir, moduleCode, cuDefs, config) {
   const logsDir = path.join(moduleDir, 'logs');
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
@@ -28,7 +78,7 @@ function startCuServices(moduleDir, moduleCode, cuDefs, config) {
     cuMap[cu.id.toUpperCase()] = {
       id: cu.id.toUpperCase(),
       rawId: cu.id,
-      internalPort: getUseCasePort(cu.id, config),
+      internalPort: resolveUseCasePort(cu.id, config),
       cuDir,
       logsDir: cuLogsDir,
       moduleCode,
@@ -193,8 +243,12 @@ function startModuleServer({
   const rootDir = path.resolve(moduleDir, '..');
   const config = loadErpConfig();
   const port = getModulePort(moduleCode, config);
+  const resolvedCuDefs = Array.isArray(cuDefs) && cuDefs.length ? cuDefs : discoverCuDefs(moduleDir);
+  if (!resolvedCuDefs.length) {
+    throw new Error(`No se encontraron CUs con server.js en ${moduleDir}`);
+  }
 
-  const { cuMap } = startCuServices(moduleDir, moduleCode, cuDefs, config);
+  const { cuMap } = startCuServices(moduleDir, moduleCode, resolvedCuDefs, config);
   const app = express();
   const context = {
     app,

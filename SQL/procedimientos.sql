@@ -2179,3 +2179,226 @@ DELIMITER ;
 
 -- Procedimiento para obtener saldo del sistema por base y producto
 -- Devuelve saldo_actual (0 si no existe registro)
+
+-- =====================================================================================
+-- RUTINAS EXTRAIDAS DESDE BD (2026-02-28)
+-- =====================================================================================
+DROP FUNCTION IF EXISTS `get_costo_producto`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` FUNCTION `get_costo_producto`(
+    p_tipo_documento VARCHAR(3),
+    p_numero_documento DECIMAL(12,0),
+    p_codigo_producto DECIMAL(12,0)
+) RETURNS decimal(12,2)
+    READS SQL DATA
+BEGIN
+    DECLARE v_costo_producto DECIMAL(12,2);
+
+    SELECT COALESCE(SUM(monto), 0)
+    INTO v_costo_producto
+    FROM detalle_movs_partidas
+    WHERE tipo_documento_venta = p_tipo_documento
+      AND numero_documento = p_numero_documento
+      AND codigo_producto = p_codigo_producto;
+
+    RETURN v_costo_producto;
+END
+//
+DELIMITER ;
+
+DROP FUNCTION IF EXISTS `get_stock_disponible`;
+DELIMITER //
+CREATE DEFINER=`root`@`%` FUNCTION `get_stock_disponible`(
+    p_codigo_base DECIMAL(12,0),
+    p_codigo_producto DECIMAL(12,0)
+) RETURNS decimal(18,6)
+    DETERMINISTIC
+BEGIN
+    DECLARE v_stock_disponible decimal(18,6);
+
+    SELECT saldo_actual - get_reserva(codigo_base, codigo_producto)
+    INTO v_stock_disponible
+    FROM saldo_stock
+    WHERE codigo_base = p_codigo_base
+      AND codigo_producto = p_codigo_producto;
+    RETURN v_stock_disponible;
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `generar_otp_usuario`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `generar_otp_usuario`(
+    IN p_user_id varchar(36)
+)
+BEGIN
+    DECLARE v_otp VARCHAR(6);
+
+    SET v_otp = LPAD(FLOOR(RAND() * 1000000), 6, '0');
+
+    INSERT INTO otp_codes(user_id, otp, expires_at)
+    VALUES(
+        p_user_id,
+        v_otp,
+        DATE_ADD(NOW(), INTERVAL 2 MINUTE)
+    );
+
+    SELECT v_otp AS otp;
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_asistencia`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_asistencia`(
+IN p_desde DATETIME,
+IN p_hasta DATETIME,
+IN p_codigo_base decimal(12,0)
+)
+BEGIN
+SELECT
+    date(bb.fecha) Fecha,
+    time(get_turno(bb.codigo_base, bb.fecha)) Turno,
+    max(b.nombre) Base,
+    max(u.nombre) Usuario,
+    max(bh.dia) Dia,
+    max(bh.hr_apertura) Hr_Apertura,
+    max(bh.hr_cierre) Hr_Cierre,
+    max(bh.estado) Estado,
+    max(bb.fecha) "Timestamp"
+FROM bitacoraBase bb
+JOIN bases b ON b.codigo_base = bb.codigo_base
+JOIN usuarios u ON bb.codigo_usuario = u.codigo_usuario
+JOIN base_horarios bh ON bh.codigo_base = bb.codigo_base
+WHERE bb.fecha >= p_desde
+  AND bb.fecha <= p_hasta
+  AND bb.codigo_base = p_codigo_base
+GROUP BY Fecha, Turno;
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_priv_usuario`;
+DELIMITER //
+CREATE DEFINER=`root`@`%` PROCEDURE `get_priv_usuario`(
+   IN p_usuario VARCHAR(36)
+)
+BEGIN
+   DECLARE v_codigo_base DECIMAL(12,0);
+   DECLARE v_priv_bases varchar(36);
+
+   CALL get_priv_usuario_cp(p_usuario, @v_codigo_base, @v_priv_bases);
+
+   SELECT p_usuario, @v_codigo_base, @v_priv_bases;
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_priv_usuario_cp`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_priv_usuario_cp`(
+    IN  p_usuario VARCHAR(36),
+    OUT p_codigo_base DECIMAL(12,0),
+    OUT p_priv_bases varchar(36)
+)
+BEGIN
+    SELECT
+        usr.codigo_usuario,
+        up.codigo_base,
+        P.priv_bases
+    INTO
+        p_usuario,
+        p_codigo_base,
+        p_priv_bases
+    FROM usuarios usr
+    JOIN usuarios_perfiles up ON up.codigo_usuario = usr.codigo_usuario
+    JOIN perfiles_ucases pu ON pu.codigo_perfil = up.codigo_perfil
+    JOIN perfiles P ON P.codigo_perfil = pu.codigo_perfil
+    JOIN usecases u ON u.codigo_usecase = pu.codigo_usecase
+    LEFT JOIN modulo_usecases mu ON mu.codigo_usecase = u.codigo_usecase
+    LEFT JOIN modulos m ON m.codigo_modulo = mu.codigo_modulo
+    WHERE usr.codigo_usuario = p_usuario
+     LIMIT 1;
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `get_stock_xBase`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `get_stock_xBase`(
+  IN p_codigo_base decimal(12))
+BEGIN
+SELECT
+    `S`.`codigo_base` AS `Id_base`,
+    `B`.`nombre` AS `Base`,
+    `S`.`codigo_producto` AS `Id_producto`,
+    `P`.`nombre` AS `Producto`,
+    `S`.`fecha_saldoactual` AS `Fecha_actualizado`,
+    `S`.`saldo_actual` AS `Saldo_actual`,
+    `S`.`stock_minimo` AS `Stock_Minimo`,
+    `get_reserva`(`S`.`codigo_base`,
+    `S`.`codigo_producto`) AS `Reserva`,
+    S.saldo_actual - get_reserva(S.codigo_base,S.codigo_producto) Saldo_disponible
+FROM
+    ((`saldo_stock` `S`
+JOIN `bases` `B` ON
+    ((`S`.`codigo_base` = `B`.`codigo_base`)))
+JOIN `productos` `P` ON
+    ((`S`.`codigo_producto` = `P`.`codigo_producto`)));
+END
+//
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS `validar_otp_usuario`;
+DELIMITER //
+CREATE DEFINER=`root`@`localhost` PROCEDURE `validar_otp_usuario`(
+    IN p_user_id varchar(36),
+    IN p_otp VARCHAR(6),
+    OUT p_resultado INT
+)
+BEGIN
+    DECLARE v_rows INT DEFAULT 0;
+
+    UPDATE otp_codes
+    SET used = TRUE
+    WHERE user_id = p_user_id
+      AND otp = p_otp
+      AND used = FALSE
+      AND expires_at >= NOW()
+    ORDER BY created_at DESC
+    LIMIT 1;
+
+    SET v_rows = ROW_COUNT();
+
+    IF v_rows = 1 THEN
+        SET p_resultado = 1;
+    ELSE
+        IF EXISTS (
+            SELECT 1
+            FROM otp_codes
+            WHERE user_id = p_user_id
+              AND otp = p_otp
+              AND used = FALSE
+              AND expires_at < NOW()
+        ) THEN
+            SET p_resultado = -1;
+        ELSE
+            SET p_resultado = 0;
+        END IF;
+    END IF;
+
+END
+//
+DELIMITER ;
+
+CREATE DEFINER=`root`@`%` EVENT `cerrar_base_horarios_diario`
+ON SCHEDULE EVERY 1 DAY
+STARTS '2026-02-20 18:30:00'
+ON COMPLETION NOT PRESERVE
+ENABLE
+DO
+BEGIN
+   UPDATE base_horarios
+    SET estado = 'C', cantidad_pedidos = 0
+    WHERE codigo_base >0 ;
+END

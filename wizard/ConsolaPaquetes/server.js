@@ -108,6 +108,7 @@ function loadConfig() {
   }
 
   const parsed = parseMysqlDsn(connection.dsn);
+  const modulePorts = { ...(config?.ports?.modules || {}) };
 
   return {
     db: {
@@ -122,6 +123,7 @@ function loadConfig() {
       dateStrings: true,
     },
     port: Number(config?.ports?.services?.consola_paquetes || 4004),
+    modulePorts,
   };
 }
 
@@ -232,6 +234,89 @@ function sanitizeLaunchBaseUrl(rawUrl) {
 
   parsed.hash = '';
   return isRelativePath ? `${parsed.pathname}${parsed.search}` : parsed.toString();
+}
+
+function resolveProtocol(req) {
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  if (forwarded === 'https' || forwarded === 'http') return forwarded;
+  return req.protocol === 'https' ? 'https' : 'http';
+}
+
+function moduleNumberFromUsecase(codigoUseCase, usecasePath) {
+  const pathMatch = String(usecasePath || '').toUpperCase().match(/^\/CU(\d+)-/);
+  if (pathMatch) return Number(pathMatch[1]);
+
+  const ucCode = String(codigoUseCase || '').toUpperCase();
+  const codeMatch = ucCode.match(/^CU(\d+)\d{3}$/);
+  if (codeMatch) return Number(codeMatch[1]);
+
+  const digitsMatch = ucCode.match(/\d+/);
+  if (digitsMatch && digitsMatch[0].length >= 4) {
+    return Number(digitsMatch[0][0]);
+  }
+  return null;
+}
+
+function resolveUsecasePath(linktolaunch, codigoUsecase, moduleNumberHint = null) {
+  const raw = String(linktolaunch || '').trim();
+  if (raw) {
+    try {
+      const parsed = raw.startsWith('/') ? new URL(raw, 'http://local.invalid') : new URL(raw);
+      const pathname = parsed.pathname || '/';
+      const search = parsed.search || '';
+      if (/^\/CU\d+(?:-\d{1,3}|\d{3})?(?:\/|$)/i.test(pathname)) {
+        return `${pathname}${search}`;
+      }
+    } catch {
+      // fallback below
+    }
+  }
+
+  const code = String(codigoUsecase || '').toUpperCase();
+  const digitsMatch = code.match(/\d+/);
+  const digits = digitsMatch ? digitsMatch[0] : '';
+
+  if (digits.length >= 4) {
+    const mod = Number(digits[0]);
+    const seq = digits.slice(1).padStart(3, '0').slice(-3);
+    return `/CU${mod}-${seq}`;
+  }
+  if (digits.length === 3 && moduleNumberHint) {
+    return `/CU${moduleNumberHint}-${digits}`;
+  }
+  if (digits.length > 0 && moduleNumberHint) {
+    return `/CU${moduleNumberHint}-${digits.padStart(3, '0').slice(-3)}`;
+  }
+  if (code) return `/${code}`;
+  return '/';
+}
+
+function resolveModulePortForUsecase(runtimeConfig, codigoUseCase, pathToUsecase) {
+  const modulePorts = runtimeConfig?.modulePorts || {};
+  const moduleNum = moduleNumberFromUsecase(codigoUseCase, pathToUsecase);
+  if (!Number.isFinite(moduleNum)) return null;
+
+  const byMCode = modulePorts[`M${moduleNum}`];
+  const byNumberKey = modulePorts[String(moduleNum)];
+  const port = Number(byMCode ?? byNumberKey);
+  if (!Number.isFinite(port) || port <= 0) return null;
+  return port;
+}
+
+function buildLaunchUrl(req, runtimeConfig, codigoUseCase, rawLaunchBaseUrl, vUsuario, vOTP, extraQuery = {}) {
+  const safeBase = sanitizeLaunchBaseUrl(rawLaunchBaseUrl);
+  const pathToUsecase = resolveUsecasePath(safeBase, codigoUseCase);
+  const modulePort = resolveModulePortForUsecase(runtimeConfig, codigoUseCase, pathToUsecase);
+
+  if (!modulePort) {
+    const inferredModule = moduleNumberFromUsecase(codigoUseCase, pathToUsecase);
+    throw new Error(`No se pudo resolver puerto interno para CU ${codigoUseCase} (modulo ${inferredModule || '?'})`);
+  }
+
+  const protocol = resolveProtocol(req);
+  const host = String(req.hostname || 'localhost').trim();
+  const baseUrl = `${protocol}://${host}:${modulePort}${pathToUsecase}`;
+  return appendQuery(baseUrl, { vUsuario, vOTP, ...extraQuery });
 }
 
 function apiError(res, context, error, status = 500) {
@@ -402,7 +487,7 @@ async function assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete
   return target;
 }
 
-async function launchUseCase(codigoUseCase, vUsuario, extraQuery = {}) {
+async function launchUseCase(req, codigoUseCase, vUsuario, extraQuery = {}) {
   const [otpRaw] = await pool.query('CALL generar_otp_usuario(?)', [vUsuario]);
   const vOTP = extractOtp(normalizeRows(otpRaw));
   if (!vOTP) {
@@ -411,7 +496,7 @@ async function launchUseCase(codigoUseCase, vUsuario, extraQuery = {}) {
 
   const [linkRaw] = await pool.query('CALL get_usecase_link(?)', [codigoUseCase]);
   const linkRow = firstRow(normalizeRows(linkRaw));
-  const linkToLaunch = sanitizeLaunchBaseUrl(linkRow?.linktolaunch);
+  const linkToLaunch = String(linkRow?.linktolaunch || '').trim();
   if (!linkToLaunch) {
     throw new Error(`SP get_usecase_link(${codigoUseCase}) no retorno linktolaunch`);
   }
@@ -420,7 +505,7 @@ async function launchUseCase(codigoUseCase, vUsuario, extraQuery = {}) {
     ok: true,
     useCase: codigoUseCase,
     vUsuario,
-    launchUrl: appendQuery(linkToLaunch, { vUsuario, vOTP, ...extraQuery }),
+    launchUrl: buildLaunchUrl(req, runtime, codigoUseCase, linkToLaunch, vUsuario, vOTP, extraQuery),
   };
 }
 
@@ -520,7 +605,7 @@ app.post('/api/empacar', requireAuth, async (req, res) => {
     const vUseCaseToLaunch = 'CU2002';
     await assertActionAllowed(vUsuario, vUseCaseToLaunch);
     await assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete, 1);
-    const result = await launchUseCase(vUseCaseToLaunch, vUsuario, {
+    const result = await launchUseCase(req, vUseCaseToLaunch, vUsuario, {
       ptipo_documento,
       pcodigo_paquete,
       tipo_documento: ptipo_documento,
@@ -548,7 +633,7 @@ app.post('/api/liquidar', requireAuth, async (req, res) => {
   try {
     await assertActionAllowed(vUsuario, 'CU003');
     await assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete, 3);
-    const result = await launchUseCase('CU003', vUsuario, {
+    const result = await launchUseCase(req, 'CU003', vUsuario, {
       ptipo_documento,
       pcodigo_paquete,
       tipo_documento: ptipo_documento,
@@ -576,7 +661,7 @@ app.post('/api/standby', requireAuth, async (req, res) => {
   try {
     await assertActionAllowed(vUsuario, 'CU004');
     await assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete, 4);
-    const result = await launchUseCase('CU004', vUsuario, {
+    const result = await launchUseCase(req, 'CU004', vUsuario, {
       ptipo_documento,
       pcodigo_paquete,
       tipo_documento: ptipo_documento,
@@ -604,7 +689,7 @@ app.post('/api/liquidarpaquete', requireAuth, async (req, res) => {
   try {
     await assertActionAllowed(vUsuario, 'CU003');
     await assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete, 3);
-    const result = await launchUseCase('CU003', vUsuario, {
+    const result = await launchUseCase(req, 'CU003', vUsuario, {
       ptipo_documento,
       pcodigo_paquete,
       tipo_documento: ptipo_documento,
@@ -632,7 +717,7 @@ app.post('/api/procesarStandBy', requireAuth, async (req, res) => {
   try {
     await assertActionAllowed(vUsuario, 'CU004');
     await assertPackageForAction(vUsuario, ptipo_documento, pcodigo_paquete, 4);
-    const result = await launchUseCase('CU004', vUsuario, {
+    const result = await launchUseCase(req, 'CU004', vUsuario, {
       ptipo_documento,
       pcodigo_paquete,
       tipo_documento: ptipo_documento,
@@ -649,6 +734,7 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     service: 'ConsolaPaquetes',
     port: runtime.port,
+    modulePorts: runtime.modulePorts,
     env: process.env.NODE_ENV || 'development',
     uptimeSec: Math.round(process.uptime()),
   });

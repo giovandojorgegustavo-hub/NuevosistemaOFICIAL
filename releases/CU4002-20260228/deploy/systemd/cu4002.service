@@ -1,0 +1,20 @@
+[Unit]
+Description=CU4002 Ajustes de Stock
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/erp/cu4002/app
+Environment=NODE_ENV=production
+Environment=CU4002_SQL_LOGS_ALLOWED_USERS=1
+ExecStart=/usr/bin/node /opt/erp/cu4002/app/wizard/Modulo\ 4/CU4-002/server.js
+Restart=always
+RestartSec=5
+User=erp
+Group=erp
+LimitNOFILE=65535
+StandardOutput=append:/var/log/cu4002/out.log
+StandardError=append:/var/log/cu4002/error.log
+
+[Install]
+WantedBy=multi-user.target

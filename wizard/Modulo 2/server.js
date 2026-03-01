@@ -917,12 +917,6 @@ function vAttachNoStoreHeaders(vRes) {
 startModuleServer({
   moduleName: 'Modulo 2',
   moduleCode: 'M2',
-  cuDefs: [
-    { id: 'CU2-001', dir: 'CU2-001' },
-    { id: 'CU2-002', dir: 'CU2-002' },
-    { id: 'CU2-003', dir: 'CU2-003' },
-    { id: 'CU2-004', dir: 'CU2-004' }
-  ],
   configureApp({ app, port }) {
     const vLogger005 = vCreateLogger(vLog005Dir, vLogPrefix005);
     const vLogger006 = vCreateLogger(vLog006Dir, vLogPrefix006);

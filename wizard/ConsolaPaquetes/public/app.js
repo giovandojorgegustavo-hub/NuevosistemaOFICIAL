@@ -94,15 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionToken: '',
   };
 
-  const MODULE_PORTS = {
-    1: 4000,
-    2: 4001,
-    3: 4002,
-    4: 4003,
-    6: 4005,
-    7: 4004,
-  };
-
   function escapeHtml(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -372,16 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!['http:', 'https:'].includes(parsed.protocol)) {
         return '';
       }
-
-      const moduleMatch = parsed.pathname.match(/\/CU(\d+)(?:-(\d{1,3})|(\d{3}))?(?:\/|$)/i);
-      const moduleNumber = moduleMatch ? Number(moduleMatch[1]) : NaN;
-      const expectedPort = Number.isFinite(moduleNumber) ? MODULE_PORTS[moduleNumber] : null;
-      if (!expectedPort) return '';
-
-      const currentHost = window.location.hostname || parsed.hostname;
-      parsed.protocol = window.location.protocol;
-      parsed.hostname = currentHost;
-      parsed.port = String(expectedPort);
       parsed.hash = '';
       return parsed.toString();
     } catch {

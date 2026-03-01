@@ -62,8 +62,66 @@ is_port_busy() {
   return 1
 }
 
-ensure_port_4004_available() {
-  local port="4004"
+get_consola_port() {
+  local config_file="$ROOT_DIR/erp.yml"
+  local parsed_port
+
+  if [[ -f "$config_file" ]]; then
+    parsed_port="$(awk -F':' '/^[[:space:]]*consola_paquetes[[:space:]]*:[[:space:]]*[0-9]+/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$config_file" || true)"
+    if [[ "$parsed_port" =~ ^[0-9]+$ ]]; then
+      echo "$parsed_port"
+      return 0
+    fi
+  fi
+
+  echo "4004"
+}
+
+read_port_value() {
+  local key="$1"
+  local config_file="$ROOT_DIR/erp.yml"
+  local parsed_port=""
+
+  if [[ -f "$config_file" ]]; then
+    parsed_port="$(awk -F':' -v k="$key" '$1 ~ "^[[:space:]]*"k"[[:space:]]*$" && $2 ~ /[0-9]+/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' "$config_file" || true)"
+  fi
+
+  if [[ "$parsed_port" =~ ^[0-9]+$ ]]; then
+    echo "$parsed_port"
+  fi
+}
+
+get_service_port_for_id() {
+  local id="$1"
+  case "$id" in
+    wizard_CL01)
+      read_port_value "launcher"
+      ;;
+    wizard_ConsolaPaquetes)
+      read_port_value "consola_paquetes"
+      ;;
+    wizard_Modulo_1)
+      read_port_value "M1"
+      ;;
+    wizard_Modulo_2)
+      read_port_value "M2"
+      ;;
+    wizard_Modulo_3)
+      read_port_value "M3"
+      ;;
+    wizard_Modulo_4)
+      read_port_value "M4"
+      ;;
+    wizard_Modulo_6)
+      read_port_value "M6"
+      ;;
+    *)
+      ;;
+  esac
+}
+
+ensure_consola_port_available() {
+  local port="$1"
   if ! is_port_busy "$port"; then
     return 0
   fi
@@ -75,8 +133,8 @@ ensure_port_4004_available() {
 
   sleep 1
   if is_port_busy "$port"; then
-    echo "ERROR wizard_ConsolaPaquetes no pudo liberar puerto $port. Libera el puerto y reintenta."
-    return 1
+    echo "WARN  wizard_ConsolaPaquetes no pudo liberar puerto $port. Se omitira este servicio en este arranque."
+    return 2
   fi
   return 0
 }
@@ -99,7 +157,23 @@ start_service() {
   fi
 
   if [[ "$id" == "wizard_ConsolaPaquetes" ]]; then
-    ensure_port_4004_available
+    local consola_port
+    consola_port="$(get_consola_port)"
+    if ! ensure_consola_port_available "$consola_port"; then
+      local rc=$?
+      if [[ $rc -eq 2 ]]; then
+        echo "SKIP  $id (puerto $consola_port ocupado por otro proceso)"
+        return 0
+      fi
+      return "$rc"
+    fi
+  else
+    local service_port
+    service_port="$(get_service_port_for_id "$id" || true)"
+    if [[ -n "${service_port:-}" ]] && is_port_busy "$service_port"; then
+      echo "SKIP  $id (puerto $service_port ocupado por otro proceso)"
+      return 0
+    fi
   fi
 
   local dir
@@ -139,8 +213,14 @@ status_service() {
   local id
   id="$(service_id "$server")"
   local pid_file="$PID_DIR/$id.pid"
+  local service_port
+  service_port="$(get_service_port_for_id "$id" || true)"
 
   if [[ ! -f "$pid_file" ]]; then
+    if [[ -n "${service_port:-}" ]] && is_port_busy "$service_port"; then
+      echo "UP    $id (proceso externo en puerto $service_port)"
+      return 0
+    fi
     echo "DOWN  $id"
     return 0
   fi
@@ -150,6 +230,10 @@ status_service() {
   if is_running "$pid"; then
     echo "UP    $id (pid $pid)"
   else
+    if [[ -n "${service_port:-}" ]] && is_port_busy "$service_port"; then
+      echo "UP    $id (proceso externo en puerto $service_port)"
+      return 0
+    fi
     echo "DOWN  $id (pid stale)"
   fi
 }

@@ -1,0 +1,19 @@
+[Unit]
+Description=CU4001 Transferencias de Stock
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/erp/cu4001/app
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/erp/cu4001/app/wizard/Modulo\ 4/CU4-001/server.js
+Restart=always
+RestartSec=5
+User=erp
+Group=erp
+LimitNOFILE=65535
+StandardOutput=append:/var/log/cu4001/out.log
+StandardError=append:/var/log/cu4001/error.log
+
+[Install]
+WantedBy=multi-user.target

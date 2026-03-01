@@ -5,16 +5,35 @@ SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 INSERT INTO perfiles (codigo_perfil, descripcion)
 VALUES
   ('Administrador', 'Administrador'),
+  ('AdminOp', 'Administrador Operativo'),
   ('Base', 'Base'),
   ('Ventas', 'Ventas');
 
--- Usuario base (codigo 1, password 1111)
+-- Usuarios base
 INSERT INTO usuarios (codigo_usuario, nombre, numero, password)
-VALUES ('1', 'Administrador', 1, '1111');
+VALUES
+  ('cusco', 'CUSCO', 1, '1111'),
+  ('coffee', 'COFFEE', 2, '1111'),
+  ('thunder', 'THUNDER', 3, '1111'),
+  ('amsterdan', 'AMSTERDAN', 4, '1111'),
+  ('tot', 'TOT', 5, '1111'),
+  ('leviatan', 'LEVIATAN', 6, '1111'),
+  ('fiax', 'FIAX', 7, '1111'),
+  ('cielo', 'CIELO', 8, '1111'),
+  ('perropeluche', 'PERROPELUCHE', 9, '1111');
 
--- Usuario 1 -> perfil Administrador
+-- Usuarios -> perfiles
 INSERT INTO usuarios_perfiles (codigo_usuario, codigo_perfil)
-VALUES ('1', 'Administrador');
+VALUES
+  ('cusco', 'AdminOp'),
+  ('coffee', 'Base'),
+  ('thunder', 'Base'),
+  ('amsterdan', 'Base'),
+  ('tot', 'Base'),
+  ('leviatan', 'Base'),
+  ('fiax', 'Administrador'),
+  ('cielo', 'AdminOp'),
+  ('perropeluche', 'AdminOp');
 
 -- Casos de uso (wizard) con URL por modulo (1 puerto por modulo)
 INSERT INTO usecases (codigo_usecase, caption, linktolaunch)
@@ -32,6 +51,7 @@ VALUES
   ('CU2002', 'Empacar',                     'http://167.99.173.100:4001/CU2-002'),
   ('CU2003', 'Viaje',                       'http://167.99.173.100:4001/CU2-003'),
   ('CU2004', 'Packing por Base',            'http://167.99.173.100:4001/CU2-004'),
+  ('CU2005', 'Stock por Base',              '/CU2-005'),
   ('CU2006', 'Historial Movimientos Stock', 'http://167.99.173.100:4001/CU2-006'),
   ('CU2007', 'Asistencia por Base',         'http://167.99.173.100:4001/CU2-007'),
   ('CU3001', 'Compras Factura',             'http://167.99.173.100:4002/CU3-001'),
@@ -50,6 +70,7 @@ VALUES
 INSERT INTO modulos (codigo_modulo, descripcion, caption)
 VALUES
   ('BASE',        'Base',        'Base'),
+  ('BANCOS',      'Bancos',      'Bancos'),
   ('VENTAS',      'Ventas',      'Ventas'),
   ('COMPRAS',     'Compras',     'Compras'),
   ('OPERACIONES', 'Operaciones', 'Operaciones'),
@@ -75,6 +96,7 @@ VALUES
   ('BASE', 'CU2002'),
   ('BASE', 'CU2003'),
   ('BASE', 'CU2004'),
+  ('BASE', 'CU2005'),
   ('BASE', 'CU2006'),
   ('BASE', 'CU2007'),
 
@@ -103,6 +125,7 @@ VALUES
   ('Base', 'CU2001'),
   ('Base', 'CU2003'),
   ('Base', 'CU2004'),
+  ('Base', 'CU2005'),
   ('Base', 'CU2006'),
   ('Base', 'CU2007'),
   ('Base', 'CU6001'),
@@ -125,6 +148,7 @@ VALUES
   ('Ventas', 'CU2001'),
   ('Ventas', 'CU2003'),
   ('Ventas', 'CU2004'),
+  ('Ventas', 'CU2005'),
   ('Ventas', 'CU2006'),
   ('Ventas', 'CU2007'),
 
@@ -148,6 +172,7 @@ VALUES
   ('Administrador', 'CU2002'),
   ('Administrador', 'CU2003'),
   ('Administrador', 'CU2004'),
+  ('Administrador', 'CU2005'),
   ('Administrador', 'CU2006'),
   ('Administrador', 'CU2007'),
   ('Administrador', 'CU3001'),
@@ -161,3 +186,30 @@ VALUES
   ('Administrador', 'CU6001'),
   ('Administrador', 'CU6002'),
   ('Administrador', 'CU7001');
+
+-- Perfil AdminOp -> todos los usecases excepto Compras (Modulo 3)
+INSERT INTO perfiles_ucases (codigo_perfil, codigo_usecase)
+VALUES
+  ('AdminOp', 'CU001'),
+  ('AdminOp', 'CU002'),
+  ('AdminOp', 'CU003'),
+  ('AdminOp', 'CU004'),
+  ('AdminOp', 'CU005'),
+  ('AdminOp', 'CU006'),
+  ('AdminOp', 'CU007'),
+  ('AdminOp', 'CU008'),
+  ('AdminOp', 'CU009'),
+  ('AdminOp', 'CU2001'),
+  ('AdminOp', 'CU2002'),
+  ('AdminOp', 'CU2003'),
+  ('AdminOp', 'CU2004'),
+  ('AdminOp', 'CU2005'),
+  ('AdminOp', 'CU2006'),
+  ('AdminOp', 'CU2007'),
+  ('AdminOp', 'CU4001'),
+  ('AdminOp', 'CU4002'),
+  ('AdminOp', 'CU4003'),
+  ('AdminOp', 'CU4004'),
+  ('AdminOp', 'CU6001'),
+  ('AdminOp', 'CU6002'),
+  ('AdminOp', 'CU7001');
