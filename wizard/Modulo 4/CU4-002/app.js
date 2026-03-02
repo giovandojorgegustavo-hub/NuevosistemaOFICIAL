@@ -31,7 +31,7 @@ class FormWizard {
     this.productos = [];
     this.detalleBody = document.getElementById('detalleBody');
     this.decimalRegex = /^\d+(\.\d{1,2})?$/;
-    this.dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    this.dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
     this.currentBase = '';
     this.baseFetchId = 0;
     this.costoCache = new Map();
@@ -258,6 +258,20 @@ class FormWizard {
     return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   }
 
+  normalizeDateTimeLocal(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+      return '';
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+      return `${trimmed}:00`;
+    }
+    if (this.dateTimeRegex.test(trimmed)) {
+      return trimmed;
+    }
+    return '';
+  }
+
   refreshSaldoForAllRows() {
     const rows = Array.from(this.detalleBody.querySelectorAll('tr'));
     rows.forEach((row) => this.updateSaldoForRow(row));
@@ -295,7 +309,8 @@ class FormWizard {
       }
       this.productos = data.data || [];
       this.fillDataList('productosList', this.productos, 'codigo_producto');
-      this.renderDetalleFromProductos(this.productos);
+      const productosConStock = this.productos.filter((item) => Number(item.saldo_actual || 0) > 0);
+      this.renderDetalleFromProductos(productosConStock);
     } catch (error) {
       this.showAlert(error.message || 'Error cargando productos');
     } finally {
@@ -466,12 +481,12 @@ class FormWizard {
 
   validateStep1() {
     const errors = [];
-    const vFecha = document.getElementById('vFecha').value.trim();
+    const vFecha = this.normalizeDateTimeLocal(document.getElementById('vFecha').value.trim());
     const vBaseNombre = document.getElementById('vBaseNombre').value.trim();
     const vCodigo_base = document.getElementById('vCodigo_base').value.trim();
 
-    if (!this.dateRegex.test(vFecha)) {
-      errors.push('La fecha no es valida');
+    if (!vFecha) {
+      errors.push('La fecha y hora no es valida');
     }
     if (!vBaseNombre || !vCodigo_base) {
       errors.push('Selecciona una base valida');
@@ -607,7 +622,7 @@ class FormWizard {
       if (!initData.ok) {
         throw new Error(initData.message || 'No se pudo inicializar');
       }
-      document.getElementById('vFecha').value = initData.data.vFecha || '';
+      document.getElementById('vFecha').value = this.normalizeDateTimeLocal(initData.data.vFecha || '');
       document.getElementById('vNumdocumentostock_AJE').value = initData.data.vNumdocumentostock_AJE || '';
       document.getElementById('vNumdocumentostock_AJS').value = initData.data.vNumdocumentostock_AJS || '';
 
@@ -641,7 +656,7 @@ class FormWizard {
     try {
       this.setLoading(true, 'Registrando ajuste...');
       const payload = {
-        vFecha: document.getElementById('vFecha').value.trim(),
+        vFecha: this.normalizeDateTimeLocal(document.getElementById('vFecha').value.trim()),
         vCodigo_base: document.getElementById('vCodigo_base').value.trim(),
         vDetalleAjuste: this.getDetalleItems()
       };

@@ -2185,12 +2185,13 @@ DELIMITER ;
 -- =====================================================================================
 DROP FUNCTION IF EXISTS `get_costo_producto`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` FUNCTION `get_costo_producto`(
+
+CREATE FUNCTION `get_costo_producto`(
     p_tipo_documento VARCHAR(3),
     p_numero_documento DECIMAL(12,0),
     p_codigo_producto DECIMAL(12,0)
-) RETURNS decimal(12,2)
-    READS SQL DATA
+) RETURNS DECIMAL(12,2)
+READS SQL DATA
 BEGIN
     DECLARE v_costo_producto DECIMAL(12,2);
 
@@ -2202,17 +2203,19 @@ BEGIN
       AND codigo_producto = p_codigo_producto;
 
     RETURN v_costo_producto;
-END
-//
+END//
+
 DELIMITER ;
 
 DROP FUNCTION IF EXISTS `get_stock_disponible`;
 DELIMITER //
-CREATE DEFINER=`root`@`%` FUNCTION `get_stock_disponible`(
+CREATE FUNCTION `get_stock_disponible`(
     p_codigo_base DECIMAL(12,0),
     p_codigo_producto DECIMAL(12,0)
 ) RETURNS decimal(18,6)
     DETERMINISTIC
+    READS SQL DATA
+    SQL SECURITY INVOKER
 BEGIN
     DECLARE v_stock_disponible decimal(18,6);
 
@@ -2228,7 +2231,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `generar_otp_usuario`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `generar_otp_usuario`(
+CREATE PROCEDURE `generar_otp_usuario`(
     IN p_user_id varchar(36)
 )
 BEGIN
@@ -2250,7 +2253,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `get_asistencia`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `get_asistencia`(
+CREATE PROCEDURE `get_asistencia`(
 IN p_desde DATETIME,
 IN p_hasta DATETIME,
 IN p_codigo_base decimal(12,0)
@@ -2280,7 +2283,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `get_priv_usuario`;
 DELIMITER //
-CREATE DEFINER=`root`@`%` PROCEDURE `get_priv_usuario`(
+CREATE PROCEDURE `get_priv_usuario`(
    IN p_usuario VARCHAR(36)
 )
 BEGIN
@@ -2296,7 +2299,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `get_priv_usuario_cp`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `get_priv_usuario_cp`(
+CREATE PROCEDURE `get_priv_usuario_cp`(
     IN  p_usuario VARCHAR(36),
     OUT p_codigo_base DECIMAL(12,0),
     OUT p_priv_bases varchar(36)
@@ -2325,7 +2328,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `get_stock_xBase`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `get_stock_xBase`(
+CREATE PROCEDURE `get_stock_xBase`(
   IN p_codigo_base decimal(12))
 BEGIN
 SELECT
@@ -2351,7 +2354,7 @@ DELIMITER ;
 
 DROP PROCEDURE IF EXISTS `validar_otp_usuario`;
 DELIMITER //
-CREATE DEFINER=`root`@`localhost` PROCEDURE `validar_otp_usuario`(
+CREATE PROCEDURE `validar_otp_usuario`(
     IN p_user_id varchar(36),
     IN p_otp VARCHAR(6),
     OUT p_resultado INT
@@ -2391,7 +2394,9 @@ END
 //
 DELIMITER ;
 
-CREATE DEFINER=`root`@`%` EVENT `cerrar_base_horarios_diario`
+DROP EVENT IF EXISTS `cerrar_base_horarios_diario`;
+DELIMITER //
+CREATE EVENT `cerrar_base_horarios_diario`
 ON SCHEDULE EVERY 1 DAY
 STARTS '2026-02-20 18:30:00'
 ON COMPLETION NOT PRESERVE
@@ -2402,3 +2407,5 @@ BEGIN
     SET estado = 'C', cantidad_pedidos = 0
     WHERE codigo_base >0 ;
 END
+//
+DELIMITER ;

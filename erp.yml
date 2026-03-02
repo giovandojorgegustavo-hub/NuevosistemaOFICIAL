@@ -1,6 +1,6 @@
 connections:
   - name: "erpdb"
-    dsn: "mysql://erpuser:Pepe1234++@tcp(127.0.0.1:3306)/erpdb"
+    dsn: "mysql://erpuser:Pepe1234++@tcp(10.10.0.1:3306)/erpdb"
 
 ports:
   launcher: 3000

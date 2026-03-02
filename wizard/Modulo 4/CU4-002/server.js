@@ -164,9 +164,59 @@ function unwrapProcedureRows(rows) {
   return rows || [];
 }
 
-function getCurrentDate() {
+function formatDateOnly(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function formatDateTime(date) {
+  return `${formatDateOnly(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function formatDateTimeLocal(date) {
+  return `${formatDateOnly(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function getCurrentDateTime() {
   const now = new Date();
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return formatDateTime(now);
+}
+
+function getCurrentDateTimeLocal() {
+  const now = new Date();
+  return formatDateTimeLocal(now);
+}
+
+function normalizeSqlDateTime(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatDateTime(value);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const now = new Date();
+      return `${trimmed} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(trimmed)) {
+      return `${trimmed}:00`;
+    }
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+      return `${trimmed.replace('T', ' ')}:00`;
+    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+      return trimmed.replace('T', ' ');
+    }
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatDateTime(parsed);
+    }
+  }
+  return null;
 }
 
 function maskDsn(dsn) {
@@ -521,7 +571,7 @@ app.get('/api/init', async (req, res) => {
       res.json({
         ok: true,
         data: {
-          vFecha: getCurrentDate(),
+          vFecha: getCurrentDateTimeLocal(),
           vNumdocumentostock_AJE: Number(rowAJE?.next || 1),
           vNumdocumentostock_AJS: Number(rowAJS?.next || 1),
           vCodigo_provedor: 0
@@ -582,11 +632,10 @@ app.get('/api/productos-stock', async (req, res) => {
         `SELECT p.codigo_producto,
                 p.nombre,
                 COALESCE(ss.saldo_actual, 0) AS saldo_actual
-         FROM saldo_stock ss
-         INNER JOIN productos p
-           ON p.codigo_producto = ss.codigo_producto
-         WHERE ss.codigo_base = ?
-           AND COALESCE(ss.saldo_actual, 0) > 0
+         FROM productos p
+         LEFT JOIN saldo_stock ss
+           ON ss.codigo_producto = p.codigo_producto
+          AND ss.codigo_base = ?
          ORDER BY p.nombre`,
         [codigoBase]
       );
@@ -653,7 +702,7 @@ app.post('/api/ajustes', async (req, res) => {
     return res.status(429).json({ ok: false, message: 'RATE_LIMITED' });
   }
   const payload = req.body || {};
-  const vFecha = payload.vFecha || getCurrentDate();
+  const vFecha = normalizeSqlDateTime(payload.vFecha || getCurrentDateTime());
   const vCodigo_base = payload.vCodigo_base;
   const vDetalleAjuste = Array.isArray(payload.vDetalleAjuste) ? payload.vDetalleAjuste : [];
 

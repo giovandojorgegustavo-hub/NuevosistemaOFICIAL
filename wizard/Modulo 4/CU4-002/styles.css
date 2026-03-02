@@ -338,6 +338,9 @@ input[readonly],
 textarea[readonly] {
   border-color: transparent !important;
   box-shadow: none !important;
+  color: var(--white) !important;
+  -webkit-text-fill-color: var(--white) !important;
+  opacity: 1 !important;
 }
 
 .system-input:focus,
@@ -347,5 +350,13 @@ input[readonly]:focus,
 textarea[readonly]:focus {
   border-color: transparent !important;
   box-shadow: none !important;
+}
+
+#vNumdocumentostock_AJE,
+#vNumdocumentostock_AJS {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--white) !important;
+  -webkit-text-fill-color: var(--white) !important;
 }
 /* SYSTEM_FIELDS_STANDARD_END */
